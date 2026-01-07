@@ -15,16 +15,15 @@ type TgUser = {
 type LibraryItem = {
   id: string;
   createdAt: number;
-  type?: ItemType; // теперь может быть undefined, если когда-то сохранится криво
-  source?: SourceType; // теперь может быть undefined
+  type?: ItemType;
+  source?: SourceType;
   title: string;
-  creator: string; // artist / author / director
-  vibe?: string; // optional
+  creator: string;
+  vibe?: string;
 };
 
 const STORAGE_KEY = "everyyou.library.v1";
 
-// вайбы — потом можно легко переименовать/добавить
 const VIBES: Array<{ value: string; label: string }> = [
   { value: "vibe.cool", label: "круто" },
   { value: "vibe.not_cool", label: "не круто" },
@@ -62,6 +61,136 @@ function safeJsonParse<T>(s: string | null): T | null {
   }
 }
 
+function pillStyle(active: boolean): React.CSSProperties {
+  return {
+    padding: "10px 14px",
+    borderRadius: 999,
+    border: "1px solid rgba(0,0,0,0.12)",
+    background: active ? "black" : "white",
+    color: active ? "white" : "black",
+    fontWeight: 600,
+    textTransform: "lowercase",
+  };
+}
+
+function primaryBtnStyle(extra?: React.CSSProperties): React.CSSProperties {
+  return {
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(0,0,0,0.12)",
+    background: "black",
+    color: "white",
+    fontWeight: 600,
+    textTransform: "lowercase",
+    ...extra,
+  };
+}
+
+function secondaryBtnStyle(): React.CSSProperties {
+  return {
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(0,0,0,0.12)",
+    background: "white",
+    fontWeight: 600,
+    textTransform: "lowercase",
+  };
+}
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: 13,
+  opacity: 0.75,
+  marginBottom: 6,
+  textTransform: "lowercase",
+};
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "12px 12px",
+  borderRadius: 14,
+  border: "1px solid rgba(0,0,0,0.12)",
+  outline: "none",
+  fontSize: 16,
+};
+
+const selectStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "12px 12px",
+  borderRadius: 14,
+  border: "1px solid rgba(0,0,0,0.12)",
+  background: "white",
+  fontSize: 16,
+};
+
+function Tag({ text }: { text: string }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        padding: "6px 10px",
+        borderRadius: 999,
+        border: "1px solid rgba(0,0,0,0.12)",
+        fontSize: 13,
+        opacity: 0.9,
+        textTransform: "lowercase",
+      }}
+    >
+      {text}
+    </span>
+  );
+}
+
+function Card({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div
+      style={{
+        border: "1px solid rgba(0,0,0,0.08)",
+        borderRadius: 14,
+        padding: 14,
+        background: "white",
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function PillNav({
+  tab,
+  setTab,
+}: {
+  tab: "home" | "add" | "library" | "analysis";
+  setTab: (t: "home" | "add" | "library" | "analysis") => void;
+}) {
+  return (
+    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
+      <button onClick={() => setTab("home")} style={pillStyle(tab === "home")}>
+        home
+      </button>
+      <button onClick={() => setTab("add")} style={pillStyle(tab === "add")}>
+        add content
+      </button>
+      <button onClick={() => setTab("library")} style={pillStyle(tab === "library")}>
+        library
+      </button>
+      <button onClick={() => setTab("analysis")} style={pillStyle(tab === "analysis")}>
+        analysis
+      </button>
+    </div>
+  );
+}
+
 export default function Home() {
   const [tab, setTab] = useState<"home" | "add" | "library" | "analysis">("home");
 
@@ -70,14 +199,12 @@ export default function Home() {
 
   const [items, setItems] = useState<LibraryItem[]>([]);
 
-  // форма добавления
   const [type, setType] = useState<ItemType | "">(""); // "" = не выбрано
   const [source, setSource] = useState<SourceType | "">(""); // "" = не выбрано
   const [title, setTitle] = useState("");
   const [creator, setCreator] = useState("");
-  const [vibe, setVibe] = useState<string>(""); // пусто = ок
+  const [vibe, setVibe] = useState<string>("");
 
-  // фильтр библиотеки
   const [vibeFilter, setVibeFilter] = useState<string>("");
 
   useEffect(() => {
@@ -94,9 +221,7 @@ export default function Home() {
 
   useEffect(() => {
     const saved = safeJsonParse<LibraryItem[]>(localStorage.getItem(STORAGE_KEY));
-    if (saved && Array.isArray(saved)) {
-      setItems(saved);
-    }
+    if (saved && Array.isArray(saved)) setItems(saved);
   }, []);
 
   useEffect(() => {
@@ -109,7 +234,8 @@ export default function Home() {
     return `привет, ${first.toLowerCase()} 👋`;
   }, [user]);
 
-  const appIntro = `everyyou собирает весь контент, который вы потребляете — музыка, книги, фильмы — в одном месте. потом помогает заметить, как он влияет на ваше состояние, и делать свой личный “вайбчек” когда захочется.`;
+  const appIntro =
+    "everyyou собирает весь контент, который вы потребляете — музыка, книги, фильмы — в одном месте. потом помогает заметить, как он влияет на ваше состояние, и делать свой личный “вайбчек” когда захочется.";
 
   const vibeLabel = (v?: string) => {
     if (!v) return "";
@@ -120,11 +246,28 @@ export default function Home() {
   const typeLabelSafe = (t?: ItemType) => (t ? TYPE_LABEL[t] : "тип не выбран");
   const sourceLabelSafe = (s?: SourceType) => (s ? SOURCE_LABEL[s] : "источник не выбран");
 
-  const filteredItems = useMemo(() => {
-    if (!vibeFilter) return items;
-    if (vibeFilter === "__none__") return items.filter((x) => !x.vibe);
-    return items.filter((x) => x.vibe === vibeFilter);
-  }, [items, vibeFilter]);
+  const placeholders = useMemo(() => {
+    if (type === "movie") {
+      return {
+        title: "например: lost in translation",
+        creator: "например: sofia coppola",
+        creatorLabel: "режиссёр / автор",
+      };
+    }
+    if (type === "book") {
+      return {
+        title: "например: deborah levy — things i don't want to know",
+        creator: "например: deborah levy",
+        creatorLabel: "автор",
+      };
+    }
+    // music + default
+    return {
+      title: "например: the national — about today",
+      creator: "например: the national",
+      creatorLabel: "автор / исполнитель",
+    };
+  }, [type]);
 
   const canAdd =
     Boolean(type) &&
@@ -147,7 +290,6 @@ export default function Home() {
 
     setItems((prev) => [next, ...prev]);
 
-    // сброс формы: оставляем снова "—" как дефолт
     setType("");
     setSource("");
     setTitle("");
@@ -160,7 +302,12 @@ export default function Home() {
     setItems((prev) => prev.filter((x) => x.id !== id));
   };
 
-  // analysis: вайбчек + типы
+  const filteredItems = useMemo(() => {
+    if (!vibeFilter) return items;
+    if (vibeFilter === "__none__") return items.filter((x) => !x.vibe);
+    return items.filter((x) => x.vibe === vibeFilter);
+  }, [items, vibeFilter]);
+
   const vibeStats = useMemo(() => {
     const map = new Map<string, number>();
     for (const it of items) {
@@ -176,56 +323,13 @@ export default function Home() {
       const k = it.type ?? "__none__";
       map.set(k, (map.get(k) ?? 0) + 1);
     }
-    const order = ["music", "book", "movie", "__none__"];
+    const order = ["music", "book", "movie", "__none__"] as const;
     return order.map((k) => ({
       key: k,
-      label: k === "__none__" ? "без типа" : TYPE_LABEL[k as ItemType],
+      label: k === "__none__" ? "без типа" : TYPE_LABEL[k],
       count: map.get(k) ?? 0,
     }));
   }, [items]);
-
-  const Card = ({
-    children,
-    style,
-  }: {
-    children: React.ReactNode;
-    style?: React.CSSProperties;
-  }) => (
-    <div
-      style={{
-        border: "1px solid rgba(0,0,0,0.08)",
-        borderRadius: 14,
-        padding: 14,
-        background: "white",
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
-
-  const PillNav = () => (
-    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
-      <button onClick={() => setTab("home")} style={pillStyle(tab === "home")}>
-        home
-      </button>
-      <button onClick={() => setTab("add")} style={pillStyle(tab === "add")}>
-        add content
-      </button>
-      <button
-        onClick={() => setTab("library")}
-        style={pillStyle(tab === "library")}
-      >
-        library
-      </button>
-      <button
-        onClick={() => setTab("analysis")}
-        style={pillStyle(tab === "analysis")}
-      >
-        analysis
-      </button>
-    </div>
-  );
 
   return (
     <main style={{ padding: 22, maxWidth: 760, margin: "0 auto" }}>
@@ -240,12 +344,14 @@ export default function Home() {
         )}
       </div>
 
-      <PillNav />
+      <PillNav tab={tab} setTab={setTab} />
 
       {tab === "home" && (
         <div style={{ marginTop: 16 }}>
           <Card>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>что это вообще такое</div>
+            <div style={{ fontWeight: 700, marginBottom: 8, textTransform: "lowercase" }}>
+              что это вообще такое
+            </div>
             <div style={{ opacity: 0.85, lineHeight: 1.45 }}>{appIntro}</div>
           </Card>
 
@@ -253,10 +359,12 @@ export default function Home() {
 
           {items.length === 0 ? (
             <Card>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>библиотека пока пустая</div>
+              <div style={{ fontWeight: 700, marginBottom: 6, textTransform: "lowercase" }}>
+                библиотека пока пустая
+              </div>
               <div style={{ opacity: 0.85, lineHeight: 1.45 }}>
-                начнём с простого: добавьте первый айтем вручную — потом подключим
-                spotify / goodreads / letterboxd.
+                начнём с простого: добавьте первый айтем вручную — потом подключим spotify /
+                goodreads / letterboxd.
               </div>
 
               <button onClick={() => setTab("add")} style={primaryBtnStyle({ marginTop: 12 })}>
@@ -265,7 +373,9 @@ export default function Home() {
             </Card>
           ) : (
             <Card>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>что делаем дальше</div>
+              <div style={{ fontWeight: 700, marginBottom: 6, textTransform: "lowercase" }}>
+                что делаем дальше
+              </div>
               <div style={{ opacity: 0.85, lineHeight: 1.45 }}>
                 добавляем контент → собираем библиотеку → жмём “analysis” когда хочется.
               </div>
@@ -289,7 +399,9 @@ export default function Home() {
       {tab === "add" && (
         <div style={{ marginTop: 16 }}>
           <Card>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>add content</div>
+            <div style={{ fontWeight: 700, marginBottom: 8, textTransform: "lowercase" }}>
+              add content
+            </div>
             <div style={{ opacity: 0.85, lineHeight: 1.45 }}>
               пока тут ручное добавление. дальше подключим spotify / goodreads / letterboxd.
             </div>
@@ -329,18 +441,24 @@ export default function Home() {
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="например: the national — about today"
+              placeholder={placeholders.title}
               style={inputStyle}
+              autoCorrect="off"
+              autoCapitalize="none"
+              autoComplete="off"
             />
 
             <div style={{ height: 10 }} />
 
-            <label style={labelStyle}>автор / исполнитель</label>
+            <label style={labelStyle}>{placeholders.creatorLabel}</label>
             <input
               value={creator}
               onChange={(e) => setCreator(e.target.value)}
-              placeholder="например: the national"
+              placeholder={placeholders.creator}
               style={inputStyle}
+              autoCorrect="off"
+              autoCapitalize="none"
+              autoComplete="off"
             />
 
             <div style={{ height: 10 }} />
@@ -355,7 +473,7 @@ export default function Home() {
               ))}
             </select>
 
-            <div style={{ marginTop: 8, opacity: 0.7 }}>
+            <div style={{ marginTop: 8, opacity: 0.7, lineHeight: 1.35 }}>
               сейчас выбрано: {vibe ? vibeLabel(vibe) : "ничего"}, это поле можно оставить пустым
             </div>
 
@@ -371,6 +489,7 @@ export default function Home() {
                 background: !canAdd ? "rgba(0,0,0,0.2)" : "black",
                 color: "white",
                 fontWeight: 600,
+                textTransform: "lowercase",
               }}
             >
               → добавить в библиотеку
@@ -388,7 +507,9 @@ export default function Home() {
       {tab === "library" && (
         <div style={{ marginTop: 16 }}>
           <Card>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>library</div>
+            <div style={{ fontWeight: 700, marginBottom: 8, textTransform: "lowercase" }}>
+              library
+            </div>
 
             <label style={labelStyle}>фильтр по тэги/вайбы</label>
             <select value={vibeFilter} onChange={(e) => setVibeFilter(e.target.value)} style={selectStyle}>
@@ -445,6 +566,7 @@ export default function Home() {
                         border: "1px solid rgba(0,0,0,0.12)",
                         background: "white",
                         fontWeight: 600,
+                        textTransform: "lowercase",
                       }}
                     >
                       удалить
@@ -460,7 +582,9 @@ export default function Home() {
       {tab === "analysis" && (
         <div style={{ marginTop: 16 }}>
           <Card>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>analysis</div>
+            <div style={{ fontWeight: 700, marginBottom: 8, textTransform: "lowercase" }}>
+              analysis
+            </div>
 
             {items.length === 0 ? (
               <div style={{ opacity: 0.8, lineHeight: 1.45 }}>
@@ -468,7 +592,9 @@ export default function Home() {
               </div>
             ) : (
               <>
-                <div style={{ fontWeight: 700, marginBottom: 8 }}>вайбчек</div>
+                <div style={{ fontWeight: 700, marginBottom: 8, textTransform: "lowercase" }}>
+                  вайбчек
+                </div>
 
                 <div style={{ display: "grid", gap: 8 }}>
                   {vibeStats.map(([k, n]) => (
@@ -484,7 +610,9 @@ export default function Home() {
                         background: "white",
                       }}
                     >
-                      <div style={{ opacity: 0.9 }}>{k === "__none__" ? "без вайба" : vibeLabel(k)}</div>
+                      <div style={{ opacity: 0.9, textTransform: "lowercase" }}>
+                        {k === "__none__" ? "без вайба" : vibeLabel(k)}
+                      </div>
                       <div style={{ fontWeight: 700 }}>{n}</div>
                     </div>
                   ))}
@@ -492,7 +620,9 @@ export default function Home() {
 
                 <div style={{ height: 14 }} />
 
-                <div style={{ fontWeight: 700, marginBottom: 8 }}>разрез по типам</div>
+                <div style={{ fontWeight: 700, marginBottom: 8, textTransform: "lowercase" }}>
+                  разрез по типам
+                </div>
                 <div style={{ display: "grid", gap: 8 }}>
                   {typeStats.map((x) => (
                     <div
@@ -507,7 +637,7 @@ export default function Home() {
                         background: "white",
                       }}
                     >
-                      <div style={{ opacity: 0.9 }}>{x.label}</div>
+                      <div style={{ opacity: 0.9, textTransform: "lowercase" }}>{x.label}</div>
                       <div style={{ fontWeight: 700 }}>{x.count}</div>
                     </div>
                   ))}
@@ -518,83 +648,5 @@ export default function Home() {
         </div>
       )}
     </main>
-  );
-}
-
-function pillStyle(active: boolean): React.CSSProperties {
-  return {
-    padding: "10px 14px",
-    borderRadius: 999,
-    border: "1px solid rgba(0,0,0,0.12)",
-    background: active ? "black" : "white",
-    color: active ? "white" : "black",
-    fontWeight: 600,
-  };
-}
-
-function primaryBtnStyle(extra?: React.CSSProperties): React.CSSProperties {
-  return {
-    width: "100%",
-    padding: "12px 14px",
-    borderRadius: 14,
-    border: "1px solid rgba(0,0,0,0.12)",
-    background: "black",
-    color: "white",
-    fontWeight: 600,
-    ...extra,
-  };
-}
-
-function secondaryBtnStyle(): React.CSSProperties {
-  return {
-    width: "100%",
-    padding: "12px 14px",
-    borderRadius: 14,
-    border: "1px solid rgba(0,0,0,0.12)",
-    background: "white",
-    fontWeight: 600,
-  };
-}
-
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: 13,
-  opacity: 0.75,
-  marginBottom: 6,
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "12px 12px",
-  borderRadius: 14,
-  border: "1px solid rgba(0,0,0,0.12)",
-  outline: "none",
-  fontSize: 16,
-};
-
-const selectStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "12px 12px",
-  borderRadius: 14,
-  border: "1px solid rgba(0,0,0,0.12)",
-  background: "white",
-  fontSize: 16,
-};
-
-function Tag({ text }: { text: string }) {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        padding: "6px 10px",
-        borderRadius: 999,
-        border: "1px solid rgba(0,0,0,0.12)",
-        fontSize: 13,
-        opacity: 0.9,
-      }}
-    >
-      {text}
-    </span>
   );
 }
