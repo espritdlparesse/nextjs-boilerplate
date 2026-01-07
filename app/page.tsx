@@ -5,21 +5,21 @@ import { useEffect, useMemo, useState } from "react";
 type ItemType = "music" | "book" | "movie";
 type SourceType = "spotify" | "goodreads" | "letterboxd" | "manual";
 
-type LibraryItem = {
-  id: string;
-  createdAt: number;
-  type: ItemType;
-  source: SourceType;
-  title: string;
-  creator: string; // artist / author / director
-  vibe?: string; // optional
-};
-
 type TgUser = {
   id?: number;
   first_name?: string;
   last_name?: string;
   username?: string;
+};
+
+type LibraryItem = {
+  id: string;
+  createdAt: number;
+  type?: ItemType; // теперь может быть undefined, если когда-то сохранится криво
+  source?: SourceType; // теперь может быть undefined
+  title: string;
+  creator: string; // artist / author / director
+  vibe?: string; // optional
 };
 
 const STORAGE_KEY = "everyyou.library.v1";
@@ -71,8 +71,8 @@ export default function Home() {
   const [items, setItems] = useState<LibraryItem[]>([]);
 
   // форма добавления
-  const [type, setType] = useState<ItemType>("music");
-  const [source, setSource] = useState<SourceType>("manual");
+  const [type, setType] = useState<ItemType | "">(""); // "" = не выбрано
+  const [source, setSource] = useState<SourceType | "">(""); // "" = не выбрано
   const [title, setTitle] = useState("");
   const [creator, setCreator] = useState("");
   const [vibe, setVibe] = useState<string>(""); // пусто = ок
@@ -117,30 +117,39 @@ export default function Home() {
     return found?.label ?? v;
   };
 
+  const typeLabelSafe = (t?: ItemType) => (t ? TYPE_LABEL[t] : "тип не выбран");
+  const sourceLabelSafe = (s?: SourceType) => (s ? SOURCE_LABEL[s] : "источник не выбран");
+
   const filteredItems = useMemo(() => {
     if (!vibeFilter) return items;
     if (vibeFilter === "__none__") return items.filter((x) => !x.vibe);
     return items.filter((x) => x.vibe === vibeFilter);
   }, [items, vibeFilter]);
 
+  const canAdd =
+    Boolean(type) &&
+    Boolean(source) &&
+    Boolean(title.trim()) &&
+    Boolean(creator.trim());
+
   const addItem = () => {
-    const t = title.trim();
-    const c = creator.trim();
-    if (!t || !c) return;
+    if (!canAdd) return;
 
     const next: LibraryItem = {
       id: uid(),
       createdAt: Date.now(),
-      type,
-      source,
-      title: t,
-      creator: c,
+      type: type as ItemType,
+      source: source as SourceType,
+      title: title.trim(),
+      creator: creator.trim(),
       vibe: vibe ? vibe : undefined,
     };
 
     setItems((prev) => [next, ...prev]);
 
-    // сброс формы, но вайб оставим пустым по умолчанию
+    // сброс формы: оставляем снова "—" как дефолт
+    setType("");
+    setSource("");
     setTitle("");
     setCreator("");
     setVibe("");
@@ -162,11 +171,16 @@ export default function Home() {
   }, [items]);
 
   const typeStats = useMemo(() => {
-    const map = new Map<ItemType, number>();
-    for (const it of items) map.set(it.type, (map.get(it.type) ?? 0) + 1);
-    return (["music", "book", "movie"] as ItemType[]).map((t) => ({
-      type: t,
-      count: map.get(t) ?? 0,
+    const map = new Map<string, number>();
+    for (const it of items) {
+      const k = it.type ?? "__none__";
+      map.set(k, (map.get(k) ?? 0) + 1);
+    }
+    const order = ["music", "book", "movie", "__none__"];
+    return order.map((k) => ({
+      key: k,
+      label: k === "__none__" ? "без типа" : TYPE_LABEL[k as ItemType],
+      count: map.get(k) ?? 0,
     }));
   }, [items]);
 
@@ -192,16 +206,10 @@ export default function Home() {
 
   const PillNav = () => (
     <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
-      <button
-        onClick={() => setTab("home")}
-        style={pillStyle(tab === "home")}
-      >
+      <button onClick={() => setTab("home")} style={pillStyle(tab === "home")}>
         home
       </button>
-      <button
-        onClick={() => setTab("add")}
-        style={pillStyle(tab === "add")}
-      >
+      <button onClick={() => setTab("add")} style={pillStyle(tab === "add")}>
         add content
       </button>
       <button
@@ -223,7 +231,6 @@ export default function Home() {
     <main style={{ padding: 22, maxWidth: 760, margin: "0 auto" }}>
       <h1 style={{ marginBottom: 8 }}>EveryYou</h1>
 
-      {/* приветствие */}
       <div style={{ opacity: 0.9 }}>
         <div>{displayName}</div>
         {!hasTg && (
@@ -235,13 +242,10 @@ export default function Home() {
 
       <PillNav />
 
-      {/* home */}
       {tab === "home" && (
         <div style={{ marginTop: 16 }}>
           <Card>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>
-              что это вообще такое
-            </div>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>что это вообще такое</div>
             <div style={{ opacity: 0.85, lineHeight: 1.45 }}>{appIntro}</div>
           </Card>
 
@@ -249,57 +253,31 @@ export default function Home() {
 
           {items.length === 0 ? (
             <Card>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>
-                библиотека пока пустая
-              </div>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>библиотека пока пустая</div>
               <div style={{ opacity: 0.85, lineHeight: 1.45 }}>
                 начнём с простого: добавьте первый айтем вручную — потом подключим
                 spotify / goodreads / letterboxd.
               </div>
 
-              <button
-                onClick={() => setTab("add")}
-                style={{
-                  marginTop: 12,
-                  width: "100%",
-                  padding: "12px 14px",
-                  borderRadius: 14,
-                  border: "1px solid rgba(0,0,0,0.12)",
-                  background: "black",
-                  color: "white",
-                  fontWeight: 600,
-                }}
-              >
+              <button onClick={() => setTab("add")} style={primaryBtnStyle({ marginTop: 12 })}>
                 → добавить первый айтем
               </button>
             </Card>
           ) : (
             <Card>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>
-                что делаем дальше
-              </div>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>что делаем дальше</div>
               <div style={{ opacity: 0.85, lineHeight: 1.45 }}>
-                добавляем контент → собираем библиотеку → жмём “analysis” когда
-                хочется.
+                добавляем контент → собираем библиотеку → жмём “analysis” когда хочется.
               </div>
 
               <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-                <button
-                  onClick={() => setTab("add")}
-                  style={primaryBtnStyle()}
-                >
+                <button onClick={() => setTab("add")} style={primaryBtnStyle()}>
                   → add content
                 </button>
-                <button
-                  onClick={() => setTab("library")}
-                  style={secondaryBtnStyle()}
-                >
+                <button onClick={() => setTab("library")} style={secondaryBtnStyle()}>
                   → library
                 </button>
-                <button
-                  onClick={() => setTab("analysis")}
-                  style={secondaryBtnStyle()}
-                >
+                <button onClick={() => setTab("analysis")} style={secondaryBtnStyle()}>
                   → analysis
                 </button>
               </div>
@@ -308,14 +286,12 @@ export default function Home() {
         </div>
       )}
 
-      {/* add content */}
       {tab === "add" && (
         <div style={{ marginTop: 16 }}>
           <Card>
             <div style={{ fontWeight: 700, marginBottom: 8 }}>add content</div>
             <div style={{ opacity: 0.85, lineHeight: 1.45 }}>
-              пока тут ручное добавление. дальше подключим spotify / goodreads /
-              letterboxd.
+              пока тут ручное добавление. дальше подключим spotify / goodreads / letterboxd.
             </div>
 
             <div style={{ height: 14 }} />
@@ -323,9 +299,10 @@ export default function Home() {
             <label style={labelStyle}>тип</label>
             <select
               value={type}
-              onChange={(e) => setType(e.target.value as ItemType)}
+              onChange={(e) => setType(e.target.value as ItemType | "")}
               style={selectStyle}
             >
+              <option value="">— выберите тип</option>
               <option value="music">музыка</option>
               <option value="book">книга</option>
               <option value="movie">фильм</option>
@@ -336,9 +313,10 @@ export default function Home() {
             <label style={labelStyle}>источник</label>
             <select
               value={source}
-              onChange={(e) => setSource(e.target.value as SourceType)}
+              onChange={(e) => setSource(e.target.value as SourceType | "")}
               style={selectStyle}
             >
+              <option value="">— выберите источник</option>
               <option value="manual">вручную</option>
               <option value="spotify">spotify</option>
               <option value="goodreads">goodreads</option>
@@ -368,11 +346,7 @@ export default function Home() {
             <div style={{ height: 10 }} />
 
             <label style={labelStyle}>тэги/вайбы</label>
-            <select
-              value={vibe}
-              onChange={(e) => setVibe(e.target.value)}
-              style={selectStyle}
-            >
+            <select value={vibe} onChange={(e) => setVibe(e.target.value)} style={selectStyle}>
               <option value="">—</option>
               {VIBES.map((v) => (
                 <option key={v.value} value={v.value}>
@@ -382,43 +356,42 @@ export default function Home() {
             </select>
 
             <div style={{ marginTop: 8, opacity: 0.7 }}>
-              сейчас выбрано: {vibe ? vibeLabel(vibe) : "ничего"}, это поле можно
-              оставить пустым
+              сейчас выбрано: {vibe ? vibeLabel(vibe) : "ничего"}, это поле можно оставить пустым
             </div>
 
             <button
               onClick={addItem}
-              disabled={!title.trim() || !creator.trim()}
+              disabled={!canAdd}
               style={{
                 marginTop: 14,
                 width: "100%",
                 padding: "12px 14px",
                 borderRadius: 14,
                 border: "1px solid rgba(0,0,0,0.12)",
-                background:
-                  !title.trim() || !creator.trim() ? "rgba(0,0,0,0.2)" : "black",
+                background: !canAdd ? "rgba(0,0,0,0.2)" : "black",
                 color: "white",
                 fontWeight: 600,
               }}
             >
               → добавить в библиотеку
             </button>
+
+            {!type || !source ? (
+              <div style={{ marginTop: 10, opacity: 0.7, lineHeight: 1.4 }}>
+                сначала выберите тип и источник — чтобы было понятно, что вы добавляете
+              </div>
+            ) : null}
           </Card>
         </div>
       )}
 
-      {/* library */}
       {tab === "library" && (
         <div style={{ marginTop: 16 }}>
           <Card>
             <div style={{ fontWeight: 700, marginBottom: 8 }}>library</div>
 
             <label style={labelStyle}>фильтр по тэги/вайбы</label>
-            <select
-              value={vibeFilter}
-              onChange={(e) => setVibeFilter(e.target.value)}
-              style={selectStyle}
-            >
+            <select value={vibeFilter} onChange={(e) => setVibeFilter(e.target.value)} style={selectStyle}>
               <option value="">все</option>
               <option value="__none__">без вайба</option>
               {VIBES.map((v) => (
@@ -453,16 +426,12 @@ export default function Home() {
                       background: "white",
                     }}
                   >
-                    <div style={{ fontWeight: 700, marginBottom: 6 }}>
-                      {it.title}
-                    </div>
-                    <div style={{ opacity: 0.85, marginBottom: 8 }}>
-                      {it.creator}
-                    </div>
+                    <div style={{ fontWeight: 700, marginBottom: 6 }}>{it.title}</div>
+                    <div style={{ opacity: 0.85, marginBottom: 8 }}>{it.creator}</div>
 
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <Tag text={TYPE_LABEL[it.type]} />
-                      <Tag text={SOURCE_LABEL[it.source]} />
+                      <Tag text={typeLabelSafe(it.type)} />
+                      <Tag text={sourceLabelSafe(it.source)} />
                       {it.vibe ? <Tag text={vibeLabel(it.vibe)} /> : <Tag text="без вайба" />}
                     </div>
 
@@ -488,7 +457,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* analysis */}
       {tab === "analysis" && (
         <div style={{ marginTop: 16 }}>
           <Card>
@@ -516,9 +484,7 @@ export default function Home() {
                         background: "white",
                       }}
                     >
-                      <div style={{ opacity: 0.9 }}>
-                        {k === "__none__" ? "без вайба" : vibeLabel(k)}
-                      </div>
+                      <div style={{ opacity: 0.9 }}>{k === "__none__" ? "без вайба" : vibeLabel(k)}</div>
                       <div style={{ fontWeight: 700 }}>{n}</div>
                     </div>
                   ))}
@@ -526,13 +492,11 @@ export default function Home() {
 
                 <div style={{ height: 14 }} />
 
-                <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                  разрез по типам
-                </div>
+                <div style={{ fontWeight: 700, marginBottom: 8 }}>разрез по типам</div>
                 <div style={{ display: "grid", gap: 8 }}>
                   {typeStats.map((x) => (
                     <div
-                      key={x.type}
+                      key={x.key}
                       style={{
                         display: "flex",
                         justifyContent: "space-between",
@@ -543,7 +507,7 @@ export default function Home() {
                         background: "white",
                       }}
                     >
-                      <div style={{ opacity: 0.9 }}>{TYPE_LABEL[x.type]}</div>
+                      <div style={{ opacity: 0.9 }}>{x.label}</div>
                       <div style={{ fontWeight: 700 }}>{x.count}</div>
                     </div>
                   ))}
@@ -568,7 +532,7 @@ function pillStyle(active: boolean): React.CSSProperties {
   };
 }
 
-function primaryBtnStyle(): React.CSSProperties {
+function primaryBtnStyle(extra?: React.CSSProperties): React.CSSProperties {
   return {
     width: "100%",
     padding: "12px 14px",
@@ -577,6 +541,7 @@ function primaryBtnStyle(): React.CSSProperties {
     background: "black",
     color: "white",
     fontWeight: 600,
+    ...extra,
   };
 }
 
