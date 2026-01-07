@@ -1,651 +1,576 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
-type ItemType = "music" | "book" | "movie";
-type SourceType = "spotify" | "goodreads" | "letterboxd" | "manual";
-
-type TgUser = {
-  id?: number;
-  first_name?: string;
-  last_name?: string;
-  username?: string;
-};
+type ContentType = "music" | "book" | "movie";
+type SourceType = "manual" | "import_spotify";
 
 type LibraryItem = {
   id: string;
-  createdAt: number;
-  type?: ItemType;
-  source?: SourceType;
+  type: ContentType;
+  source: SourceType;
   title: string;
-  creator: string;
-  vibe?: string;
+  creator: string; // author / artist / director
+  vibe?: string; // optional
+  createdAt: number;
 };
 
-const STORAGE_KEY = "everyyou.library.v1";
-
-const VIBES: Array<{ value: string; label: string }> = [
-  { value: "vibe.cool", label: "круто" },
-  { value: "vibe.not_cool", label: "не круто" },
-  { value: "vibe.annoyed", label: "всё бесит" },
-  { value: "vibe.dumb", label: "тупо" },
-  { value: "vibe.for_work", label: "нужно для дела" },
-  { value: "vibe.inspire", label: "хочу вдохновиться" },
-  { value: "vibe.digest", label: "подумать/переварить" },
-  { value: "vibe.idk", label: "хз если честно" },
-];
-
-const TYPE_LABEL: Record<ItemType, string> = {
-  music: "музыка",
-  book: "книга",
-  movie: "фильм",
-};
-
-const SOURCE_LABEL: Record<SourceType, string> = {
-  spotify: "spotify",
-  goodreads: "goodreads",
-  letterboxd: "letterboxd",
-  manual: "вручную",
-};
+const STORAGE_KEY_LIBRARY = "everyyou_library_v1";
+const STORAGE_KEY_IMPORTED = "everyyou_imported_tracks_v1";
 
 function uid() {
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return Math.random().toString(16).slice(2) + Date.now().toString(16);
 }
 
-function safeJsonParse<T>(s: string | null): T | null {
-  if (!s) return null;
+function safeJsonParse<T>(raw: string | null, fallback: T): T {
+  if (!raw) return fallback;
   try {
-    return JSON.parse(s) as T;
+    return JSON.parse(raw) as T;
   } catch {
-    return null;
+    return fallback;
   }
 }
 
-function pillStyle(active: boolean): React.CSSProperties {
-  return {
-    padding: "10px 14px",
+function getCreatorLabel(type: ContentType | "") {
+  if (type === "music") return "исполнитель";
+  if (type === "book") return "автор";
+  if (type === "movie") return "режиссёр";
+  return "автор / исполнитель";
+}
+
+function getTitlePlaceholder(type: ContentType | "") {
+  if (type === "music") return "например: about today";
+  if (type === "movie") return "например: lost in translation";
+  if (type === "book") return "например: a ghost in the throat";
+  return "например: название";
+}
+
+function getCreatorPlaceholder(type: ContentType | "") {
+  if (type === "music") return "например: the national";
+  if (type === "movie") return "например: sofia coppola";
+  if (type === "book") return "например: doireann ní ghríofa";
+  return "например: автор";
+}
+
+function badgeStyle(kind: "type" | "source" | "vibe", value?: string) {
+  // намеренно мягкие цвета, чтобы не «кричало»
+  const base: React.CSSProperties = {
+    display: "inline-block",
+    padding: "8px 12px",
     borderRadius: 999,
     border: "1px solid rgba(0,0,0,0.12)",
-    background: active ? "black" : "white",
-    color: active ? "white" : "black",
+    fontSize: 14,
     fontWeight: 600,
-    textTransform: "lowercase",
+    lineHeight: 1,
   };
-}
 
-function primaryBtnStyle(extra?: React.CSSProperties): React.CSSProperties {
-  return {
-    width: "100%",
-    padding: "12px 14px",
-    borderRadius: 14,
-    border: "1px solid rgba(0,0,0,0.12)",
-    background: "black",
-    color: "white",
-    fontWeight: 600,
-    textTransform: "lowercase",
-    ...extra,
+  // чуть разные оттенки по смыслу
+  if (kind === "type") {
+    if (value === "music") return { ...base, background: "rgba(0, 122, 255, 0.10)" };
+    if (value === "book") return { ...base, background: "rgba(52, 199, 89, 0.12)" };
+    if (value === "movie") return { ...base, background: "rgba(175, 82, 222, 0.12)" };
+    return { ...base, background: "rgba(0,0,0,0.06)" };
+  }
+
+  if (kind === "source") {
+    if (value === "manual") return { ...base, background: "rgba(255, 149, 0, 0.14)" };
+    if (value === "import_spotify") return { ...base, background: "rgba(48, 209, 88, 0.14)" };
+    return { ...base, background: "rgba(0,0,0,0.06)" };
+  }
+
+  // vibe
+  if (!value) return { ...base, background: "rgba(0,0,0,0.06)" };
+
+  const map: Record<string, React.CSSProperties> = {
+    "всё бесит": { background: "rgba(255, 59, 48, 0.12)" },
+    "тупо": { background: "rgba(255, 204, 0, 0.16)" },
+    "круто": { background: "rgba(52, 199, 89, 0.14)" },
+    "не круто": { background: "rgba(142, 142, 147, 0.14)" },
+    "нужно для дела": { background: "rgba(0, 122, 255, 0.10)" },
+    "хочу вдохновиться": { background: "rgba(175, 82, 222, 0.12)" },
+    "подумать/переварить": { background: "rgba(90, 200, 250, 0.14)" },
+    "хз если честно": { background: "rgba(162, 132, 94, 0.14)" },
   };
-}
 
-function secondaryBtnStyle(): React.CSSProperties {
-  return {
-    width: "100%",
-    padding: "12px 14px",
-    borderRadius: 14,
-    border: "1px solid rgba(0,0,0,0.12)",
-    background: "white",
-    fontWeight: 600,
-    textTransform: "lowercase",
-  };
-}
-
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: 13,
-  opacity: 0.75,
-  marginBottom: 6,
-  textTransform: "lowercase",
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "12px 12px",
-  borderRadius: 14,
-  border: "1px solid rgba(0,0,0,0.12)",
-  outline: "none",
-  fontSize: 16,
-};
-
-const selectStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "12px 12px",
-  borderRadius: 14,
-  border: "1px solid rgba(0,0,0,0.12)",
-  background: "white",
-  fontSize: 16,
-};
-
-function Tag({ text }: { text: string }) {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        padding: "6px 10px",
-        borderRadius: 999,
-        border: "1px solid rgba(0,0,0,0.12)",
-        fontSize: 13,
-        opacity: 0.9,
-        textTransform: "lowercase",
-      }}
-    >
-      {text}
-    </span>
-  );
-}
-
-function Card({
-  children,
-  style,
-}: {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <div
-      style={{
-        border: "1px solid rgba(0,0,0,0.08)",
-        borderRadius: 14,
-        padding: 14,
-        background: "white",
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function PillNav({
-  tab,
-  setTab,
-}: {
-  tab: "home" | "add" | "library" | "analysis";
-  setTab: (t: "home" | "add" | "library" | "analysis") => void;
-}) {
-  return (
-    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
-      <button onClick={() => setTab("home")} style={pillStyle(tab === "home")}>
-        home
-      </button>
-      <button onClick={() => setTab("add")} style={pillStyle(tab === "add")}>
-        add content
-      </button>
-      <button onClick={() => setTab("library")} style={pillStyle(tab === "library")}>
-        library
-      </button>
-      <button onClick={() => setTab("analysis")} style={pillStyle(tab === "analysis")}>
-        analysis
-      </button>
-    </div>
-  );
+  return { ...base, ...(map[value] ?? { background: "rgba(0,0,0,0.06)" }) };
 }
 
 export default function Home() {
-  const [tab, setTab] = useState<"home" | "add" | "library" | "analysis">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "add" | "library" | "analysis">("home");
 
-  const [hasTg, setHasTg] = useState(false);
-  const [user, setUser] = useState<TgUser | null>(null);
+  // базовый “привет”
+  const [tgName, setTgName] = useState<string>("настя");
 
+  // library
   const [items, setItems] = useState<LibraryItem[]>([]);
+  const [filterVibe, setFilterVibe] = useState<string>("__all__");
 
-  const [type, setType] = useState<ItemType | "">(""); // "" = не выбрано
-  const [source, setSource] = useState<SourceType | "">(""); // "" = не выбрано
+  // import
+  const [importing, setImporting] = useState(false);
+  const [importedTracks, setImportedTracks] = useState<number>(0);
+  const [importStatus, setImportStatus] = useState<string>("");
+
+  // add/edit form
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const [type, setType] = useState<ContentType | "">("");
+  const [source, setSource] = useState<SourceType | "">("");
   const [title, setTitle] = useState("");
   const [creator, setCreator] = useState("");
-  const [vibe, setVibe] = useState<string>("");
+  const [vibe, setVibe] = useState<string>(""); // empty allowed
 
-  const [vibeFilter, setVibeFilter] = useState<string>("");
+  const vibeOptions = useMemo(
+    () => [
+      { value: "", label: "ничего" }, // empty (allowed)
+      { value: "всё бесит", label: "всё бесит" },
+      { value: "тупо", label: "тупо" },
+      { value: "круто", label: "круто" },
+      { value: "не круто", label: "не круто" },
+      { value: "нужно для дела", label: "нужно для дела" },
+      { value: "хочу вдохновиться", label: "хочу вдохновиться" },
+      { value: "подумать/переварить", label: "подумать/переварить" },
+      { value: "хз если честно", label: "хз если честно" },
+    ],
+    []
+  );
 
+  const typeOptions = useMemo(
+    () => [
+      { value: "", label: "выберите тип" },
+      { value: "music", label: "музыка" },
+      { value: "book", label: "книга" },
+      { value: "movie", label: "фильм" },
+    ],
+    []
+  );
+
+  const sourceOptions = useMemo(
+    () => [
+      { value: "", label: "выберите источник" },
+      { value: "manual", label: "вручную" },
+      { value: "import_spotify", label: "spotify (скоро)" },
+    ],
+    []
+  );
+
+  // загрузка localStorage + telegram user
   useEffect(() => {
+    // library
+    const stored = safeJsonParse<LibraryItem[]>(localStorage.getItem(STORAGE_KEY_LIBRARY), []);
+    setItems(stored);
+
+    // import stats
+    const storedImported = Number(localStorage.getItem(STORAGE_KEY_IMPORTED) ?? "0");
+    setImportedTracks(Number.isFinite(storedImported) ? storedImported : 0);
+
+    // telegram user name (если открыто внутри tg)
     const tg = (window as any)?.Telegram?.WebApp;
-    if (!tg) {
-      setHasTg(false);
-      setUser(null);
-      return;
-    }
-    setHasTg(true);
-    tg.ready();
-    setUser(tg.initDataUnsafe?.user ?? null);
+    const first = tg?.initDataUnsafe?.user?.first_name;
+    const last = tg?.initDataUnsafe?.user?.last_name;
+    const pretty = [first, last].filter(Boolean).join(" ").trim();
+    if (pretty) setTgName(pretty);
   }, []);
 
+  // сохраняем library
   useEffect(() => {
-    const saved = safeJsonParse<LibraryItem[]>(localStorage.getItem(STORAGE_KEY));
-    if (saved && Array.isArray(saved)) setItems(saved);
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    localStorage.setItem(STORAGE_KEY_LIBRARY, JSON.stringify(items));
   }, [items]);
 
-  const displayName = useMemo(() => {
-    const first = user?.first_name?.trim();
-    if (!first) return "привет 👋";
-    return `привет, ${first.toLowerCase()} 👋`;
-  }, [user]);
+  // сохраняем импорт
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_IMPORTED, String(importedTracks));
+  }, [importedTracks]);
 
-  const appIntro =
-    "everyyou собирает весь контент, который вы потребляете — музыка, книги, фильмы — в одном месте. потом помогает заметить, как он влияет на ваше состояние, и делать свой личный “вайбчек” когда захочется.";
+  const filteredItems = useMemo(() => {
+    if (filterVibe === "__all__") return items;
+    if (filterVibe === "__empty__") return items.filter((x) => !x.vibe);
+    return items.filter((x) => (x.vibe ?? "") === filterVibe);
+  }, [items, filterVibe]);
 
-  const vibeLabel = (v?: string) => {
-    if (!v) return "";
-    const found = VIBES.find((x) => x.value === v);
-    return found?.label ?? v;
-  };
+  const canSubmit =
+    type !== "" &&
+    source !== "" &&
+    title.trim().length > 0 &&
+    creator.trim().length > 0 &&
+    !importing;
 
-  const typeLabelSafe = (t?: ItemType) => (t ? TYPE_LABEL[t] : "тип не выбран");
-  const sourceLabelSafe = (s?: SourceType) => (s ? SOURCE_LABEL[s] : "источник не выбран");
-
-  const placeholders = useMemo(() => {
-    if (type === "movie") {
-      return {
-        title: "например: lost in translation",
-        creator: "например: sofia coppola",
-        creatorLabel: "режиссёр / автор",
-      };
-    }
-    if (type === "book") {
-      return {
-        title: "например: deborah levy — things i don't want to know",
-        creator: "например: deborah levy",
-        creatorLabel: "автор",
-      };
-    }
-    // music + default
-    return {
-      title: "например: the national — about today",
-      creator: "например: the national",
-      creatorLabel: "автор / исполнитель",
-    };
-  }, [type]);
-
-  const canAdd =
-    Boolean(type) &&
-    Boolean(source) &&
-    Boolean(title.trim()) &&
-    Boolean(creator.trim());
-
-  const addItem = () => {
-    if (!canAdd) return;
-
-    const next: LibraryItem = {
-      id: uid(),
-      createdAt: Date.now(),
-      type: type as ItemType,
-      source: source as SourceType,
-      title: title.trim(),
-      creator: creator.trim(),
-      vibe: vibe ? vibe : undefined,
-    };
-
-    setItems((prev) => [next, ...prev]);
-
+  function resetForm() {
+    setEditingId(null);
     setType("");
     setSource("");
     setTitle("");
     setCreator("");
     setVibe("");
-    setTab("library");
-  };
+  }
 
-  const removeItem = (id: string) => {
+  function startEdit(item: LibraryItem) {
+    setEditingId(item.id);
+    setType(item.type);
+    setSource(item.source);
+    setTitle(item.title);
+    setCreator(item.creator);
+    setVibe(item.vibe ?? "");
+    setActiveTab("add");
+  }
+
+  function submitForm() {
+    if (!canSubmit) return;
+
+    if (editingId) {
+      setItems((prev) =>
+        prev.map((x) =>
+          x.id === editingId
+            ? {
+                ...x,
+                type: type as ContentType,
+                source: source as SourceType,
+                title: title.trim(),
+                creator: creator.trim(),
+                vibe: vibe || undefined,
+              }
+            : x
+        )
+      );
+      resetForm();
+      setActiveTab("library");
+      return;
+    }
+
+    const newItem: LibraryItem = {
+      id: uid(),
+      type: type as ContentType,
+      source: source as SourceType,
+      title: title.trim(),
+      creator: creator.trim(),
+      vibe: vibe || undefined,
+      createdAt: Date.now(),
+    };
+
+    setItems((prev) => [newItem, ...prev]);
+    resetForm();
+    setActiveTab("library");
+  }
+
+  function deleteItem(id: string) {
     setItems((prev) => prev.filter((x) => x.id !== id));
+  }
+
+  async function runFakeImport() {
+    if (importing) return;
+    setImporting(true);
+    setImportStatus("тянем данные…");
+
+    // фейковая загрузка (потом заменим на реальный запрос)
+    await new Promise((r) => setTimeout(r, 900));
+    setImportStatus("почти…");
+
+    await new Promise((r) => setTimeout(r, 700));
+    const delta = 25 + Math.floor(Math.random() * 120); // “импортировано N треков”
+    setImportedTracks((n) => n + delta);
+
+    setImportStatus(`готово: импортировано ${delta} треков`);
+    await new Promise((r) => setTimeout(r, 900));
+
+    setImportStatus("");
+    setImporting(false);
+  }
+
+  const styles = {
+    page: {
+      padding: 24,
+      fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
+    } as React.CSSProperties,
+    header: { marginBottom: 10 } as React.CSSProperties,
+    h1: { margin: 0, fontSize: 28, fontWeight: 800 } as React.CSSProperties,
+    hello: { marginTop: 6, opacity: 0.85, fontSize: 18 } as React.CSSProperties,
+
+    tabsRow: { display: "flex", gap: 10, marginTop: 14 } as React.CSSProperties,
+    tab: (active: boolean) =>
+      ({
+        borderRadius: 999,
+        padding: "10px 14px",
+        border: "1px solid rgba(0,0,0,0.12)",
+        background: active ? "#000" : "#fff",
+        color: active ? "#fff" : "#000",
+        fontWeight: 700,
+        textTransform: "lowercase",
+      }) as React.CSSProperties,
+
+    card: {
+      marginTop: 16,
+      borderRadius: 18,
+      border: "1px solid rgba(0,0,0,0.12)",
+      padding: 16,
+      background: "#fff",
+    } as React.CSSProperties,
+
+    label: { fontSize: 14, fontWeight: 800, opacity: 0.75, marginTop: 14 } as React.CSSProperties,
+
+    select: {
+      width: "100%",
+      padding: "12px 14px",
+      borderRadius: 14,
+      border: "1px solid rgba(0,0,0,0.12)",
+      fontSize: 16,
+      fontWeight: 700,
+      outline: "none",
+      background: "#fff",
+    } as React.CSSProperties,
+
+    input: {
+      width: "100%",
+      padding: "12px 14px",
+      borderRadius: 14,
+      border: "1px solid rgba(0,0,0,0.12)",
+      fontSize: 16,
+      fontWeight: 700,
+      outline: "none",
+    } as React.CSSProperties,
+
+    hint: { marginTop: 8, opacity: 0.7, fontWeight: 600 } as React.CSSProperties,
+
+    primaryBtn: (disabled: boolean) =>
+      ({
+        width: "100%",
+        marginTop: 14,
+        padding: "14px 16px",
+        borderRadius: 16,
+        border: "1px solid rgba(0,0,0,0.12)",
+        background: disabled ? "rgba(0,0,0,0.12)" : "#000",
+        color: disabled ? "rgba(0,0,0,0.55)" : "#fff",
+        fontWeight: 800,
+        fontSize: 16,
+      }) as React.CSSProperties,
+
+    secondaryBtn: (disabled: boolean) =>
+      ({
+        width: "100%",
+        marginTop: 10,
+        padding: "14px 16px",
+        borderRadius: 16,
+        border: "1px solid rgba(0,0,0,0.12)",
+        background: disabled ? "rgba(0,0,0,0.06)" : "#fff",
+        color: "#000",
+        fontWeight: 800,
+        fontSize: 16,
+      }) as React.CSSProperties,
+
+    grid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+      gap: 12,
+      marginTop: 14,
+    } as React.CSSProperties,
+
+    tile: {
+      borderRadius: 22,
+      border: "1px solid rgba(0,0,0,0.12)",
+      padding: 14,
+      background: "#fff",
+    } as React.CSSProperties,
+
+    tileTitle: { margin: 0, fontSize: 20, fontWeight: 900 } as React.CSSProperties,
+    tileCreator: { marginTop: 6, marginBottom: 10, fontSize: 16, fontWeight: 800, opacity: 0.75 } as React.CSSProperties,
+
+    badgesRow: { display: "flex", gap: 10, flexWrap: "wrap" as const } as React.CSSProperties,
+
+    tileActions: { display: "grid", gridTemplateColumns: "1fr", gap: 10, marginTop: 12 } as React.CSSProperties,
+    actionBtn: (kind: "edit" | "delete") =>
+      ({
+        width: "100%",
+        padding: "12px 14px",
+        borderRadius: 16,
+        border: "1px solid rgba(0,0,0,0.12)",
+        background: kind === "delete" ? "rgba(255, 59, 48, 0.10)" : "#fff",
+        fontWeight: 900,
+        fontSize: 16,
+      }) as React.CSSProperties,
   };
-
-  const filteredItems = useMemo(() => {
-    if (!vibeFilter) return items;
-    if (vibeFilter === "__none__") return items.filter((x) => !x.vibe);
-    return items.filter((x) => x.vibe === vibeFilter);
-  }, [items, vibeFilter]);
-
-  const vibeStats = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const it of items) {
-      const k = it.vibe ?? "__none__";
-      map.set(k, (map.get(k) ?? 0) + 1);
-    }
-    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
-  }, [items]);
-
-  const typeStats = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const it of items) {
-      const k = it.type ?? "__none__";
-      map.set(k, (map.get(k) ?? 0) + 1);
-    }
-    const order = ["music", "book", "movie", "__none__"] as const;
-    return order.map((k) => ({
-      key: k,
-      label: k === "__none__" ? "без типа" : TYPE_LABEL[k],
-      count: map.get(k) ?? 0,
-    }));
-  }, [items]);
 
   return (
-    <main style={{ padding: 22, maxWidth: 760, margin: "0 auto" }}>
-      <h1 style={{ marginBottom: 8 }}>EveryYou</h1>
+    <main style={styles.page}>
+      <header style={styles.header}>
+        <h1 style={styles.h1}>everyyou</h1>
+        <div style={styles.hello}>привет, {tgName} 👋</div>
 
-      <div style={{ opacity: 0.9 }}>
-        <div>{displayName}</div>
-        {!hasTg && (
-          <div style={{ marginTop: 6, opacity: 0.7 }}>
-            telegram webapp не найден — откройте мини-приложение внутри telegram
-          </div>
-        )}
-      </div>
-
-      <PillNav tab={tab} setTab={setTab} />
-
-      {tab === "home" && (
-        <div style={{ marginTop: 16 }}>
-          <Card>
-            <div style={{ fontWeight: 700, marginBottom: 8, textTransform: "lowercase" }}>
-              что это вообще такое
-            </div>
-            <div style={{ opacity: 0.85, lineHeight: 1.45 }}>{appIntro}</div>
-          </Card>
-
-          <div style={{ height: 12 }} />
-
-          {items.length === 0 ? (
-            <Card>
-              <div style={{ fontWeight: 700, marginBottom: 6, textTransform: "lowercase" }}>
-                библиотека пока пустая
-              </div>
-              <div style={{ opacity: 0.85, lineHeight: 1.45 }}>
-                начнём с простого: добавьте первый айтем вручную — потом подключим spotify /
-                goodreads / letterboxd.
-              </div>
-
-              <button onClick={() => setTab("add")} style={primaryBtnStyle({ marginTop: 12 })}>
-                → добавить первый айтем
-              </button>
-            </Card>
-          ) : (
-            <Card>
-              <div style={{ fontWeight: 700, marginBottom: 6, textTransform: "lowercase" }}>
-                что делаем дальше
-              </div>
-              <div style={{ opacity: 0.85, lineHeight: 1.45 }}>
-                добавляем контент → собираем библиотеку → жмём “analysis” когда хочется.
-              </div>
-
-              <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-                <button onClick={() => setTab("add")} style={primaryBtnStyle()}>
-                  → add content
-                </button>
-                <button onClick={() => setTab("library")} style={secondaryBtnStyle()}>
-                  → library
-                </button>
-                <button onClick={() => setTab("analysis")} style={secondaryBtnStyle()}>
-                  → analysis
-                </button>
-              </div>
-            </Card>
-          )}
+        <div style={styles.tabsRow}>
+          <button style={styles.tab(activeTab === "home")} onClick={() => setActiveTab("home")}>
+            home
+          </button>
+          <button style={styles.tab(activeTab === "add")} onClick={() => setActiveTab("add")}>
+            add content
+          </button>
+          <button style={styles.tab(activeTab === "library")} onClick={() => setActiveTab("library")}>
+            library
+          </button>
+          <button style={styles.tab(activeTab === "analysis")} onClick={() => setActiveTab("analysis")}>
+            analysis
+          </button>
         </div>
+      </header>
+
+      {activeTab === "home" && (
+        <section style={styles.card}>
+          <p style={{ marginTop: 0, marginBottom: 10, fontWeight: 700, opacity: 0.85 }}>
+            everyyou собирает весь ваш контент в одном месте — книги, фильмы, музыку.
+            потом помогает понять, как это влияет на настроение и состояние.
+          </p>
+
+          <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+            <button style={styles.primaryBtn(false)} onClick={() => setActiveTab("add")}>
+              → add content
+            </button>
+            <button style={styles.secondaryBtn(false)} onClick={() => setActiveTab("library")}>
+              → library
+            </button>
+            <button style={styles.secondaryBtn(false)} onClick={() => setActiveTab("analysis")}>
+              → analysis
+            </button>
+          </div>
+        </section>
       )}
 
-      {tab === "add" && (
-        <div style={{ marginTop: 16 }}>
-          <Card>
-            <div style={{ fontWeight: 700, marginBottom: 8, textTransform: "lowercase" }}>
-              add content
+      {activeTab === "add" && (
+        <section style={styles.card}>
+          <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 22, fontWeight: 900 }}>add content</h2>
+          <p style={{ marginTop: 0, marginBottom: 12, fontWeight: 650, opacity: 0.8 }}>
+            пока тут ручное добавление. дальше подключим spotify / goodreads / letterboxd.
+          </p>
+
+          <button style={styles.secondaryBtn(importing)} onClick={runFakeImport} disabled={importing}>
+            {importing ? "тянем данные…" : "импорт"}
+          </button>
+          {importStatus ? (
+            <div style={{ marginTop: 8, opacity: 0.75, fontWeight: 700 }}>{importStatus}</div>
+          ) : (
+            <div style={{ marginTop: 8, opacity: 0.75, fontWeight: 700 }}>
+              импортировано всего: {importedTracks} треков
             </div>
-            <div style={{ opacity: 0.85, lineHeight: 1.45 }}>
-              пока тут ручное добавление. дальше подключим spotify / goodreads / letterboxd.
-            </div>
+          )}
 
-            <div style={{ height: 14 }} />
+          <div style={styles.label}>тип</div>
+          <select value={type} onChange={(e) => setType(e.target.value as any)} style={styles.select}>
+            {typeOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
 
-            <label style={labelStyle}>тип</label>
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value as ItemType | "")}
-              style={selectStyle}
-            >
-              <option value="">— выберите тип</option>
-              <option value="music">музыка</option>
-              <option value="book">книга</option>
-              <option value="movie">фильм</option>
-            </select>
+          <div style={styles.label}>источник</div>
+          <select value={source} onChange={(e) => setSource(e.target.value as any)} style={styles.select}>
+            {sourceOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
 
-            <div style={{ height: 10 }} />
+          <div style={styles.label}>название</div>
+          <input
+            style={styles.input}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={getTitlePlaceholder(type)}
+            autoComplete="off"
+            inputMode="text"
+          />
 
-            <label style={labelStyle}>источник</label>
-            <select
-              value={source}
-              onChange={(e) => setSource(e.target.value as SourceType | "")}
-              style={selectStyle}
-            >
-              <option value="">— выберите источник</option>
-              <option value="manual">вручную</option>
-              <option value="spotify">spotify</option>
-              <option value="goodreads">goodreads</option>
-              <option value="letterboxd">letterboxd</option>
-            </select>
+          <div style={styles.label}>{getCreatorLabel(type)}</div>
+          <input
+            style={styles.input}
+            value={creator}
+            onChange={(e) => setCreator(e.target.value)}
+            placeholder={getCreatorPlaceholder(type)}
+            autoComplete="off"
+            inputMode="text"
+          />
 
-            <div style={{ height: 10 }} />
+          <div style={styles.label}>тэги/вайбы</div>
+          <select value={vibe} onChange={(e) => setVibe(e.target.value)} style={styles.select}>
+            {vibeOptions.map((o) => (
+              <option key={o.value || "__empty"} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
 
-            <label style={labelStyle}>название</label>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={placeholders.title}
-              style={inputStyle}
-              autoCorrect="off"
-              autoCapitalize="none"
-              autoComplete="off"
-            />
+          <div style={styles.hint}>сейчас выбрано: {vibe ? vibe : "ничего"}, это поле можно оставить пустым</div>
 
-            <div style={{ height: 10 }} />
+          <button style={styles.primaryBtn(!canSubmit)} onClick={submitForm} disabled={!canSubmit}>
+            {editingId ? "→ сохранить изменения" : "→ добавить в библиотеку"}
+          </button>
 
-            <label style={labelStyle}>{placeholders.creatorLabel}</label>
-            <input
-              value={creator}
-              onChange={(e) => setCreator(e.target.value)}
-              placeholder={placeholders.creator}
-              style={inputStyle}
-              autoCorrect="off"
-              autoCapitalize="none"
-              autoComplete="off"
-            />
-
-            <div style={{ height: 10 }} />
-
-            <label style={labelStyle}>тэги/вайбы</label>
-            <select value={vibe} onChange={(e) => setVibe(e.target.value)} style={selectStyle}>
-              <option value="">—</option>
-              {VIBES.map((v) => (
-                <option key={v.value} value={v.value}>
-                  {v.label}
-                </option>
-              ))}
-            </select>
-
-            <div style={{ marginTop: 8, opacity: 0.7, lineHeight: 1.35 }}>
-              сейчас выбрано: {vibe ? vibeLabel(vibe) : "ничего"}, это поле можно оставить пустым
-            </div>
-
+          {editingId ? (
             <button
-              onClick={addItem}
-              disabled={!canAdd}
-              style={{
-                marginTop: 14,
-                width: "100%",
-                padding: "12px 14px",
-                borderRadius: 14,
-                border: "1px solid rgba(0,0,0,0.12)",
-                background: !canAdd ? "rgba(0,0,0,0.2)" : "black",
-                color: "white",
-                fontWeight: 600,
-                textTransform: "lowercase",
+              style={styles.secondaryBtn(false)}
+              onClick={() => {
+                resetForm();
               }}
             >
-              → добавить в библиотеку
+              отменить редактирование
             </button>
-
-            {!type || !source ? (
-              <div style={{ marginTop: 10, opacity: 0.7, lineHeight: 1.4 }}>
-                сначала выберите тип и источник — чтобы было понятно, что вы добавляете
-              </div>
-            ) : null}
-          </Card>
-        </div>
+          ) : null}
+        </section>
       )}
 
-      {tab === "library" && (
-        <div style={{ marginTop: 16 }}>
-          <Card>
-            <div style={{ fontWeight: 700, marginBottom: 8, textTransform: "lowercase" }}>
-              library
-            </div>
+      {activeTab === "library" && (
+        <section style={styles.card}>
+          <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 22, fontWeight: 900 }}>library</h2>
 
-            <label style={labelStyle}>фильтр по тэги/вайбы</label>
-            <select value={vibeFilter} onChange={(e) => setVibeFilter(e.target.value)} style={selectStyle}>
-              <option value="">все</option>
-              <option value="__none__">без вайба</option>
-              {VIBES.map((v) => (
+          <div style={styles.label}>фильтр по тэги/вайбы</div>
+          <select value={filterVibe} onChange={(e) => setFilterVibe(e.target.value)} style={styles.select}>
+            <option value="__all__">все</option>
+            <option value="__empty__">без вайба</option>
+            {vibeOptions
+              .filter((v) => v.value !== "")
+              .map((v) => (
                 <option key={v.value} value={v.value}>
                   {v.label}
                 </option>
               ))}
-            </select>
+          </select>
 
-            <div style={{ height: 14 }} />
+          {filteredItems.length === 0 ? (
+            <div style={{ marginTop: 14, opacity: 0.7, fontWeight: 700 }}>пока пусто. добавим что-нибудь?</div>
+          ) : (
+            <div style={styles.grid}>
+              {filteredItems.map((it) => (
+                <div key={it.id} style={styles.tile}>
+                  <h3 style={styles.tileTitle}>{it.title}</h3>
+                  <div style={styles.tileCreator}>{it.creator}</div>
 
-            {filteredItems.length === 0 ? (
-              <div style={{ opacity: 0.8, lineHeight: 1.45 }}>
-                тут пока пусто. идём в add content и добавляем что-нибудь.
-              </div>
-            ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                  gap: 12,
-                  marginTop: 6,
-                }}
-              >
-                {filteredItems.map((it) => (
-                  <div
-                    key={it.id}
-                    style={{
-                      border: "1px solid rgba(0,0,0,0.08)",
-                      borderRadius: 16,
-                      padding: 14,
-                      background: "white",
-                    }}
-                  >
-                    <div style={{ fontWeight: 700, marginBottom: 6 }}>{it.title}</div>
-                    <div style={{ opacity: 0.85, marginBottom: 8 }}>{it.creator}</div>
+                  <div style={styles.badgesRow}>
+                    <span style={badgeStyle("type", it.type)}>{it.type === "music" ? "музыка" : it.type === "book" ? "книга" : "фильм"}</span>
+                    <span style={badgeStyle("source", it.source)}>{it.source === "manual" ? "вручную" : "spotify"}</span>
+                    <span style={badgeStyle("vibe", it.vibe)}>{it.vibe ? it.vibe : "без вайба"}</span>
+                  </div>
 
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <Tag text={typeLabelSafe(it.type)} />
-                      <Tag text={sourceLabelSafe(it.source)} />
-                      {it.vibe ? <Tag text={vibeLabel(it.vibe)} /> : <Tag text="без вайба" />}
-                    </div>
-
-                    <button
-                      onClick={() => removeItem(it.id)}
-                      style={{
-                        marginTop: 10,
-                        width: "100%",
-                        padding: "10px 12px",
-                        borderRadius: 14,
-                        border: "1px solid rgba(0,0,0,0.12)",
-                        background: "white",
-                        fontWeight: 600,
-                        textTransform: "lowercase",
-                      }}
-                    >
+                  <div style={styles.tileActions}>
+                    <button style={styles.actionBtn("edit")} onClick={() => startEdit(it)}>
+                      редактировать
+                    </button>
+                    <button style={styles.actionBtn("delete")} onClick={() => deleteItem(it.id)}>
                       удалить
                     </button>
                   </div>
-                ))}
-              </div>
-            )}
-          </Card>
-        </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       )}
 
-      {tab === "analysis" && (
-        <div style={{ marginTop: 16 }}>
-          <Card>
-            <div style={{ fontWeight: 700, marginBottom: 8, textTransform: "lowercase" }}>
-              analysis
-            </div>
-
-            {items.length === 0 ? (
-              <div style={{ opacity: 0.8, lineHeight: 1.45 }}>
-                сначала добавьте контент — тогда появится вайбчек.
-              </div>
-            ) : (
-              <>
-                <div style={{ fontWeight: 700, marginBottom: 8, textTransform: "lowercase" }}>
-                  вайбчек
-                </div>
-
-                <div style={{ display: "grid", gap: 8 }}>
-                  {vibeStats.map(([k, n]) => (
-                    <div
-                      key={k}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: "10px 12px",
-                        borderRadius: 14,
-                        border: "1px solid rgba(0,0,0,0.08)",
-                        background: "white",
-                      }}
-                    >
-                      <div style={{ opacity: 0.9, textTransform: "lowercase" }}>
-                        {k === "__none__" ? "без вайба" : vibeLabel(k)}
-                      </div>
-                      <div style={{ fontWeight: 700 }}>{n}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div style={{ height: 14 }} />
-
-                <div style={{ fontWeight: 700, marginBottom: 8, textTransform: "lowercase" }}>
-                  разрез по типам
-                </div>
-                <div style={{ display: "grid", gap: 8 }}>
-                  {typeStats.map((x) => (
-                    <div
-                      key={x.key}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: "10px 12px",
-                        borderRadius: 14,
-                        border: "1px solid rgba(0,0,0,0.08)",
-                        background: "white",
-                      }}
-                    >
-                      <div style={{ opacity: 0.9, textTransform: "lowercase" }}>{x.label}</div>
-                      <div style={{ fontWeight: 700 }}>{x.count}</div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </Card>
-        </div>
+      {activeTab === "analysis" && (
+        <section style={styles.card}>
+          <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 22, fontWeight: 900 }}>analysis</h2>
+          <p style={{ marginTop: 0, marginBottom: 10, fontWeight: 700, opacity: 0.8 }}>
+            период + вайбчек (сделаем дальше).
+          </p>
+          <div style={{ opacity: 0.75, fontWeight: 700 }}>
+            пока тут заглушка: позже добавим выбор периода и анализ библиотеки.
+          </div>
+        </section>
       )}
     </main>
   );
