@@ -1,574 +1,822 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-type ContentType = "music" | "book" | "movie";
+type TgUser = {
+  id?: number;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+};
+
+type ContentType = "music" | "book" | "film";
 type SourceType = "manual" | "import_spotify";
+
+type VibeTag =
+  | "всё бесит"
+  | "тупо"
+  | "круто"
+  | "не круто"
+  | "нужно для дела"
+  | "хочу вдохновиться"
+  | "подумать/переварить"
+  | "хз если честно";
 
 type LibraryItem = {
   id: string;
   type: ContentType;
   source: SourceType;
   title: string;
-  creator: string; // author / artist / director
-  vibe?: string; // optional
-  createdAt: number;
+  authorOrArtist: string;
+  vibe?: VibeTag;
+  createdAt: number; // ms
 };
 
-const STORAGE_KEY_LIBRARY = "everyyou_library_v1";
-const STORAGE_KEY_IMPORTED = "everyyou_imported_tracks_v1";
+type Tab = "home" | "add" | "library" | "analysis";
+type Period = "7d" | "30d" | "90d" | "all";
+
+const VIBES: VibeTag[] = [
+  "всё бесит",
+  "тупо",
+  "круто",
+  "не круто",
+  "нужно для дела",
+  "хочу вдохновиться",
+  "подумать/переварить",
+  "хз если честно",
+];
+
+const TYPE_LABEL: Record<ContentType, string> = {
+  music: "музыка",
+  book: "книга",
+  film: "фильм",
+};
+
+const SOURCE_LABEL: Record<SourceType, string> = {
+  manual: "вручную",
+  import_spotify: "импорт",
+};
+
+const PLACEHOLDERS: Record<ContentType, Array<{ title: string; authorOrArtist: string }>> = {
+  music: [
+    { title: "about today", authorOrArtist: "the national" },
+    { title: "codex", authorOrArtist: "radiohead" },
+    { title: "movies", authorOrArtist: "weyes blood" },
+    { title: "i know the end", authorOrArtist: "phoebe bridgers" },
+    { title: "cellophane", authorOrArtist: "fka twigs" },
+    { title: "not strong enough", authorOrArtist: "boygenius" },
+    { title: "seventeen", authorOrArtist: "sharon van etten" },
+    { title: "sparks", authorOrArtist: "beach house" },
+    { title: "the rip", authorOrArtist: "portishead" },
+    { title: "night shift", authorOrArtist: "lucy dacus" },
+  ],
+  film: [
+    { title: "lost in translation", authorOrArtist: "sofia coppola" },
+    { title: "personal shopper", authorOrArtist: "olivier assayas" },
+    { title: "american beauty", authorOrArtist: "sam mendes" },
+    { title: "her", authorOrArtist: "spike jonze" },
+    { title: "under the skin", authorOrArtist: "jonathan glazer" },
+    { title: "melancholia", authorOrArtist: "lars von trier" },
+    { title: "the lobster", authorOrArtist: "yorgos lanthimos" },
+    { title: "drive my car", authorOrArtist: "ryusuke hamaguchi" },
+    { title: "call me by your name", authorOrArtist: "luca guadagnino" },
+    { title: "eternal sunshine", authorOrArtist: "michel gondry" },
+  ],
+  book: [
+    { title: "hot milk", authorOrArtist: "deborah levy" },
+    { title: "the cost of living", authorOrArtist: "deborah levy" },
+    { title: "how should a person be?", authorOrArtist: "sheila heti" },
+    { title: "motherhood", authorOrArtist: "sheila heti" },
+    { title: "simple passion", authorOrArtist: "annie ernaux" },
+    { title: "the years", authorOrArtist: "annie ernaux" },
+    { title: "outline", authorOrArtist: "rachel cusk" },
+    { title: "second place", authorOrArtist: "rachel cusk" },
+    { title: "weather", authorOrArtist: "jenny offill" },
+    { title: "dept. of speculation", authorOrArtist: "jenny offill" },
+  ],
+};
+
+const STORAGE_KEY_LIBRARY = "everyyou.library.v1";
+const STORAGE_KEY_IMPORT = "everyyou.import.v1";
 
 function uid() {
-  return Math.random().toString(16).slice(2) + Date.now().toString(16);
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function safeJsonParse<T>(raw: string | null, fallback: T): T {
-  if (!raw) return fallback;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
+function clampText(s: string) {
+  return s.trim().replace(/\s+/g, " ");
 }
 
-function getCreatorLabel(type: ContentType | "") {
-  if (type === "music") return "исполнитель";
-  if (type === "book") return "автор";
-  if (type === "movie") return "режиссёр";
-  return "автор / исполнитель";
+function formatShortDate(ms: number) {
+  const d = new Date(ms);
+  return d
+    .toLocaleDateString(undefined, { day: "2-digit", month: "short" })
+    .toLowerCase();
 }
 
-function getTitlePlaceholder(type: ContentType | "") {
-  if (type === "music") return "например: about today";
-  if (type === "movie") return "например: lost in translation";
-  if (type === "book") return "например: a ghost in the throat";
-  return "например: название";
-}
-
-function getCreatorPlaceholder(type: ContentType | "") {
-  if (type === "music") return "например: the national";
-  if (type === "movie") return "например: sofia coppola";
-  if (type === "book") return "например: doireann ní ghríofa";
-  return "например: автор";
-}
-
-function badgeStyle(kind: "type" | "source" | "vibe", value?: string) {
-  // намеренно мягкие цвета, чтобы не «кричало»
-  const base: React.CSSProperties = {
-    display: "inline-block",
+function baseBadge(): React.CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
     padding: "8px 12px",
     borderRadius: 999,
-    border: "1px solid rgba(0,0,0,0.12)",
+    border: "1px solid rgba(0,0,0,0.10)",
     fontSize: 14,
-    fontWeight: 600,
-    lineHeight: 1,
+    lineHeight: "16px",
+    fontWeight: 800,
+    textTransform: "lowercase",
+    whiteSpace: "nowrap",
+  };
+}
+
+function typeBadgeStyle(type: ContentType): React.CSSProperties {
+  const map: Record<ContentType, React.CSSProperties> = {
+    music: { background: "rgba(99,102,241,0.16)", borderColor: "rgba(99,102,241,0.35)" }, // индиго/синий
+    book: { background: "rgba(168,85,247,0.16)", borderColor: "rgba(168,85,247,0.35)" }, // фиолетовый
+    film: { background: "rgba(236,72,153,0.14)", borderColor: "rgba(236,72,153,0.32)" }, // розовый
+  };
+  return { ...baseBadge(), ...map[type] };
+}
+
+function sourceBadgeStyle(source: SourceType): React.CSSProperties {
+  const map: Record<SourceType, React.CSSProperties> = {
+    manual: { background: "rgba(34,197,94,0.14)", borderColor: "rgba(34,197,94,0.30)" }, // зелёный
+    import_spotify: { background: "rgba(59,130,246,0.14)", borderColor: "rgba(59,130,246,0.30)" }, // голубой/синий
+  };
+  return { ...baseBadge(), ...map[source] };
+}
+
+function vibeBadgeStyle(vibe?: VibeTag): React.CSSProperties {
+  const map: Partial<Record<VibeTag, React.CSSProperties>> = {
+    "круто": { background: "rgba(34,197,94,0.14)", borderColor: "rgba(34,197,94,0.30)" }, // зелёный
+    "не круто": { background: "rgba(249,115,22,0.14)", borderColor: "rgba(249,115,22,0.30)" }, // оранжевый
+    "всё бесит": { background: "rgba(239,68,68,0.14)", borderColor: "rgba(239,68,68,0.30)" }, // красный
+    "тупо": { background: "rgba(168,85,247,0.14)", borderColor: "rgba(168,85,247,0.30)" }, // фиолетовый
+    "нужно для дела": { background: "rgba(59,130,246,0.14)", borderColor: "rgba(59,130,246,0.30)" }, // синий
+    "хочу вдохновиться": { background: "rgba(236,72,153,0.14)", borderColor: "rgba(236,72,153,0.30)" }, // розовый
+    "подумать/переварить": { background: "rgba(139,92,246,0.14)", borderColor: "rgba(139,92,246,0.30)" }, // сиреневый
+    "хз если честно": { background: "rgba(14,165,233,0.14)", borderColor: "rgba(14,165,233,0.30)" }, // голубой
   };
 
-  // чуть разные оттенки по смыслу
-  if (kind === "type") {
-    if (value === "music") return { ...base, background: "rgba(0, 122, 255, 0.10)" };
-    if (value === "book") return { ...base, background: "rgba(52, 199, 89, 0.12)" };
-    if (value === "movie") return { ...base, background: "rgba(175, 82, 222, 0.12)" };
-    return { ...base, background: "rgba(0,0,0,0.06)" };
+  if (!vibe) {
+    return { ...baseBadge(), background: "rgba(0,0,0,0.05)" };
   }
-
-  if (kind === "source") {
-    if (value === "manual") return { ...base, background: "rgba(255, 149, 0, 0.14)" };
-    if (value === "import_spotify") return { ...base, background: "rgba(48, 209, 88, 0.14)" };
-    return { ...base, background: "rgba(0,0,0,0.06)" };
-  }
-
-  // vibe
-  if (!value) return { ...base, background: "rgba(0,0,0,0.06)" };
-
-  const map: Record<string, React.CSSProperties> = {
-    "всё бесит": { background: "rgba(255, 59, 48, 0.12)" },
-    "тупо": { background: "rgba(255, 204, 0, 0.16)" },
-    "круто": { background: "rgba(52, 199, 89, 0.14)" },
-    "не круто": { background: "rgba(142, 142, 147, 0.14)" },
-    "нужно для дела": { background: "rgba(0, 122, 255, 0.10)" },
-    "хочу вдохновиться": { background: "rgba(175, 82, 222, 0.12)" },
-    "подумать/переварить": { background: "rgba(90, 200, 250, 0.14)" },
-    "хз если честно": { background: "rgba(162, 132, 94, 0.14)" },
-  };
-
-  return { ...base, ...(map[value] ?? { background: "rgba(0,0,0,0.06)" }) };
+  return { ...baseBadge(), ...(map[vibe] ?? { background: "rgba(0,0,0,0.05)" }) };
 }
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<"home" | "add" | "library" | "analysis">("home");
+  const [tab, setTab] = useState<Tab>("home");
 
-  // базовый “привет”
-  const [tgName, setTgName] = useState<string>("настя");
+  const [hasTg, setHasTg] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [user, setUser] = useState<TgUser | null>(null);
 
-  // library
-  const [items, setItems] = useState<LibraryItem[]>([]);
-  const [filterVibe, setFilterVibe] = useState<string>("__all__");
-
-  // import
-  const [importing, setImporting] = useState(false);
-  const [importedTracks, setImportedTracks] = useState<number>(0);
-  const [importStatus, setImportStatus] = useState<string>("");
-
-  // add/edit form
-  const [editingId, setEditingId] = useState<string | null>(null);
-
+  // add form
   const [type, setType] = useState<ContentType | "">("");
   const [source, setSource] = useState<SourceType | "">("");
   const [title, setTitle] = useState("");
-  const [creator, setCreator] = useState("");
-  const [vibe, setVibe] = useState<string>(""); // empty allowed
+  const [authorOrArtist, setAuthorOrArtist] = useState("");
+  const [vibe, setVibe] = useState<VibeTag | "">("");
 
-  const vibeOptions = useMemo(
-    () => [
-      { value: "", label: "ничего" }, // empty (allowed)
-      { value: "всё бесит", label: "всё бесит" },
-      { value: "тупо", label: "тупо" },
-      { value: "круто", label: "круто" },
-      { value: "не круто", label: "не круто" },
-      { value: "нужно для дела", label: "нужно для дела" },
-      { value: "хочу вдохновиться", label: "хочу вдохновиться" },
-      { value: "подумать/переварить", label: "подумать/переварить" },
-      { value: "хз если честно", label: "хз если честно" },
-    ],
-    []
-  );
+  // placeholder rotation
+  const [phIdx, setPhIdx] = useState(0);
 
-  const typeOptions = useMemo(
-    () => [
-      { value: "", label: "выберите тип" },
-      { value: "music", label: "музыка" },
-      { value: "book", label: "книга" },
-      { value: "movie", label: "фильм" },
-    ],
-    []
-  );
+  // library
+  const [library, setLibrary] = useState<LibraryItem[]>([]);
+  const [libraryVibeFilter, setLibraryVibeFilter] = useState<VibeTag | "all">("all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const sourceOptions = useMemo(
-    () => [
-      { value: "", label: "выберите источник" },
-      { value: "manual", label: "вручную" },
-      { value: "import_spotify", label: "spotify (скоро)" },
-    ],
-    []
-  );
+  // edit
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  // загрузка localStorage + telegram user
+  // import
+  const [isImporting, setIsImporting] = useState(false);
+  const [importedCount, setImportedCount] = useState<number>(() => {
+    if (typeof window === "undefined") return 0;
+    const raw = window.localStorage.getItem(STORAGE_KEY_IMPORT);
+    const n = raw ? Number(raw) : 0;
+    return Number.isFinite(n) ? n : 0;
+  });
+
+  // analysis
+  const [period, setPeriod] = useState<Period>("30d");
+
   useEffect(() => {
-    // library
-    const stored = safeJsonParse<LibraryItem[]>(localStorage.getItem(STORAGE_KEY_LIBRARY), []);
-    setItems(stored);
-
-    // import stats
-    const storedImported = Number(localStorage.getItem(STORAGE_KEY_IMPORTED) ?? "0");
-    setImportedTracks(Number.isFinite(storedImported) ? storedImported : 0);
-
-    // telegram user name (если открыто внутри tg)
     const tg = (window as any)?.Telegram?.WebApp;
-    const first = tg?.initDataUnsafe?.user?.first_name;
-    const last = tg?.initDataUnsafe?.user?.last_name;
-    const pretty = [first, last].filter(Boolean).join(" ").trim();
-    if (pretty) setTgName(pretty);
+    if (!tg) {
+      setHasTg(false);
+      return;
+    }
+    setHasTg(true);
+    tg.ready();
+    setReady(true);
+    setUser(tg.initDataUnsafe?.user ?? null);
   }, []);
 
-  // сохраняем library
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_LIBRARY, JSON.stringify(items));
-  }, [items]);
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem(STORAGE_KEY_LIBRARY);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as LibraryItem[];
+      if (Array.isArray(parsed)) setLibrary(parsed);
+    } catch {
+      // ignore
+    }
+  }, []);
 
-  // сохраняем импорт
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_IMPORTED, String(importedTracks));
-  }, [importedTracks]);
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(STORAGE_KEY_LIBRARY, JSON.stringify(library));
+  }, [library]);
 
-  const filteredItems = useMemo(() => {
-    if (filterVibe === "__all__") return items;
-    if (filterVibe === "__empty__") return items.filter((x) => !x.vibe);
-    return items.filter((x) => (x.vibe ?? "") === filterVibe);
-  }, [items, filterVibe]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(STORAGE_KEY_IMPORT, String(importedCount));
+  }, [importedCount]);
 
-  const canSubmit =
-    type !== "" &&
-    source !== "" &&
-    title.trim().length > 0 &&
-    creator.trim().length > 0 &&
-    !importing;
+  useEffect(() => {
+    // ротируем плейсхолдеры постоянно, чтобы не застаивались
+    const id = window.setInterval(() => setPhIdx((i) => i + 1), 2500);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const displayName = useMemo(() => {
+    const first = user?.first_name?.trim();
+    const last = user?.last_name?.trim();
+    const s = [first, last].filter(Boolean).join(" ").trim();
+    return s || "друг";
+  }, [user]);
+
+  const activeType: ContentType = (type || "music") as ContentType;
+  const phList = PLACEHOLDERS[activeType];
+  const currentPh = phList[phIdx % phList.length];
+
+  const canAdd = useMemo(() => {
+    return Boolean(type && source && clampText(title) && clampText(authorOrArtist));
+  }, [type, source, title, authorOrArtist]);
+
+  const selectedItem = useMemo(() => {
+    if (!selectedId) return null;
+    return library.find((x) => x.id === selectedId) ?? null;
+  }, [selectedId, library]);
+
+  const visibleLibrary = useMemo(() => {
+    if (libraryVibeFilter === "all") return library;
+    if (libraryVibeFilter === ("" as any)) return library.filter((x) => !x.vibe);
+    return library.filter((x) => x.vibe === libraryVibeFilter);
+  }, [library, libraryVibeFilter]);
+
+  const analysisRange = useMemo(() => {
+    const now = Date.now();
+    if (period === "all") return { from: 0, to: now };
+    const days = period === "7d" ? 7 : period === "30d" ? 30 : 90;
+    return { from: now - days * 24 * 60 * 60 * 1000, to: now };
+  }, [period]);
+
+  const analysisItems = useMemo(() => {
+    return library.filter((x) => x.createdAt >= analysisRange.from && x.createdAt <= analysisRange.to);
+  }, [library, analysisRange]);
+
+  const analysisStats = useMemo(() => {
+    const byType: Record<ContentType, number> = { music: 0, book: 0, film: 0 };
+    const byVibe: Record<string, number> = {};
+    for (const it of analysisItems) {
+      byType[it.type] += 1;
+      const key = it.vibe ?? "без вайба";
+      byVibe[key] = (byVibe[key] ?? 0) + 1;
+    }
+
+    const vibesSorted = Object.entries(byVibe).sort((a, b) => b[1] - a[1]);
+    const topVibes = vibesSorted.slice(0, 4);
+
+    return { byType, topVibes, total: analysisItems.length };
+  }, [analysisItems]);
 
   function resetForm() {
-    setEditingId(null);
     setType("");
     setSource("");
     setTitle("");
-    setCreator("");
+    setAuthorOrArtist("");
     setVibe("");
   }
 
-  function startEdit(item: LibraryItem) {
-    setEditingId(item.id);
-    setType(item.type);
-    setSource(item.source);
-    setTitle(item.title);
-    setCreator(item.creator);
-    setVibe(item.vibe ?? "");
-    setActiveTab("add");
-  }
-
-  function submitForm() {
-    if (!canSubmit) return;
-
-    if (editingId) {
-      setItems((prev) =>
-        prev.map((x) =>
-          x.id === editingId
-            ? {
-                ...x,
-                type: type as ContentType,
-                source: source as SourceType,
-                title: title.trim(),
-                creator: creator.trim(),
-                vibe: vibe || undefined,
-              }
-            : x
-        )
-      );
-      resetForm();
-      setActiveTab("library");
-      return;
-    }
-
-    const newItem: LibraryItem = {
+  function addToLibrary() {
+    if (!canAdd) return;
+    const item: LibraryItem = {
       id: uid(),
       type: type as ContentType,
       source: source as SourceType,
-      title: title.trim(),
-      creator: creator.trim(),
-      vibe: vibe || undefined,
+      title: clampText(title).toLowerCase(),
+      authorOrArtist: clampText(authorOrArtist).toLowerCase(),
+      vibe: vibe ? (vibe as VibeTag) : undefined,
       createdAt: Date.now(),
     };
-
-    setItems((prev) => [newItem, ...prev]);
+    setLibrary((prev) => [item, ...prev]);
     resetForm();
-    setActiveTab("library");
+    setTab("library");
   }
 
-  function deleteItem(id: string) {
-    setItems((prev) => prev.filter((x) => x.id !== id));
+  function removeItem(id: string) {
+    setLibrary((prev) => prev.filter((x) => x.id !== id));
+    if (selectedId === id) setSelectedId(null);
+    if (editingId === id) setEditingId(null);
+  }
+
+  function startEdit(id: string) {
+    const it = library.find((x) => x.id === id);
+    if (!it) return;
+    setEditingId(id);
+    setTab("add");
+
+    setType(it.type);
+    setSource(it.source);
+    setTitle(it.title);
+    setAuthorOrArtist(it.authorOrArtist);
+    setVibe(it.vibe ?? "");
+  }
+
+  function saveEdit() {
+    if (!editingId) return;
+    if (!canAdd) return;
+
+    setLibrary((prev) =>
+      prev.map((x) => {
+        if (x.id !== editingId) return x;
+        return {
+          ...x,
+          type: type as ContentType,
+          source: source as SourceType,
+          title: clampText(title).toLowerCase(),
+          authorOrArtist: clampText(authorOrArtist).toLowerCase(),
+          vibe: vibe ? (vibe as VibeTag) : undefined,
+        };
+      })
+    );
+
+    const id = editingId;
+    setEditingId(null);
+    resetForm();
+    setTab("library");
+    setSelectedId(id);
   }
 
   async function runFakeImport() {
-    if (importing) return;
-    setImporting(true);
-    setImportStatus("тянем данные…");
+    if (isImporting) return;
+    setIsImporting(true);
 
-    // фейковая загрузка (потом заменим на реальный запрос)
     await new Promise((r) => setTimeout(r, 900));
-    setImportStatus("почти…");
+    const plus = 37;
+    setImportedCount((n) => n + plus);
 
-    await new Promise((r) => setTimeout(r, 700));
-    const delta = 25 + Math.floor(Math.random() * 120); // “импортировано N треков”
-    setImportedTracks((n) => n + delta);
+    const now = Date.now();
+    const fake: LibraryItem[] = [
+      {
+        id: uid(),
+        type: "music",
+        source: "import_spotify",
+        title: "about today",
+        authorOrArtist: "the national",
+        vibe: "подумать/переварить",
+        createdAt: now,
+      },
+      {
+        id: uid(),
+        type: "music",
+        source: "import_spotify",
+        title: "codex",
+        authorOrArtist: "radiohead",
+        vibe: "хз если честно",
+        createdAt: now - 60_000,
+      },
+    ];
 
-    setImportStatus(`готово: импортировано ${delta} треков`);
-    await new Promise((r) => setTimeout(r, 900));
+    setLibrary((prev) => [...fake, ...prev]);
 
-    setImportStatus("");
-    setImporting(false);
+    setIsImporting(false);
+    setTab("library");
   }
 
-  const styles = {
-    page: {
-      padding: 24,
-      fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
-    } as React.CSSProperties,
-    header: { marginBottom: 10 } as React.CSSProperties,
-    h1: { margin: 0, fontSize: 28, fontWeight: 800 } as React.CSSProperties,
-    hello: { marginTop: 6, opacity: 0.85, fontSize: 18 } as React.CSSProperties,
+  const pageWrap: React.CSSProperties = {
+    padding: 24,
+    fontFamily:
+      'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
+  };
 
-    tabsRow: { display: "flex", gap: 10, marginTop: 14 } as React.CSSProperties,
-    tab: (active: boolean) =>
-      ({
-        borderRadius: 999,
-        padding: "10px 14px",
-        border: "1px solid rgba(0,0,0,0.12)",
-        background: active ? "#000" : "#fff",
-        color: active ? "#fff" : "#000",
-        fontWeight: 700,
-        textTransform: "lowercase",
-      }) as React.CSSProperties,
+  const h1: React.CSSProperties = { margin: "0 0 8px 0", fontSize: 28, fontWeight: 900 };
+  const h2: React.CSSProperties = {
+    margin: "0 0 10px 0",
+    fontSize: 22,
+    fontWeight: 900,
+    textTransform: "lowercase",
+  };
 
-    card: {
-      marginTop: 16,
-      borderRadius: 18,
-      border: "1px solid rgba(0,0,0,0.12)",
-      padding: 16,
-      background: "#fff",
-    } as React.CSSProperties,
+  const helper: React.CSSProperties = { margin: "0 0 10px 0", opacity: 0.8, lineHeight: "22px" };
 
-    label: { fontSize: 14, fontWeight: 800, opacity: 0.75, marginTop: 14 } as React.CSSProperties,
+  const tabs: React.CSSProperties = {
+    display: "flex",
+    gap: 10,
+    margin: "12px 0 16px 0",
+  };
 
-    select: {
-      width: "100%",
-      padding: "12px 14px",
-      borderRadius: 14,
-      border: "1px solid rgba(0,0,0,0.12)",
-      fontSize: 16,
-      fontWeight: 700,
-      outline: "none",
-      background: "#fff",
-    } as React.CSSProperties,
+  const tabBtn = (active: boolean): React.CSSProperties => ({
+    padding: "10px 14px",
+    borderRadius: 999,
+    border: "1px solid rgba(0,0,0,0.12)",
+    background: active ? "black" : "white",
+    color: active ? "white" : "black",
+    fontWeight: 800,
+    textTransform: "lowercase",
+  });
 
-    input: {
-      width: "100%",
-      padding: "12px 14px",
-      borderRadius: 14,
-      border: "1px solid rgba(0,0,0,0.12)",
-      fontSize: 16,
-      fontWeight: 700,
-      outline: "none",
-    } as React.CSSProperties,
+  const card: React.CSSProperties = {
+    border: "1px solid rgba(0,0,0,0.10)",
+    borderRadius: 16,
+    padding: 16,
+    background: "white",
+  };
 
-    hint: { marginTop: 8, opacity: 0.7, fontWeight: 600 } as React.CSSProperties,
+  const fieldLabel: React.CSSProperties = {
+    fontSize: 13,
+    fontWeight: 900,
+    opacity: 0.65,
+    marginTop: 14,
+    marginBottom: 6,
+    textTransform: "lowercase",
+  };
 
-    primaryBtn: (disabled: boolean) =>
-      ({
-        width: "100%",
-        marginTop: 14,
-        padding: "14px 16px",
-        borderRadius: 16,
-        border: "1px solid rgba(0,0,0,0.12)",
-        background: disabled ? "rgba(0,0,0,0.12)" : "#000",
-        color: disabled ? "rgba(0,0,0,0.55)" : "#fff",
-        fontWeight: 800,
-        fontSize: 16,
-      }) as React.CSSProperties,
+  const input: React.CSSProperties = {
+    width: "100%",
+    padding: "14px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(0,0,0,0.14)",
+    fontSize: 16,
+    outline: "none",
+  };
 
-    secondaryBtn: (disabled: boolean) =>
-      ({
-        width: "100%",
-        marginTop: 10,
-        padding: "14px 16px",
-        borderRadius: 16,
-        border: "1px solid rgba(0,0,0,0.12)",
-        background: disabled ? "rgba(0,0,0,0.06)" : "#fff",
-        color: "#000",
-        fontWeight: 800,
-        fontSize: 16,
-      }) as React.CSSProperties,
+  const select: React.CSSProperties = {
+    ...input,
+    appearance: "none",
+    background: "white",
+  };
 
-    grid: {
-      display: "grid",
-      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-      gap: 12,
-      marginTop: 14,
-    } as React.CSSProperties,
+  const primaryBtn: React.CSSProperties = {
+    width: "100%",
+    marginTop: 16,
+    padding: "14px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(0,0,0,0.12)",
+    background: "black",
+    color: "white",
+    fontSize: 16,
+    fontWeight: 900,
+    textTransform: "lowercase",
+  };
 
-    tile: {
-      borderRadius: 22,
-      border: "1px solid rgba(0,0,0,0.12)",
-      padding: 14,
-      background: "#fff",
-    } as React.CSSProperties,
+  const secondaryBtn: React.CSSProperties = {
+    width: "100%",
+    marginTop: 10,
+    padding: "14px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(0,0,0,0.12)",
+    background: "white",
+    color: "black",
+    fontSize: 16,
+    fontWeight: 900,
+    textTransform: "lowercase",
+  };
 
-    tileTitle: { margin: 0, fontSize: 20, fontWeight: 900 } as React.CSSProperties,
-    tileCreator: { marginTop: 6, marginBottom: 10, fontSize: 16, fontWeight: 800, opacity: 0.75 } as React.CSSProperties,
+  const disabledBtn: React.CSSProperties = {
+    ...primaryBtn,
+    background: "rgba(0,0,0,0.18)",
+    color: "rgba(0,0,0,0.55)",
+  };
 
-    badgesRow: { display: "flex", gap: 10, flexWrap: "wrap" as const } as React.CSSProperties,
+  const dangerBtn: React.CSSProperties = {
+    ...secondaryBtn,
+    borderColor: "rgba(239,68,68,0.45)",
+    background: "rgba(239,68,68,0.10)",
+  };
 
-    tileActions: { display: "grid", gridTemplateColumns: "1fr", gap: 10, marginTop: 12 } as React.CSSProperties,
-    actionBtn: (kind: "edit" | "delete") =>
-      ({
-        width: "100%",
-        padding: "12px 14px",
-        borderRadius: 16,
-        border: "1px solid rgba(0,0,0,0.12)",
-        background: kind === "delete" ? "rgba(255, 59, 48, 0.10)" : "#fff",
-        fontWeight: 900,
-        fontSize: 16,
-      }) as React.CSSProperties,
+  const editBtn: React.CSSProperties = {
+    ...secondaryBtn,
+    borderColor: "rgba(59,130,246,0.45)",
+    background: "rgba(59,130,246,0.10)",
+  };
+
+  const tile: React.CSSProperties = {
+    border: "1px solid rgba(0,0,0,0.10)",
+    borderRadius: 18,
+    padding: 16,
+    background: "white",
+  };
+
+  const chipsRow: React.CSSProperties = {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 12,
   };
 
   return (
-    <main style={styles.page}>
-      <header style={styles.header}>
-        <h1 style={styles.h1}>everyyou</h1>
-        <div style={styles.hello}>привет, {tgName} 👋</div>
+    <main style={pageWrap}>
+      <h1 style={h1}>everyyou</h1>
+      <p style={{ margin: 0, opacity: 0.85, lineHeight: "22px" }}>
+        привет, {displayName.toLowerCase()} 👋
+      </p>
 
-        <div style={styles.tabsRow}>
-          <button style={styles.tab(activeTab === "home")} onClick={() => setActiveTab("home")}>
-            home
-          </button>
-          <button style={styles.tab(activeTab === "add")} onClick={() => setActiveTab("add")}>
-            add content
-          </button>
-          <button style={styles.tab(activeTab === "library")} onClick={() => setActiveTab("library")}>
-            library
-          </button>
-          <button style={styles.tab(activeTab === "analysis")} onClick={() => setActiveTab("analysis")}>
-            analysis
-          </button>
-        </div>
-      </header>
+      <div style={tabs}>
+        <button style={tabBtn(tab === "home")} onClick={() => setTab("home")}>
+          home
+        </button>
+        <button style={tabBtn(tab === "add")} onClick={() => setTab("add")}>
+          add content
+        </button>
+        <button style={tabBtn(tab === "library")} onClick={() => setTab("library")}>
+          library
+        </button>
+        <button style={tabBtn(tab === "analysis")} onClick={() => setTab("analysis")}>
+          analysis
+        </button>
+      </div>
 
-      {activeTab === "home" && (
-        <section style={styles.card}>
-          <p style={{ marginTop: 0, marginBottom: 10, fontWeight: 700, opacity: 0.85 }}>
-            everyyou собирает весь ваш контент в одном месте — книги, фильмы, музыку.
-            потом помогает понять, как это влияет на настроение и состояние.
+      {/* HOME */}
+      {tab === "home" && (
+        <section style={card}>
+          <h2 style={h2}>что это</h2>
+          <p style={helper}>
+            everyyou собирает всё, что вы смотрите, читаете и слушаете — чтобы вы видели, как контент
+            влияет на настроение и состояние. дальше можно собрать библиотеку и в любой момент сделать
+            вайбчек по выбранному периоду.
           </p>
 
-          <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-            <button style={styles.primaryBtn(false)} onClick={() => setActiveTab("add")}>
-              → add content
-            </button>
-            <button style={styles.secondaryBtn(false)} onClick={() => setActiveTab("library")}>
-              → library
-            </button>
-            <button style={styles.secondaryBtn(false)} onClick={() => setActiveTab("analysis")}>
-              → analysis
-            </button>
+          <button style={primaryBtn} onClick={() => setTab("add")}>
+            → добавить контент
+          </button>
+          <button style={secondaryBtn} onClick={() => setTab("library")}>
+            → открыть библиотеку
+          </button>
+          <button style={secondaryBtn} onClick={() => setTab("analysis")}>
+            → вайбчек
+          </button>
+
+          <div style={{ marginTop: 14, opacity: 0.65, fontSize: 13, lineHeight: "18px" }}>
+            telegram webapp: {hasTg ? "detected" : "not detected"} · ready: {ready ? "yes" : "no"}
           </div>
         </section>
       )}
 
-      {activeTab === "add" && (
-        <section style={styles.card}>
-          <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 22, fontWeight: 900 }}>add content</h2>
-          <p style={{ marginTop: 0, marginBottom: 12, fontWeight: 650, opacity: 0.8 }}>
-            пока тут ручное добавление. дальше подключим spotify / goodreads / letterboxd.
+      {/* ADD CONTENT */}
+      {tab === "add" && (
+        <section style={card}>
+          <h2 style={h2}>{editingId ? "редактировать" : "add content"}</h2>
+
+          {/* импорт */}
+          <p style={{ ...helper, marginBottom: 8 }}>
+            импорт — чтобы быстро накидать контента и не страдать.
           </p>
-
-          <button style={styles.secondaryBtn(importing)} onClick={runFakeImport} disabled={importing}>
-            {importing ? "тянем данные…" : "импорт"}
+          <button
+            style={isImporting ? disabledBtn : secondaryBtn}
+            onClick={runFakeImport}
+            disabled={isImporting}
+          >
+            {isImporting ? "тянем данные…" : "импорт"}
           </button>
-          {importStatus ? (
-            <div style={{ marginTop: 8, opacity: 0.75, fontWeight: 700 }}>{importStatus}</div>
-          ) : (
-            <div style={{ marginTop: 8, opacity: 0.75, fontWeight: 700 }}>
-              импортировано всего: {importedTracks} треков
+          <div style={{ marginTop: 8, opacity: 0.75, fontSize: 13, textTransform: "lowercase" }}>
+            импортировано: {importedCount} треков
+          </div>
+
+          {/* вручную */}
+          <div style={{ marginTop: 16 }}>
+            <p style={{ ...helper, marginBottom: 6 }}>
+              вручную — добавляйте что хотите: музыку, книги, фильмы. хоть «стыдный ромком», хоть «тяжёлая правда жизни».
+            </p>
+
+            <div style={fieldLabel}>тип</div>
+            <select style={select} value={type} onChange={(e) => setType(e.target.value as any)}>
+              <option value="">выберите тип</option>
+              <option value="music">музыка</option>
+              <option value="book">книга</option>
+              <option value="film">фильм</option>
+            </select>
+
+            <div style={fieldLabel}>источник</div>
+            <select style={select} value={source} onChange={(e) => setSource(e.target.value as any)}>
+              <option value="">выберите источник</option>
+              <option value="manual">вручную</option>
+              <option value="import_spotify">импорт</option>
+            </select>
+
+            <div style={fieldLabel}>название</div>
+            <input
+              style={input}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={`например: ${currentPh.title}`}
+              autoCorrect="off"
+              autoCapitalize="none"
+            />
+
+            <div style={fieldLabel}>
+              {type === "film" ? "режиссёр / автор" : type === "book" ? "автор" : "автор / исполнитель"}
             </div>
-          )}
+            <input
+              style={input}
+              value={authorOrArtist}
+              onChange={(e) => setAuthorOrArtist(e.target.value)}
+              placeholder={`например: ${currentPh.authorOrArtist}`}
+              autoCorrect="off"
+              autoCapitalize="none"
+            />
 
-          <div style={styles.label}>тип</div>
-          <select value={type} onChange={(e) => setType(e.target.value as any)} style={styles.select}>
-            {typeOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-
-          <div style={styles.label}>источник</div>
-          <select value={source} onChange={(e) => setSource(e.target.value as any)} style={styles.select}>
-            {sourceOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-
-          <div style={styles.label}>название</div>
-          <input
-            style={styles.input}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder={getTitlePlaceholder(type)}
-            autoComplete="off"
-            inputMode="text"
-          />
-
-          <div style={styles.label}>{getCreatorLabel(type)}</div>
-          <input
-            style={styles.input}
-            value={creator}
-            onChange={(e) => setCreator(e.target.value)}
-            placeholder={getCreatorPlaceholder(type)}
-            autoComplete="off"
-            inputMode="text"
-          />
-
-          <div style={styles.label}>тэги/вайбы</div>
-          <select value={vibe} onChange={(e) => setVibe(e.target.value)} style={styles.select}>
-            {vibeOptions.map((o) => (
-              <option key={o.value || "__empty"} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-
-          <div style={styles.hint}>сейчас выбрано: {vibe ? vibe : "ничего"}, это поле можно оставить пустым</div>
-
-          <button style={styles.primaryBtn(!canSubmit)} onClick={submitForm} disabled={!canSubmit}>
-            {editingId ? "→ сохранить изменения" : "→ добавить в библиотеку"}
-          </button>
-
-          {editingId ? (
-            <button
-              style={styles.secondaryBtn(false)}
-              onClick={() => {
-                resetForm();
-              }}
-            >
-              отменить редактирование
-            </button>
-          ) : null}
-        </section>
-      )}
-
-      {activeTab === "library" && (
-        <section style={styles.card}>
-          <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 22, fontWeight: 900 }}>library</h2>
-
-          <div style={styles.label}>фильтр по тэги/вайбы</div>
-          <select value={filterVibe} onChange={(e) => setFilterVibe(e.target.value)} style={styles.select}>
-            <option value="__all__">все</option>
-            <option value="__empty__">без вайба</option>
-            {vibeOptions
-              .filter((v) => v.value !== "")
-              .map((v) => (
-                <option key={v.value} value={v.value}>
-                  {v.label}
+            <div style={fieldLabel}>тэги/вайбы</div>
+            <select style={select} value={vibe} onChange={(e) => setVibe(e.target.value as any)}>
+              <option value="">ничего</option>
+              {VIBES.map((v) => (
+                <option key={v} value={v}>
+                  {v}
                 </option>
               ))}
-          </select>
+            </select>
 
-          {filteredItems.length === 0 ? (
-            <div style={{ marginTop: 14, opacity: 0.7, fontWeight: 700 }}>пока пусто. добавим что-нибудь?</div>
-          ) : (
-            <div style={styles.grid}>
-              {filteredItems.map((it) => (
-                <div key={it.id} style={styles.tile}>
-                  <h3 style={styles.tileTitle}>{it.title}</h3>
-                  <div style={styles.tileCreator}>{it.creator}</div>
-
-                  <div style={styles.badgesRow}>
-                    <span style={badgeStyle("type", it.type)}>{it.type === "music" ? "музыка" : it.type === "book" ? "книга" : "фильм"}</span>
-                    <span style={badgeStyle("source", it.source)}>{it.source === "manual" ? "вручную" : "spotify"}</span>
-                    <span style={badgeStyle("vibe", it.vibe)}>{it.vibe ? it.vibe : "без вайба"}</span>
-                  </div>
-
-                  <div style={styles.tileActions}>
-                    <button style={styles.actionBtn("edit")} onClick={() => startEdit(it)}>
-                      редактировать
-                    </button>
-                    <button style={styles.actionBtn("delete")} onClick={() => deleteItem(it.id)}>
-                      удалить
-                    </button>
-                  </div>
-                </div>
-              ))}
+            <div style={{ marginTop: 10, opacity: 0.75, fontSize: 13, textTransform: "lowercase" }}>
+              сейчас выбрано: {vibe ? vibe : "ничего"}, это поле можно оставить пустым
             </div>
-          )}
+
+            {!editingId ? (
+              <button style={canAdd ? primaryBtn : disabledBtn} onClick={addToLibrary} disabled={!canAdd}>
+                → добавить в библиотеку
+              </button>
+            ) : (
+              <>
+                <button style={canAdd ? primaryBtn : disabledBtn} onClick={saveEdit} disabled={!canAdd}>
+                  → сохранить
+                </button>
+                <button
+                  style={secondaryBtn}
+                  onClick={() => {
+                    setEditingId(null);
+                    resetForm();
+                    setTab("library");
+                  }}
+                >
+                  → отмена
+                </button>
+              </>
+            )}
+          </div>
         </section>
       )}
 
-      {activeTab === "analysis" && (
-        <section style={styles.card}>
-          <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 22, fontWeight: 900 }}>analysis</h2>
-          <p style={{ marginTop: 0, marginBottom: 10, fontWeight: 700, opacity: 0.8 }}>
-            период + вайбчек (сделаем дальше).
-          </p>
-          <div style={{ opacity: 0.75, fontWeight: 700 }}>
-            пока тут заглушка: позже добавим выбор периода и анализ библиотеки.
+      {/* LIBRARY */}
+      {tab === "library" && (
+        <section style={card}>
+          <h2 style={h2}>library</h2>
+
+          <div style={fieldLabel}>фильтр по тэги/вайбы</div>
+          <select
+            style={select}
+            value={libraryVibeFilter === "all" ? "all" : libraryVibeFilter}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === "all") setLibraryVibeFilter("all");
+              else if (val === "") setLibraryVibeFilter("" as any);
+              else setLibraryVibeFilter(val as VibeTag);
+              setSelectedId(null);
+            }}
+          >
+            <option value="all">все</option>
+            <option value="">без вайба</option>
+            {VIBES.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+
+          {/* детальная карточка */}
+          {selectedItem && (
+            <div style={{ marginTop: 16, ...tile }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 22, fontWeight: 950, marginBottom: 6, textTransform: "lowercase" }}>
+                    {selectedItem.title}
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 800, opacity: 0.75, textTransform: "lowercase" }}>
+                    {selectedItem.authorOrArtist}
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 13, opacity: 0.65, textTransform: "lowercase" }}>
+                    добавлено: {formatShortDate(selectedItem.createdAt)}
+                  </div>
+                </div>
+
+                <button
+                  style={{ ...secondaryBtn, width: "auto", marginTop: 0, padding: "10px 12px", borderRadius: 12 }}
+                  onClick={() => setSelectedId(null)}
+                >
+                  закрыть
+                </button>
+              </div>
+
+              <div style={chipsRow}>
+                <span style={typeBadgeStyle(selectedItem.type)}>{TYPE_LABEL[selectedItem.type]}</span>
+                <span style={sourceBadgeStyle(selectedItem.source)}>{SOURCE_LABEL[selectedItem.source]}</span>
+                {selectedItem.vibe ? (
+                  <span style={vibeBadgeStyle(selectedItem.vibe)}>{selectedItem.vibe}</span>
+                ) : (
+                  <span style={vibeBadgeStyle(undefined)}>без вайба</span>
+                )}
+              </div>
+
+              <button style={editBtn} onClick={() => startEdit(selectedItem.id)}>
+                → редактировать
+              </button>
+              <button style={dangerBtn} onClick={() => removeItem(selectedItem.id)}>
+                удалить
+              </button>
+            </div>
+          )}
+
+          {/* плитки */}
+          <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+            {visibleLibrary.length === 0 ? (
+              <div style={{ opacity: 0.7, lineHeight: "22px" }}>
+                тут пока пусто. добавьте что-нибудь в add content или сделайте импорт.
+              </div>
+            ) : (
+              visibleLibrary.map((it) => (
+                <button
+                  key={it.id}
+                  style={{ ...tile, textAlign: "left", cursor: "pointer", outline: "none" }}
+                  onClick={() => setSelectedId(it.id)}
+                >
+                  <div style={{ fontSize: 20, fontWeight: 950, marginBottom: 6, textTransform: "lowercase" }}>
+                    {it.title}
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 800, opacity: 0.75, textTransform: "lowercase" }}>
+                    {it.authorOrArtist}
+                  </div>
+
+                  <div style={{ marginTop: 8, fontSize: 13, opacity: 0.65, textTransform: "lowercase" }}>
+                    добавлено: {formatShortDate(it.createdAt)}
+                  </div>
+
+                  <div style={chipsRow}>
+                    <span style={typeBadgeStyle(it.type)}>{TYPE_LABEL[it.type]}</span>
+                    <span style={sourceBadgeStyle(it.source)}>{SOURCE_LABEL[it.source]}</span>
+                    {it.vibe ? (
+                      <span style={vibeBadgeStyle(it.vibe)}>{it.vibe}</span>
+                    ) : (
+                      <span style={vibeBadgeStyle(undefined)}>без вайба</span>
+                    )}
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ANALYSIS */}
+      {tab === "analysis" && (
+        <section style={card}>
+          <h2 style={h2}>analysis</h2>
+
+          <div style={fieldLabel}>период</div>
+          <select style={select} value={period} onChange={(e) => setPeriod(e.target.value as Period)}>
+            <option value="7d">последние 7 дней</option>
+            <option value="30d">последние 30 дней</option>
+            <option value="90d">последние 90 дней</option>
+            <option value="all">за всё время</option>
+          </select>
+
+          <div style={{ marginTop: 16, ...tile }}>
+            <div style={{ fontSize: 20, fontWeight: 950, marginBottom: 6, textTransform: "lowercase" }}>
+              вайбчек
+            </div>
+
+            <div style={{ opacity: 0.8, lineHeight: "22px", textTransform: "lowercase" }}>
+              всего: {analysisStats.total} · музыка: {analysisStats.byType.music} · книги: {analysisStats.byType.book} · фильмы:{" "}
+              {analysisStats.byType.film}
+            </div>
+
+            <div style={{ marginTop: 12, opacity: 0.75, textTransform: "lowercase" }}>топ вайбы:</div>
+            <div style={{ ...chipsRow, marginTop: 10 }}>
+              {analysisStats.topVibes.length === 0 ? (
+                <span style={vibeBadgeStyle(undefined)}>пока нечего анализировать</span>
+              ) : (
+                analysisStats.topVibes.map(([k, v]) => (
+                  <span key={k} style={k === "без вайба" ? vibeBadgeStyle(undefined) : vibeBadgeStyle(k as VibeTag)}>
+                    {k} · {v}
+                  </span>
+                ))
+              )}
+            </div>
+
+            <button style={secondaryBtn} onClick={() => setTab("library")}>
+              → открыть библиотеку
+            </button>
           </div>
         </section>
       )}
