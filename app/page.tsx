@@ -12,23 +12,25 @@ type TgUser = {
 type ContentType = "music" | "book" | "film";
 type SourceType = "manual" | "import_spotify";
 
+/**
+ * ВАЖНО:
+ * - createdAt мы НЕ показываем в UI, но сохраняем, если он уже есть,
+ *   чтобы позже можно было включить периоды/таймлайны без потерь.
+ * - это и есть "план на будущее" без риска слётов.
+ */
 type LibraryItem = {
   id: string;
   type: ContentType;
   source: SourceType;
   title: string;
   authorOrArtist: string;
-  createdAt: number; // ms
+  createdAt?: number;
 };
 
 type Tab = "home" | "add" | "library" | "analysis";
-type Period = "7d" | "30d" | "90d" | "all";
 
 type AnalysisRun = {
   id: string;
-  period: Period;
-  from: number;
-  to: number;
   createdAt: number;
   itemCount: number;
   summary: string;
@@ -42,7 +44,7 @@ const TYPE_LABEL: Record<ContentType, string> = {
 };
 
 const SOURCE_LABEL: Record<SourceType, string> = {
-  manual: "вручную",
+  manual: "сами добавили",
   import_spotify: "импорт",
 };
 
@@ -65,7 +67,7 @@ const PLACEHOLDERS: Record<ContentType, Array<{ title: string; authorOrArtist: s
     { title: "american beauty", authorOrArtist: "sam mendes" },
     { title: "her", authorOrArtist: "spike jonze" },
     { title: "under the skin", authorOrArtist: "jonathan glazer" },
-    { title: "melancholia", authorOrArtist: "lars von trier" },
+    { title: "melancholia", authorOrArtist: "lars von etrier" },
     { title: "the lobster", authorOrArtist: "yorgos lanthimos" },
     { title: "drive my car", authorOrArtist: "ryusuke hamaguchi" },
     { title: "eternal sunshine", authorOrArtist: "michel gondry" },
@@ -77,17 +79,24 @@ const PLACEHOLDERS: Record<ContentType, Array<{ title: string; authorOrArtist: s
     { title: "how should a person be?", authorOrArtist: "sheila heti" },
     { title: "motherhood", authorOrArtist: "sheila heti" },
     { title: "simple passion", authorOrArtist: "annie ernaux" },
-    { title: "the years", authorOrArtist: "annie ernaux" },
     { title: "outline", authorOrArtist: "rachel cusk" },
     { title: "second place", authorOrArtist: "rachel cusk" },
     { title: "weather", authorOrArtist: "jenny offill" },
-    { title: "dept. of speculation", authorOrArtist: "jenny offill" },
+    { title: "котлован", authorOrArtist: "андрей платонов" },
+    { title: "night", authorOrArtist: "elie wiesel" },
   ],
 };
 
-const STORAGE_KEY_LIBRARY = "everyyou.library.v2";
-const STORAGE_KEY_IMPORT = "everyyou.import.v2";
-const STORAGE_KEY_ANALYSIS = "everyyou.analysis.v1";
+// ✅ ОДИН ключ навсегда
+const STORAGE_KEY_LIBRARY = "everyyou.library";
+// старые ключи, из которых мигрируем
+const LEGACY_LIBRARY_KEYS = ["everyyou.library.v2", "everyyou.library.v3"];
+
+const STORAGE_KEY_IMPORT = "everyyou.import"; // тоже без версий
+const LEGACY_IMPORT_KEYS = ["everyyou.import.v2", "everyyou.import.v3"];
+
+const STORAGE_KEY_ANALYSIS = "everyyou.analysis";
+const LEGACY_ANALYSIS_KEYS = ["everyyou.analysis.v1", "everyyou.analysis.v2"];
 
 function uid() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -106,11 +115,6 @@ function safeParse<T>(raw: string | null, fallback: T): T {
   }
 }
 
-function formatShortDate(ms: number) {
-  const d = new Date(ms);
-  return d.toLocaleDateString(undefined, { day: "2-digit", month: "short" }).toLowerCase();
-}
-
 function formatFullDate(ms: number) {
   const d = new Date(ms);
   return d
@@ -122,6 +126,100 @@ function formatFullDate(ms: number) {
       minute: "2-digit",
     })
     .toLowerCase();
+}
+
+/**
+ * МИГРАЦИЯ: читаем данные из новых/старых ключей и приводим к актуальной форме.
+ * - сохраняем createdAt, если он был
+ * - нормализуем поля
+ */
+function loadAndMigrateLibrary(): LibraryItem[] {
+  if (typeof window === "undefined") return [];
+
+  // 1) пробуем новый ключ
+  const main = safeParse<any[]>(window.localStorage.getItem(STORAGE_KEY_LIBRARY), []);
+  if (Array.isArray(main) && main.length > 0) {
+    return normalizeLibrary(main);
+  }
+
+  // 2) если пусто — пробуем старые ключи (берём первый непустой)
+  for (const k of LEGACY_LIBRARY_KEYS) {
+    const legacy = safeParse<any[]>(window.localStorage.getItem(k), []);
+    if (Array.isArray(legacy) && legacy.length > 0) {
+      const normalized = normalizeLibrary(legacy);
+      // сохраняем уже в новый ключ, чтобы больше не терять
+      window.localStorage.setItem(STORAGE_KEY_LIBRARY, JSON.stringify(normalized));
+      return normalized;
+    }
+  }
+
+  return [];
+}
+
+function normalizeLibrary(raw: any[]): LibraryItem[] {
+  const out: LibraryItem[] = [];
+
+  for (const x of raw) {
+    if (!x) continue;
+
+    // минимальная валидация
+    const id = typeof x.id === "string" ? x.id : uid();
+
+    const type: ContentType =
+      x.type === "music" || x.type === "book" || x.type === "film" ? x.type : "music";
+
+    const source: SourceType =
+      x.source === "manual" || x.source === "import_spotify" ? x.source : "manual";
+
+    const title = clampText(String(x.title ?? "")).toLowerCase();
+    const authorOrArtist = clampText(String(x.authorOrArtist ?? "")).toLowerCase();
+
+    if (!title || !authorOrArtist) continue;
+
+    const createdAt =
+      typeof x.createdAt === "number" && Number.isFinite(x.createdAt) ? x.createdAt : undefined;
+
+    out.push({ id, type, source, title, authorOrArtist, createdAt });
+  }
+
+  return out;
+}
+
+function loadAndMigrateNumber(mainKey: string, legacyKeys: string[]): number {
+  if (typeof window === "undefined") return 0;
+
+  const mainRaw = window.localStorage.getItem(mainKey);
+  if (mainRaw != null) {
+    const n = Number(mainRaw);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  for (const k of legacyKeys) {
+    const raw = window.localStorage.getItem(k);
+    if (raw == null) continue;
+    const n = Number(raw);
+    if (Number.isFinite(n)) {
+      window.localStorage.setItem(mainKey, String(n));
+      return n;
+    }
+  }
+
+  return 0;
+}
+
+function loadAndMigrateAnalysis(): AnalysisRun[] {
+  if (typeof window === "undefined") return [];
+  const main = safeParse<AnalysisRun[]>(window.localStorage.getItem(STORAGE_KEY_ANALYSIS), []);
+  if (Array.isArray(main) && main.length > 0) return main;
+
+  for (const k of LEGACY_ANALYSIS_KEYS) {
+    const legacy = safeParse<AnalysisRun[]>(window.localStorage.getItem(k), []);
+    if (Array.isArray(legacy) && legacy.length > 0) {
+      window.localStorage.setItem(STORAGE_KEY_ANALYSIS, JSON.stringify(legacy));
+      return legacy;
+    }
+  }
+  return [];
 }
 
 function baseBadge(): React.CSSProperties {
@@ -184,15 +282,9 @@ export default function Home() {
 
   // import
   const [isImporting, setIsImporting] = useState(false);
-  const [importedCount, setImportedCount] = useState<number>(() => {
-    if (typeof window === "undefined") return 0;
-    const raw = window.localStorage.getItem(STORAGE_KEY_IMPORT);
-    const n = raw ? Number(raw) : 0;
-    return Number.isFinite(n) ? n : 0;
-  });
+  const [importedCount, setImportedCount] = useState<number>(0);
 
   // analysis
-  const [period, setPeriod] = useState<Period>("30d");
   const [analysisRunning, setAnalysisRunning] = useState(false);
   const [analysisHistory, setAnalysisHistory] = useState<AnalysisRun[]>([]);
   const [analysisResult, setAnalysisResult] = useState<AnalysisRun | null>(null);
@@ -209,10 +301,18 @@ export default function Home() {
     setUser(tg.initDataUnsafe?.user ?? null);
   }, []);
 
+  // ✅ загрузка + миграции на старте
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setLibrary(safeParse<LibraryItem[]>(window.localStorage.getItem(STORAGE_KEY_LIBRARY), []));
-    setAnalysisHistory(safeParse<AnalysisRun[]>(window.localStorage.getItem(STORAGE_KEY_ANALYSIS), []));
+
+    const migratedLibrary = loadAndMigrateLibrary();
+    setLibrary(migratedLibrary);
+
+    const migratedImportedCount = loadAndMigrateNumber(STORAGE_KEY_IMPORT, LEGACY_IMPORT_KEYS);
+    setImportedCount(migratedImportedCount);
+
+    const migratedAnalysis = loadAndMigrateAnalysis();
+    setAnalysisHistory(migratedAnalysis);
   }, []);
 
   useEffect(() => {
@@ -263,26 +363,11 @@ export default function Home() {
     });
   }, [library, typeFilter, sourceFilter]);
 
-  const analysisRange = useMemo(() => {
-    const now = Date.now();
-    if (period === "all") return { from: 0, to: now };
-    const days = period === "7d" ? 7 : period === "30d" ? 30 : 90;
-    return { from: now - days * 24 * 60 * 60 * 1000, to: now };
-  }, [period]);
-
-  const analysisItems = useMemo(() => {
-    return library.filter((x) => x.createdAt >= analysisRange.from && x.createdAt <= analysisRange.to);
-  }, [library, analysisRange]);
-
-  const analysisCounters = useMemo(() => {
+  const counters = useMemo(() => {
     const byType: Record<ContentType, number> = { music: 0, book: 0, film: 0 };
-    const bySource: Record<SourceType, number> = { manual: 0, import_spotify: 0 };
-    for (const it of analysisItems) {
-      byType[it.type] += 1;
-      bySource[it.source] += 1;
-    }
-    return { byType, bySource, total: analysisItems.length };
-  }, [analysisItems]);
+    for (const it of library) byType[it.type] += 1;
+    return { byType, total: library.length };
+  }, [library]);
 
   function resetForm() {
     setType("");
@@ -291,20 +376,19 @@ export default function Home() {
     setAuthorOrArtist("");
   }
 
-  function createItem(): LibraryItem {
-    return {
+  function addItem() {
+    if (!canSave) return;
+
+    const item: LibraryItem = {
       id: uid(),
       type: type as ContentType,
       source: source as SourceType,
       title: clampText(title).toLowerCase(),
       authorOrArtist: clampText(authorOrArtist).toLowerCase(),
+      // createdAt сохраняем, но UI не показывает
       createdAt: Date.now(),
     };
-  }
 
-  function addItem() {
-    if (!canSave) return;
-    const item = createItem();
     setLibrary((prev) => [item, ...prev]);
     resetForm();
     setTab("library");
@@ -335,6 +419,7 @@ export default function Home() {
           source: source as SourceType,
           title: clampText(title).toLowerCase(),
           authorOrArtist: clampText(authorOrArtist).toLowerCase(),
+          // createdAt сохраняем как было
         };
       })
     );
@@ -357,10 +442,10 @@ export default function Home() {
     setIsImporting(true);
 
     await new Promise((r) => setTimeout(r, 900));
+
     const plus = 37;
     setImportedCount((n) => n + plus);
 
-    const now = Date.now();
     const fake: LibraryItem[] = [
       {
         id: uid(),
@@ -368,7 +453,7 @@ export default function Home() {
         source: "import_spotify",
         title: "about today",
         authorOrArtist: "the national",
-        createdAt: now,
+        createdAt: Date.now(),
       },
       {
         id: uid(),
@@ -376,7 +461,7 @@ export default function Home() {
         source: "import_spotify",
         title: "codex",
         authorOrArtist: "radiohead",
-        createdAt: now - 60_000,
+        createdAt: Date.now(),
       },
     ];
 
@@ -385,43 +470,31 @@ export default function Home() {
     setTab("library");
   }
 
-  function periodLabel(p: Period) {
-    if (p === "7d") return "последние 7 дней";
-    if (p === "30d") return "последние 30 дней";
-    if (p === "90d") return "последние 90 дней";
-    return "за всё время";
-  }
-
   async function runFakeAnalysis() {
     if (analysisRunning) return;
     setAnalysisRunning(true);
 
-    // имитация работы gpt
     await new Promise((r) => setTimeout(r, 900));
 
-    const total = analysisCounters.total;
-    const t = analysisCounters.byType;
-    const s = analysisCounters.bySource;
+    const total = counters.total;
+    const t = counters.byType;
 
     const summary =
       total === 0
-        ? "похоже, в этом периоде пока нечего анализировать. добавьте пару айтемов — и вернёмся."
-        : `за ${periodLabel(period).toLowerCase()} у вас ${total} айтемов: музыка — ${t.music}, книги — ${t.book}, фильмы — ${t.film}. дальше gpt будет читать сами названия и автора/исполнителя, чтобы собрать вайбчек без ручных тегов.`;
+        ? "пока пусто. добавьте пару айтемов — и сделаем вид, что мы что-то поняли."
+        : `окей, я посмотрел(а) на всё, что у вас есть. всего: ${total} · музыка: ${t.music} · книги: ${t.book} · фильмы: ${t.film}.`;
 
     const highlights =
       total === 0
-        ? ["первый шаг — добавить контент в библиотеку", "можно начать с импорта spotify"]
+        ? ["можно начать с импорта spotify", "или добавить что-то сами"]
         : [
-            `источник: вручную — ${s.manual}, импорт — ${s.import_spotify}`,
-            "следующий шаг — подключить spotify и реальный gpt-анализ",
-            "в будущем: сохранённые вайбчеки и сравнение периодов",
+            "это пока демо: вайбчек делает вид, что он умный",
+            "следующий шаг — подключить spotify, а потом и остальное",
+            "и да, можно не относиться к вайбчеку серьёзно. он тут скорее для красоты",
           ];
 
     const result: AnalysisRun = {
       id: uid(),
-      period,
-      from: analysisRange.from,
-      to: analysisRange.to,
       createdAt: Date.now(),
       itemCount: total,
       summary,
@@ -446,7 +519,12 @@ export default function Home() {
   };
 
   const h1: React.CSSProperties = { margin: "0 0 8px 0", fontSize: 28, fontWeight: 950 };
-  const h2: React.CSSProperties = { margin: "0 0 10px 0", fontSize: 22, fontWeight: 950, textTransform: "lowercase" };
+  const h2: React.CSSProperties = {
+    margin: "0 0 10px 0",
+    fontSize: 22,
+    fontWeight: 950,
+    textTransform: "lowercase",
+  };
 
   const helper: React.CSSProperties = { margin: "0 0 10px 0", opacity: 0.82, lineHeight: "22px" };
 
@@ -532,7 +610,12 @@ export default function Home() {
     background: "rgba(239,68,68,0.10)",
   };
 
-  const pillRow: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 10, marginTop: 12 };
+  const pillRow: React.CSSProperties = {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 12,
+  };
 
   const tile: React.CSSProperties = {
     border: "1px solid rgba(0,0,0,0.10)",
@@ -549,24 +632,40 @@ export default function Home() {
       </p>
 
       <div style={tabs}>
-        <button style={tabBtn(tab === "home")} onClick={() => setTab("home")}>home</button>
-        <button style={tabBtn(tab === "add")} onClick={() => setTab("add")}>add content</button>
-        <button style={tabBtn(tab === "library")} onClick={() => setTab("library")}>library</button>
-        <button style={tabBtn(tab === "analysis")} onClick={() => setTab("analysis")}>analysis</button>
+        <button style={tabBtn(tab === "home")} onClick={() => setTab("home")}>
+          home
+        </button>
+        <button style={tabBtn(tab === "add")} onClick={() => setTab("add")}>
+          add content
+        </button>
+        <button style={tabBtn(tab === "library")} onClick={() => setTab("library")}>
+          library
+        </button>
+        <button style={tabBtn(tab === "analysis")} onClick={() => setTab("analysis")}>
+          analysis
+        </button>
       </div>
 
-      {/* home */}
       {tab === "home" && (
         <section style={card}>
           <h2 style={h2}>что это</h2>
           <p style={helper}>
-            everyyou собирает весь ваш контент в одном месте — книги, фильмы, музыку. затем помогает
-            понять, как всё это влияет на настроение и состояние, и подобрать слова для вайбчека.
+            тут вы собираете всё, что смотрите, читаете и слушаете, в одном месте. чтобы видеть полную
+            картину, а не жить в десяти приложениях одновременно.
+          </p>
+          <p style={{ ...helper, marginTop: -2 }}>
+            если захотите — можно нажать вайбчек. но не относитесь к нему серьёзно, он тут скорее как маленькая шутка.
           </p>
 
-          <button style={primaryBtn} onClick={() => setTab("add")}>→ добавить контент</button>
-          <button style={secondaryBtn} onClick={() => setTab("library")}>→ открыть библиотеку</button>
-          <button style={secondaryBtn} onClick={() => setTab("analysis")}>→ вайбчек</button>
+          <button style={primaryBtn} onClick={() => setTab("add")}>
+            → добавить контент
+          </button>
+          <button style={secondaryBtn} onClick={() => setTab("library")}>
+            → открыть библиотеку
+          </button>
+          <button style={secondaryBtn} onClick={() => setTab("analysis")}>
+            → вайбчек
+          </button>
 
           <div style={{ marginTop: 14, opacity: 0.65, fontSize: 13, lineHeight: "18px" }}>
             telegram webapp: {hasTg ? "detected" : "not detected"} · ready: {ready ? "yes" : "no"}
@@ -574,13 +673,12 @@ export default function Home() {
         </section>
       )}
 
-      {/* add */}
       {tab === "add" && (
         <section style={card}>
           <h2 style={h2}>{editingId ? "редактировать" : "add content"}</h2>
 
           <p style={{ ...helper, marginBottom: 8 }}>
-            импорт — чтобы быстро накидать контента и не страдать. ручной ввод — чтобы добавлять что угодно.
+            импорт — чтобы быстро накидать музыки. сами добавили — чтобы внести вообще что угодно.
           </p>
 
           <button style={isImporting ? disabledBtn : secondaryBtn} onClick={runFakeImport} disabled={isImporting}>
@@ -602,7 +700,7 @@ export default function Home() {
             <div style={fieldLabel}>источник</div>
             <select style={select} value={source} onChange={(e) => setSource(e.target.value as any)}>
               <option value="">выберите источник</option>
-              <option value="manual">вручную</option>
+              <option value="manual">сами добавили</option>
               <option value="import_spotify">импорт</option>
             </select>
 
@@ -653,7 +751,6 @@ export default function Home() {
         </section>
       )}
 
-      {/* library */}
       {tab === "library" && (
         <section style={card}>
           <h2 style={h2}>library</h2>
@@ -682,11 +779,10 @@ export default function Home() {
             }}
           >
             <option value="all">все источники</option>
-            <option value="manual">вручную</option>
+            <option value="manual">сами добавили</option>
             <option value="import_spotify">импорт</option>
           </select>
 
-          {/* detail */}
           {selectedItem && (
             <div style={{ marginTop: 16, ...tile }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
@@ -696,9 +792,6 @@ export default function Home() {
                   </div>
                   <div style={{ fontSize: 16, fontWeight: 850, opacity: 0.78, textTransform: "lowercase" }}>
                     {selectedItem.authorOrArtist}
-                  </div>
-                  <div style={{ marginTop: 8, fontSize: 13, opacity: 0.65, textTransform: "lowercase" }}>
-                    добавлено: {formatFullDate(selectedItem.createdAt)}
                   </div>
                 </div>
 
@@ -715,10 +808,6 @@ export default function Home() {
                 <span style={sourceBadgeStyle(selectedItem.source)}>{SOURCE_LABEL[selectedItem.source]}</span>
               </div>
 
-              <div style={{ marginTop: 10, opacity: 0.72, fontSize: 13, lineHeight: "18px" }}>
-                этот айтем будет учтён в анализе. вайб мы будем считывать автоматически по контенту.
-              </div>
-
               <button style={editBtn} onClick={() => startEdit(selectedItem.id)}>
                 → редактировать
               </button>
@@ -728,7 +817,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* tiles */}
           <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
             {visibleLibrary.length === 0 ? (
               <div style={{ opacity: 0.72, lineHeight: "22px" }}>
@@ -748,10 +836,6 @@ export default function Home() {
                     {it.authorOrArtist}
                   </div>
 
-                  <div style={{ marginTop: 8, fontSize: 13, opacity: 0.65, textTransform: "lowercase" }}>
-                    добавлено: {formatShortDate(it.createdAt)}
-                  </div>
-
                   <div style={pillRow}>
                     <span style={typeBadgeStyle(it.type)}>{TYPE_LABEL[it.type]}</span>
                     <span style={sourceBadgeStyle(it.source)}>{SOURCE_LABEL[it.source]}</span>
@@ -763,26 +847,17 @@ export default function Home() {
         </section>
       )}
 
-      {/* analysis */}
       {tab === "analysis" && (
         <section style={card}>
           <h2 style={h2}>analysis</h2>
 
           <p style={helper}>
-            выберите период и запустите вайбчек. дальше gpt будет считывать вайб по вашему контенту — без ручных тегов.
+            тут можно сделать вайбчек по всей библиотеке. он пока демо и слегка шутка, но кнопка настоящая.
           </p>
 
-          <div style={fieldLabel}>период</div>
-          <select style={select} value={period} onChange={(e) => setPeriod(e.target.value as Period)}>
-            <option value="7d">последние 7 дней</option>
-            <option value="30d">последние 30 дней</option>
-            <option value="90d">последние 90 дней</option>
-            <option value="all">за всё время</option>
-          </select>
-
           <div style={{ marginTop: 12, opacity: 0.78, lineHeight: "22px", textTransform: "lowercase" }}>
-            найдено айтемов в периоде: {analysisCounters.total} · музыка: {analysisCounters.byType.music} · книги:{" "}
-            {analysisCounters.byType.book} · фильмы: {analysisCounters.byType.film}
+            всего айтемов: {counters.total} · музыка: {counters.byType.music} · книги: {counters.byType.book} · фильмы:{" "}
+            {counters.byType.film}
           </div>
 
           <button
@@ -803,7 +878,7 @@ export default function Home() {
               </div>
 
               <div style={{ marginTop: 12, opacity: 0.75, fontWeight: 900, textTransform: "lowercase" }}>
-                что дальше
+                заметки
               </div>
               <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
                 {analysisResult.highlights.map((h) => (
@@ -829,9 +904,7 @@ export default function Home() {
                 {analysisHistory.map((r) => (
                   <div key={r.id} style={{ ...tile, padding: 14 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                      <div style={{ fontWeight: 950, textTransform: "lowercase" }}>
-                        {periodLabel(r.period).toLowerCase()} · {r.itemCount} айтемов
-                      </div>
+                      <div style={{ fontWeight: 950, textTransform: "lowercase" }}>{r.itemCount} айтемов</div>
                       <button
                         style={{
                           border: "1px solid rgba(239,68,68,0.45)",
@@ -855,10 +928,7 @@ export default function Home() {
                       {formatFullDate(r.createdAt)}
                     </div>
 
-                    <button
-                      style={{ ...secondaryBtn, marginTop: 10 }}
-                      onClick={() => setAnalysisResult(r)}
-                    >
+                    <button style={{ ...secondaryBtn, marginTop: 10 }} onClick={() => setAnalysisResult(r)}>
                       открыть
                     </button>
                   </div>
