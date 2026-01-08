@@ -5,9 +5,6 @@ export function supabaseAdmin() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
   return createClient(url, serviceKey, {
-    auth: {
-      persistSession: false,
-    },
+    auth: { persistSession: false },
   });
 }
-
