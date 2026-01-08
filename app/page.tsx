@@ -12,39 +12,28 @@ type TgUser = {
 type ContentType = "music" | "book" | "film";
 type SourceType = "manual" | "import_spotify";
 
-type VibeTag =
-  | "всё бесит"
-  | "тупо"
-  | "круто"
-  | "не круто"
-  | "нужно для дела"
-  | "хочу вдохновиться"
-  | "подумать/переварить"
-  | "хз если честно";
-
 type LibraryItem = {
   id: string;
   type: ContentType;
   source: SourceType;
   title: string;
   authorOrArtist: string;
-  vibe?: VibeTag;
   createdAt: number; // ms
 };
 
 type Tab = "home" | "add" | "library" | "analysis";
 type Period = "7d" | "30d" | "90d" | "all";
 
-const VIBES: VibeTag[] = [
-  "всё бесит",
-  "тупо",
-  "круто",
-  "не круто",
-  "нужно для дела",
-  "хочу вдохновиться",
-  "подумать/переварить",
-  "хз если честно",
-];
+type AnalysisRun = {
+  id: string;
+  period: Period;
+  from: number;
+  to: number;
+  createdAt: number;
+  itemCount: number;
+  summary: string;
+  highlights: string[];
+};
 
 const TYPE_LABEL: Record<ContentType, string> = {
   music: "музыка",
@@ -79,8 +68,8 @@ const PLACEHOLDERS: Record<ContentType, Array<{ title: string; authorOrArtist: s
     { title: "melancholia", authorOrArtist: "lars von trier" },
     { title: "the lobster", authorOrArtist: "yorgos lanthimos" },
     { title: "drive my car", authorOrArtist: "ryusuke hamaguchi" },
-    { title: "call me by your name", authorOrArtist: "luca guadagnino" },
     { title: "eternal sunshine", authorOrArtist: "michel gondry" },
+    { title: "call me by your name", authorOrArtist: "luca guadagnino" },
   ],
   book: [
     { title: "hot milk", authorOrArtist: "deborah levy" },
@@ -96,8 +85,9 @@ const PLACEHOLDERS: Record<ContentType, Array<{ title: string; authorOrArtist: s
   ],
 };
 
-const STORAGE_KEY_LIBRARY = "everyyou.library.v1";
-const STORAGE_KEY_IMPORT = "everyyou.import.v1";
+const STORAGE_KEY_LIBRARY = "everyyou.library.v2";
+const STORAGE_KEY_IMPORT = "everyyou.import.v2";
+const STORAGE_KEY_ANALYSIS = "everyyou.analysis.v1";
 
 function uid() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -107,10 +97,30 @@ function clampText(s: string) {
   return s.trim().replace(/\s+/g, " ");
 }
 
+function safeParse<T>(raw: string | null, fallback: T): T {
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 function formatShortDate(ms: number) {
   const d = new Date(ms);
+  return d.toLocaleDateString(undefined, { day: "2-digit", month: "short" }).toLowerCase();
+}
+
+function formatFullDate(ms: number) {
+  const d = new Date(ms);
   return d
-    .toLocaleDateString(undefined, { day: "2-digit", month: "short" })
+    .toLocaleString(undefined, {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
     .toLowerCase();
 }
 
@@ -132,7 +142,7 @@ function baseBadge(): React.CSSProperties {
 
 function typeBadgeStyle(type: ContentType): React.CSSProperties {
   const map: Record<ContentType, React.CSSProperties> = {
-    music: { background: "rgba(99,102,241,0.16)", borderColor: "rgba(99,102,241,0.35)" }, // индиго/синий
+    music: { background: "rgba(99,102,241,0.16)", borderColor: "rgba(99,102,241,0.35)" }, // индиго
     book: { background: "rgba(168,85,247,0.16)", borderColor: "rgba(168,85,247,0.35)" }, // фиолетовый
     film: { background: "rgba(236,72,153,0.14)", borderColor: "rgba(236,72,153,0.32)" }, // розовый
   };
@@ -142,27 +152,9 @@ function typeBadgeStyle(type: ContentType): React.CSSProperties {
 function sourceBadgeStyle(source: SourceType): React.CSSProperties {
   const map: Record<SourceType, React.CSSProperties> = {
     manual: { background: "rgba(34,197,94,0.14)", borderColor: "rgba(34,197,94,0.30)" }, // зелёный
-    import_spotify: { background: "rgba(59,130,246,0.14)", borderColor: "rgba(59,130,246,0.30)" }, // голубой/синий
+    import_spotify: { background: "rgba(14,165,233,0.14)", borderColor: "rgba(14,165,233,0.30)" }, // голубой
   };
   return { ...baseBadge(), ...map[source] };
-}
-
-function vibeBadgeStyle(vibe?: VibeTag): React.CSSProperties {
-  const map: Partial<Record<VibeTag, React.CSSProperties>> = {
-    "круто": { background: "rgba(34,197,94,0.14)", borderColor: "rgba(34,197,94,0.30)" }, // зелёный
-    "не круто": { background: "rgba(249,115,22,0.14)", borderColor: "rgba(249,115,22,0.30)" }, // оранжевый
-    "всё бесит": { background: "rgba(239,68,68,0.14)", borderColor: "rgba(239,68,68,0.30)" }, // красный
-    "тупо": { background: "rgba(168,85,247,0.14)", borderColor: "rgba(168,85,247,0.30)" }, // фиолетовый
-    "нужно для дела": { background: "rgba(59,130,246,0.14)", borderColor: "rgba(59,130,246,0.30)" }, // синий
-    "хочу вдохновиться": { background: "rgba(236,72,153,0.14)", borderColor: "rgba(236,72,153,0.30)" }, // розовый
-    "подумать/переварить": { background: "rgba(139,92,246,0.14)", borderColor: "rgba(139,92,246,0.30)" }, // сиреневый
-    "хз если честно": { background: "rgba(14,165,233,0.14)", borderColor: "rgba(14,165,233,0.30)" }, // голубой
-  };
-
-  if (!vibe) {
-    return { ...baseBadge(), background: "rgba(0,0,0,0.05)" };
-  }
-  return { ...baseBadge(), ...(map[vibe] ?? { background: "rgba(0,0,0,0.05)" }) };
 }
 
 export default function Home() {
@@ -177,14 +169,14 @@ export default function Home() {
   const [source, setSource] = useState<SourceType | "">("");
   const [title, setTitle] = useState("");
   const [authorOrArtist, setAuthorOrArtist] = useState("");
-  const [vibe, setVibe] = useState<VibeTag | "">("");
 
   // placeholder rotation
   const [phIdx, setPhIdx] = useState(0);
 
   // library
   const [library, setLibrary] = useState<LibraryItem[]>([]);
-  const [libraryVibeFilter, setLibraryVibeFilter] = useState<VibeTag | "all">("all");
+  const [typeFilter, setTypeFilter] = useState<ContentType | "all">("all");
+  const [sourceFilter, setSourceFilter] = useState<SourceType | "all">("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // edit
@@ -201,6 +193,9 @@ export default function Home() {
 
   // analysis
   const [period, setPeriod] = useState<Period>("30d");
+  const [analysisRunning, setAnalysisRunning] = useState(false);
+  const [analysisHistory, setAnalysisHistory] = useState<AnalysisRun[]>([]);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisRun | null>(null);
 
   useEffect(() => {
     const tg = (window as any)?.Telegram?.WebApp;
@@ -216,14 +211,8 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const raw = window.localStorage.getItem(STORAGE_KEY_LIBRARY);
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw) as LibraryItem[];
-      if (Array.isArray(parsed)) setLibrary(parsed);
-    } catch {
-      // ignore
-    }
+    setLibrary(safeParse<LibraryItem[]>(window.localStorage.getItem(STORAGE_KEY_LIBRARY), []));
+    setAnalysisHistory(safeParse<AnalysisRun[]>(window.localStorage.getItem(STORAGE_KEY_ANALYSIS), []));
   }, []);
 
   useEffect(() => {
@@ -237,7 +226,11 @@ export default function Home() {
   }, [importedCount]);
 
   useEffect(() => {
-    // ротируем плейсхолдеры постоянно, чтобы не застаивались
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(STORAGE_KEY_ANALYSIS, JSON.stringify(analysisHistory));
+  }, [analysisHistory]);
+
+  useEffect(() => {
     const id = window.setInterval(() => setPhIdx((i) => i + 1), 2500);
     return () => window.clearInterval(id);
   }, []);
@@ -253,7 +246,7 @@ export default function Home() {
   const phList = PLACEHOLDERS[activeType];
   const currentPh = phList[phIdx % phList.length];
 
-  const canAdd = useMemo(() => {
+  const canSave = useMemo(() => {
     return Boolean(type && source && clampText(title) && clampText(authorOrArtist));
   }, [type, source, title, authorOrArtist]);
 
@@ -263,10 +256,12 @@ export default function Home() {
   }, [selectedId, library]);
 
   const visibleLibrary = useMemo(() => {
-    if (libraryVibeFilter === "all") return library;
-    if (libraryVibeFilter === ("" as any)) return library.filter((x) => !x.vibe);
-    return library.filter((x) => x.vibe === libraryVibeFilter);
-  }, [library, libraryVibeFilter]);
+    return library.filter((x) => {
+      const okType = typeFilter === "all" ? true : x.type === typeFilter;
+      const okSource = sourceFilter === "all" ? true : x.source === sourceFilter;
+      return okType && okSource;
+    });
+  }, [library, typeFilter, sourceFilter]);
 
   const analysisRange = useMemo(() => {
     const now = Date.now();
@@ -279,19 +274,14 @@ export default function Home() {
     return library.filter((x) => x.createdAt >= analysisRange.from && x.createdAt <= analysisRange.to);
   }, [library, analysisRange]);
 
-  const analysisStats = useMemo(() => {
+  const analysisCounters = useMemo(() => {
     const byType: Record<ContentType, number> = { music: 0, book: 0, film: 0 };
-    const byVibe: Record<string, number> = {};
+    const bySource: Record<SourceType, number> = { manual: 0, import_spotify: 0 };
     for (const it of analysisItems) {
       byType[it.type] += 1;
-      const key = it.vibe ?? "без вайба";
-      byVibe[key] = (byVibe[key] ?? 0) + 1;
+      bySource[it.source] += 1;
     }
-
-    const vibesSorted = Object.entries(byVibe).sort((a, b) => b[1] - a[1]);
-    const topVibes = vibesSorted.slice(0, 4);
-
-    return { byType, topVibes, total: analysisItems.length };
+    return { byType, bySource, total: analysisItems.length };
   }, [analysisItems]);
 
   function resetForm() {
@@ -299,29 +289,26 @@ export default function Home() {
     setSource("");
     setTitle("");
     setAuthorOrArtist("");
-    setVibe("");
   }
 
-  function addToLibrary() {
-    if (!canAdd) return;
-    const item: LibraryItem = {
+  function createItem(): LibraryItem {
+    return {
       id: uid(),
       type: type as ContentType,
       source: source as SourceType,
       title: clampText(title).toLowerCase(),
       authorOrArtist: clampText(authorOrArtist).toLowerCase(),
-      vibe: vibe ? (vibe as VibeTag) : undefined,
       createdAt: Date.now(),
     };
+  }
+
+  function addItem() {
+    if (!canSave) return;
+    const item = createItem();
     setLibrary((prev) => [item, ...prev]);
     resetForm();
     setTab("library");
-  }
-
-  function removeItem(id: string) {
-    setLibrary((prev) => prev.filter((x) => x.id !== id));
-    if (selectedId === id) setSelectedId(null);
-    if (editingId === id) setEditingId(null);
+    setSelectedId(item.id);
   }
 
   function startEdit(id: string) {
@@ -329,17 +316,15 @@ export default function Home() {
     if (!it) return;
     setEditingId(id);
     setTab("add");
-
     setType(it.type);
     setSource(it.source);
     setTitle(it.title);
     setAuthorOrArtist(it.authorOrArtist);
-    setVibe(it.vibe ?? "");
   }
 
   function saveEdit() {
     if (!editingId) return;
-    if (!canAdd) return;
+    if (!canSave) return;
 
     setLibrary((prev) =>
       prev.map((x) => {
@@ -350,7 +335,6 @@ export default function Home() {
           source: source as SourceType,
           title: clampText(title).toLowerCase(),
           authorOrArtist: clampText(authorOrArtist).toLowerCase(),
-          vibe: vibe ? (vibe as VibeTag) : undefined,
         };
       })
     );
@@ -360,6 +344,12 @@ export default function Home() {
     resetForm();
     setTab("library");
     setSelectedId(id);
+  }
+
+  function removeItem(id: string) {
+    setLibrary((prev) => prev.filter((x) => x.id !== id));
+    if (selectedId === id) setSelectedId(null);
+    if (editingId === id) setEditingId(null);
   }
 
   async function runFakeImport() {
@@ -378,7 +368,6 @@ export default function Home() {
         source: "import_spotify",
         title: "about today",
         authorOrArtist: "the national",
-        vibe: "подумать/переварить",
         createdAt: now,
       },
       {
@@ -387,46 +376,88 @@ export default function Home() {
         source: "import_spotify",
         title: "codex",
         authorOrArtist: "radiohead",
-        vibe: "хз если честно",
         createdAt: now - 60_000,
       },
     ];
 
     setLibrary((prev) => [...fake, ...prev]);
-
     setIsImporting(false);
     setTab("library");
   }
 
+  function periodLabel(p: Period) {
+    if (p === "7d") return "последние 7 дней";
+    if (p === "30d") return "последние 30 дней";
+    if (p === "90d") return "последние 90 дней";
+    return "за всё время";
+  }
+
+  async function runFakeAnalysis() {
+    if (analysisRunning) return;
+    setAnalysisRunning(true);
+
+    // имитация работы gpt
+    await new Promise((r) => setTimeout(r, 900));
+
+    const total = analysisCounters.total;
+    const t = analysisCounters.byType;
+    const s = analysisCounters.bySource;
+
+    const summary =
+      total === 0
+        ? "похоже, в этом периоде пока нечего анализировать. добавьте пару айтемов — и вернёмся."
+        : `за ${periodLabel(period).toLowerCase()} у вас ${total} айтемов: музыка — ${t.music}, книги — ${t.book}, фильмы — ${t.film}. дальше gpt будет читать сами названия и автора/исполнителя, чтобы собрать вайбчек без ручных тегов.`;
+
+    const highlights =
+      total === 0
+        ? ["первый шаг — добавить контент в библиотеку", "можно начать с импорта spotify"]
+        : [
+            `источник: вручную — ${s.manual}, импорт — ${s.import_spotify}`,
+            "следующий шаг — подключить spotify и реальный gpt-анализ",
+            "в будущем: сохранённые вайбчеки и сравнение периодов",
+          ];
+
+    const result: AnalysisRun = {
+      id: uid(),
+      period,
+      from: analysisRange.from,
+      to: analysisRange.to,
+      createdAt: Date.now(),
+      itemCount: total,
+      summary,
+      highlights,
+    };
+
+    setAnalysisResult(result);
+    setAnalysisHistory((prev) => [result, ...prev].slice(0, 30));
+    setAnalysisRunning(false);
+  }
+
+  function deleteAnalysisRun(id: string) {
+    setAnalysisHistory((prev) => prev.filter((x) => x.id !== id));
+    if (analysisResult?.id === id) setAnalysisResult(null);
+  }
+
+  // styles
   const pageWrap: React.CSSProperties = {
     padding: 24,
     fontFamily:
       'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
   };
 
-  const h1: React.CSSProperties = { margin: "0 0 8px 0", fontSize: 28, fontWeight: 900 };
-  const h2: React.CSSProperties = {
-    margin: "0 0 10px 0",
-    fontSize: 22,
-    fontWeight: 900,
-    textTransform: "lowercase",
-  };
+  const h1: React.CSSProperties = { margin: "0 0 8px 0", fontSize: 28, fontWeight: 950 };
+  const h2: React.CSSProperties = { margin: "0 0 10px 0", fontSize: 22, fontWeight: 950, textTransform: "lowercase" };
 
-  const helper: React.CSSProperties = { margin: "0 0 10px 0", opacity: 0.8, lineHeight: "22px" };
+  const helper: React.CSSProperties = { margin: "0 0 10px 0", opacity: 0.82, lineHeight: "22px" };
 
-  const tabs: React.CSSProperties = {
-    display: "flex",
-    gap: 10,
-    margin: "12px 0 16px 0",
-  };
-
+  const tabs: React.CSSProperties = { display: "flex", gap: 10, margin: "12px 0 16px 0" };
   const tabBtn = (active: boolean): React.CSSProperties => ({
     padding: "10px 14px",
     borderRadius: 999,
     border: "1px solid rgba(0,0,0,0.12)",
     background: active ? "black" : "white",
     color: active ? "white" : "black",
-    fontWeight: 800,
+    fontWeight: 900,
     textTransform: "lowercase",
   });
 
@@ -439,7 +470,7 @@ export default function Home() {
 
   const fieldLabel: React.CSSProperties = {
     fontSize: 13,
-    fontWeight: 900,
+    fontWeight: 950,
     opacity: 0.65,
     marginTop: 14,
     marginBottom: 6,
@@ -455,11 +486,7 @@ export default function Home() {
     outline: "none",
   };
 
-  const select: React.CSSProperties = {
-    ...input,
-    appearance: "none",
-    background: "white",
-  };
+  const select: React.CSSProperties = { ...input, appearance: "none", background: "white" };
 
   const primaryBtn: React.CSSProperties = {
     width: "100%",
@@ -470,7 +497,7 @@ export default function Home() {
     background: "black",
     color: "white",
     fontSize: 16,
-    fontWeight: 900,
+    fontWeight: 950,
     textTransform: "lowercase",
   };
 
@@ -483,7 +510,7 @@ export default function Home() {
     background: "white",
     color: "black",
     fontSize: 16,
-    fontWeight: 900,
+    fontWeight: 950,
     textTransform: "lowercase",
   };
 
@@ -493,30 +520,25 @@ export default function Home() {
     color: "rgba(0,0,0,0.55)",
   };
 
-  const dangerBtn: React.CSSProperties = {
-    ...secondaryBtn,
-    borderColor: "rgba(239,68,68,0.45)",
-    background: "rgba(239,68,68,0.10)",
-  };
-
   const editBtn: React.CSSProperties = {
     ...secondaryBtn,
     borderColor: "rgba(59,130,246,0.45)",
     background: "rgba(59,130,246,0.10)",
   };
 
+  const dangerBtn: React.CSSProperties = {
+    ...secondaryBtn,
+    borderColor: "rgba(239,68,68,0.45)",
+    background: "rgba(239,68,68,0.10)",
+  };
+
+  const pillRow: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 10, marginTop: 12 };
+
   const tile: React.CSSProperties = {
     border: "1px solid rgba(0,0,0,0.10)",
     borderRadius: 18,
     padding: 16,
     background: "white",
-  };
-
-  const chipsRow: React.CSSProperties = {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 10,
-    marginTop: 12,
   };
 
   return (
@@ -527,39 +549,24 @@ export default function Home() {
       </p>
 
       <div style={tabs}>
-        <button style={tabBtn(tab === "home")} onClick={() => setTab("home")}>
-          home
-        </button>
-        <button style={tabBtn(tab === "add")} onClick={() => setTab("add")}>
-          add content
-        </button>
-        <button style={tabBtn(tab === "library")} onClick={() => setTab("library")}>
-          library
-        </button>
-        <button style={tabBtn(tab === "analysis")} onClick={() => setTab("analysis")}>
-          analysis
-        </button>
+        <button style={tabBtn(tab === "home")} onClick={() => setTab("home")}>home</button>
+        <button style={tabBtn(tab === "add")} onClick={() => setTab("add")}>add content</button>
+        <button style={tabBtn(tab === "library")} onClick={() => setTab("library")}>library</button>
+        <button style={tabBtn(tab === "analysis")} onClick={() => setTab("analysis")}>analysis</button>
       </div>
 
-      {/* HOME */}
+      {/* home */}
       {tab === "home" && (
         <section style={card}>
           <h2 style={h2}>что это</h2>
           <p style={helper}>
-            everyyou собирает всё, что вы смотрите, читаете и слушаете — чтобы вы видели, как контент
-            влияет на настроение и состояние. дальше можно собрать библиотеку и в любой момент сделать
-            вайбчек по выбранному периоду.
+            everyyou собирает весь ваш контент в одном месте — книги, фильмы, музыку. затем помогает
+            понять, как всё это влияет на настроение и состояние, и подобрать слова для вайбчека.
           </p>
 
-          <button style={primaryBtn} onClick={() => setTab("add")}>
-            → добавить контент
-          </button>
-          <button style={secondaryBtn} onClick={() => setTab("library")}>
-            → открыть библиотеку
-          </button>
-          <button style={secondaryBtn} onClick={() => setTab("analysis")}>
-            → вайбчек
-          </button>
+          <button style={primaryBtn} onClick={() => setTab("add")}>→ добавить контент</button>
+          <button style={secondaryBtn} onClick={() => setTab("library")}>→ открыть библиотеку</button>
+          <button style={secondaryBtn} onClick={() => setTab("analysis")}>→ вайбчек</button>
 
           <div style={{ marginTop: 14, opacity: 0.65, fontSize: 13, lineHeight: "18px" }}>
             telegram webapp: {hasTg ? "detected" : "not detected"} · ready: {ready ? "yes" : "no"}
@@ -567,32 +574,23 @@ export default function Home() {
         </section>
       )}
 
-      {/* ADD CONTENT */}
+      {/* add */}
       {tab === "add" && (
         <section style={card}>
           <h2 style={h2}>{editingId ? "редактировать" : "add content"}</h2>
 
-          {/* импорт */}
           <p style={{ ...helper, marginBottom: 8 }}>
-            импорт — чтобы быстро накидать контента и не страдать.
+            импорт — чтобы быстро накидать контента и не страдать. ручной ввод — чтобы добавлять что угодно.
           </p>
-          <button
-            style={isImporting ? disabledBtn : secondaryBtn}
-            onClick={runFakeImport}
-            disabled={isImporting}
-          >
+
+          <button style={isImporting ? disabledBtn : secondaryBtn} onClick={runFakeImport} disabled={isImporting}>
             {isImporting ? "тянем данные…" : "импорт"}
           </button>
           <div style={{ marginTop: 8, opacity: 0.75, fontSize: 13, textTransform: "lowercase" }}>
             импортировано: {importedCount} треков
           </div>
 
-          {/* вручную */}
           <div style={{ marginTop: 16 }}>
-            <p style={{ ...helper, marginBottom: 6 }}>
-              вручную — добавляйте что хотите: музыку, книги, фильмы. хоть «стыдный ромком», хоть «тяжёлая правда жизни».
-            </p>
-
             <div style={fieldLabel}>тип</div>
             <select style={select} value={type} onChange={(e) => setType(e.target.value as any)}>
               <option value="">выберите тип</option>
@@ -630,27 +628,13 @@ export default function Home() {
               autoCapitalize="none"
             />
 
-            <div style={fieldLabel}>тэги/вайбы</div>
-            <select style={select} value={vibe} onChange={(e) => setVibe(e.target.value as any)}>
-              <option value="">ничего</option>
-              {VIBES.map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-            </select>
-
-            <div style={{ marginTop: 10, opacity: 0.75, fontSize: 13, textTransform: "lowercase" }}>
-              сейчас выбрано: {vibe ? vibe : "ничего"}, это поле можно оставить пустым
-            </div>
-
             {!editingId ? (
-              <button style={canAdd ? primaryBtn : disabledBtn} onClick={addToLibrary} disabled={!canAdd}>
+              <button style={canSave ? primaryBtn : disabledBtn} onClick={addItem} disabled={!canSave}>
                 → добавить в библиотеку
               </button>
             ) : (
               <>
-                <button style={canAdd ? primaryBtn : disabledBtn} onClick={saveEdit} disabled={!canAdd}>
+                <button style={canSave ? primaryBtn : disabledBtn} onClick={saveEdit} disabled={!canSave}>
                   → сохранить
                 </button>
                 <button
@@ -669,33 +653,40 @@ export default function Home() {
         </section>
       )}
 
-      {/* LIBRARY */}
+      {/* library */}
       {tab === "library" && (
         <section style={card}>
           <h2 style={h2}>library</h2>
 
-          <div style={fieldLabel}>фильтр по тэги/вайбы</div>
+          <div style={fieldLabel}>фильтры</div>
           <select
             style={select}
-            value={libraryVibeFilter === "all" ? "all" : libraryVibeFilter}
+            value={typeFilter}
             onChange={(e) => {
-              const val = e.target.value;
-              if (val === "all") setLibraryVibeFilter("all");
-              else if (val === "") setLibraryVibeFilter("" as any);
-              else setLibraryVibeFilter(val as VibeTag);
+              setTypeFilter(e.target.value as any);
               setSelectedId(null);
             }}
           >
-            <option value="all">все</option>
-            <option value="">без вайба</option>
-            {VIBES.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
+            <option value="all">все типы</option>
+            <option value="music">музыка</option>
+            <option value="book">книга</option>
+            <option value="film">фильм</option>
           </select>
 
-          {/* детальная карточка */}
+          <select
+            style={{ ...select, marginTop: 10 }}
+            value={sourceFilter}
+            onChange={(e) => {
+              setSourceFilter(e.target.value as any);
+              setSelectedId(null);
+            }}
+          >
+            <option value="all">все источники</option>
+            <option value="manual">вручную</option>
+            <option value="import_spotify">импорт</option>
+          </select>
+
+          {/* detail */}
           {selectedItem && (
             <div style={{ marginTop: 16, ...tile }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
@@ -703,11 +694,11 @@ export default function Home() {
                   <div style={{ fontSize: 22, fontWeight: 950, marginBottom: 6, textTransform: "lowercase" }}>
                     {selectedItem.title}
                   </div>
-                  <div style={{ fontSize: 16, fontWeight: 800, opacity: 0.75, textTransform: "lowercase" }}>
+                  <div style={{ fontSize: 16, fontWeight: 850, opacity: 0.78, textTransform: "lowercase" }}>
                     {selectedItem.authorOrArtist}
                   </div>
                   <div style={{ marginTop: 8, fontSize: 13, opacity: 0.65, textTransform: "lowercase" }}>
-                    добавлено: {formatShortDate(selectedItem.createdAt)}
+                    добавлено: {formatFullDate(selectedItem.createdAt)}
                   </div>
                 </div>
 
@@ -719,14 +710,13 @@ export default function Home() {
                 </button>
               </div>
 
-              <div style={chipsRow}>
+              <div style={pillRow}>
                 <span style={typeBadgeStyle(selectedItem.type)}>{TYPE_LABEL[selectedItem.type]}</span>
                 <span style={sourceBadgeStyle(selectedItem.source)}>{SOURCE_LABEL[selectedItem.source]}</span>
-                {selectedItem.vibe ? (
-                  <span style={vibeBadgeStyle(selectedItem.vibe)}>{selectedItem.vibe}</span>
-                ) : (
-                  <span style={vibeBadgeStyle(undefined)}>без вайба</span>
-                )}
+              </div>
+
+              <div style={{ marginTop: 10, opacity: 0.72, fontSize: 13, lineHeight: "18px" }}>
+                этот айтем будет учтён в анализе. вайб мы будем считывать автоматически по контенту.
               </div>
 
               <button style={editBtn} onClick={() => startEdit(selectedItem.id)}>
@@ -738,10 +728,10 @@ export default function Home() {
             </div>
           )}
 
-          {/* плитки */}
+          {/* tiles */}
           <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
             {visibleLibrary.length === 0 ? (
-              <div style={{ opacity: 0.7, lineHeight: "22px" }}>
+              <div style={{ opacity: 0.72, lineHeight: "22px" }}>
                 тут пока пусто. добавьте что-нибудь в add content или сделайте импорт.
               </div>
             ) : (
@@ -754,7 +744,7 @@ export default function Home() {
                   <div style={{ fontSize: 20, fontWeight: 950, marginBottom: 6, textTransform: "lowercase" }}>
                     {it.title}
                   </div>
-                  <div style={{ fontSize: 16, fontWeight: 800, opacity: 0.75, textTransform: "lowercase" }}>
+                  <div style={{ fontSize: 16, fontWeight: 850, opacity: 0.78, textTransform: "lowercase" }}>
                     {it.authorOrArtist}
                   </div>
 
@@ -762,14 +752,9 @@ export default function Home() {
                     добавлено: {formatShortDate(it.createdAt)}
                   </div>
 
-                  <div style={chipsRow}>
+                  <div style={pillRow}>
                     <span style={typeBadgeStyle(it.type)}>{TYPE_LABEL[it.type]}</span>
                     <span style={sourceBadgeStyle(it.source)}>{SOURCE_LABEL[it.source]}</span>
-                    {it.vibe ? (
-                      <span style={vibeBadgeStyle(it.vibe)}>{it.vibe}</span>
-                    ) : (
-                      <span style={vibeBadgeStyle(undefined)}>без вайба</span>
-                    )}
                   </div>
                 </button>
               ))
@@ -778,10 +763,14 @@ export default function Home() {
         </section>
       )}
 
-      {/* ANALYSIS */}
+      {/* analysis */}
       {tab === "analysis" && (
         <section style={card}>
           <h2 style={h2}>analysis</h2>
+
+          <p style={helper}>
+            выберите период и запустите вайбчек. дальше gpt будет считывать вайб по вашему контенту — без ручных тегов.
+          </p>
 
           <div style={fieldLabel}>период</div>
           <select style={select} value={period} onChange={(e) => setPeriod(e.target.value as Period)}>
@@ -791,33 +780,92 @@ export default function Home() {
             <option value="all">за всё время</option>
           </select>
 
-          <div style={{ marginTop: 16, ...tile }}>
-            <div style={{ fontSize: 20, fontWeight: 950, marginBottom: 6, textTransform: "lowercase" }}>
-              вайбчек
-            </div>
-
-            <div style={{ opacity: 0.8, lineHeight: "22px", textTransform: "lowercase" }}>
-              всего: {analysisStats.total} · музыка: {analysisStats.byType.music} · книги: {analysisStats.byType.book} · фильмы:{" "}
-              {analysisStats.byType.film}
-            </div>
-
-            <div style={{ marginTop: 12, opacity: 0.75, textTransform: "lowercase" }}>топ вайбы:</div>
-            <div style={{ ...chipsRow, marginTop: 10 }}>
-              {analysisStats.topVibes.length === 0 ? (
-                <span style={vibeBadgeStyle(undefined)}>пока нечего анализировать</span>
-              ) : (
-                analysisStats.topVibes.map(([k, v]) => (
-                  <span key={k} style={k === "без вайба" ? vibeBadgeStyle(undefined) : vibeBadgeStyle(k as VibeTag)}>
-                    {k} · {v}
-                  </span>
-                ))
-              )}
-            </div>
-
-            <button style={secondaryBtn} onClick={() => setTab("library")}>
-              → открыть библиотеку
-            </button>
+          <div style={{ marginTop: 12, opacity: 0.78, lineHeight: "22px", textTransform: "lowercase" }}>
+            найдено айтемов в периоде: {analysisCounters.total} · музыка: {analysisCounters.byType.music} · книги:{" "}
+            {analysisCounters.byType.book} · фильмы: {analysisCounters.byType.film}
           </div>
+
+          <button
+            style={analysisRunning ? disabledBtn : primaryBtn}
+            onClick={runFakeAnalysis}
+            disabled={analysisRunning}
+          >
+            {analysisRunning ? "думаем…" : "провести вайбчек"}
+          </button>
+
+          {analysisResult && (
+            <div style={{ marginTop: 16, ...tile }}>
+              <div style={{ fontSize: 18, fontWeight: 950, marginBottom: 8, textTransform: "lowercase" }}>
+                результат
+              </div>
+              <div style={{ opacity: 0.85, lineHeight: "22px", textTransform: "lowercase" }}>
+                {analysisResult.summary}
+              </div>
+
+              <div style={{ marginTop: 12, opacity: 0.75, fontWeight: 900, textTransform: "lowercase" }}>
+                что дальше
+              </div>
+              <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                {analysisResult.highlights.map((h) => (
+                  <div key={h} style={{ opacity: 0.8, textTransform: "lowercase" }}>
+                    • {h}
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 10, opacity: 0.65, fontSize: 13, textTransform: "lowercase" }}>
+                сохранено: {formatFullDate(analysisResult.createdAt)}
+              </div>
+            </div>
+          )}
+
+          {analysisHistory.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 16, fontWeight: 950, marginBottom: 8, textTransform: "lowercase" }}>
+                история вайбчеков
+              </div>
+
+              <div style={{ display: "grid", gap: 10 }}>
+                {analysisHistory.map((r) => (
+                  <div key={r.id} style={{ ...tile, padding: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                      <div style={{ fontWeight: 950, textTransform: "lowercase" }}>
+                        {periodLabel(r.period).toLowerCase()} · {r.itemCount} айтемов
+                      </div>
+                      <button
+                        style={{
+                          border: "1px solid rgba(239,68,68,0.45)",
+                          background: "rgba(239,68,68,0.10)",
+                          borderRadius: 12,
+                          padding: "8px 10px",
+                          fontWeight: 950,
+                          textTransform: "lowercase",
+                        }}
+                        onClick={() => deleteAnalysisRun(r.id)}
+                      >
+                        удалить
+                      </button>
+                    </div>
+
+                    <div style={{ marginTop: 6, opacity: 0.8, lineHeight: "20px", textTransform: "lowercase" }}>
+                      {r.summary}
+                    </div>
+
+                    <div style={{ marginTop: 8, opacity: 0.65, fontSize: 13, textTransform: "lowercase" }}>
+                      {formatFullDate(r.createdAt)}
+                    </div>
+
+                    <button
+                      style={{ ...secondaryBtn, marginTop: 10 }}
+                      onClick={() => setAnalysisResult(r)}
+                    >
+                      открыть
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       )}
     </main>
