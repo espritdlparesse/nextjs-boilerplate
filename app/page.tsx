@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Tab = "home" | "add" | "library" | "vibe";
 type ItemType = "music" | "book" | "movie";
@@ -8,14 +8,34 @@ type ItemSource = "manual" | "spotify" | "goodreads" | "letterboxd";
 
 type Item = {
   id: string | number;
-  tg_user_id?: number;
   type: ItemType;
   source?: string | null;
   title: string;
-  creator?: string | null; // важно: в твоём API это creator
+  creator?: string | null;
   created_at?: string | null;
-  updated_at?: string | null;
 };
+
+type ImportResult = {
+  detectedType: "music" | "book" | "movie" | "unknown";
+  detectedSource: "spotify" | "goodreads" | "letterboxd" | "manual";
+  confidence: number;
+  items: Array<{ type: ItemType; source: ItemSource; title: string; creator?: string | null }>;
+  warnings: string[];
+};
+
+function tgInitData(): string {
+  try {
+    // @ts-ignore
+    return (window?.Telegram?.WebApp?.initData as string) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function authHeaders(): HeadersInit {
+  const initData = tgInitData();
+  return initData ? { "x-telegram-init-data": initData } : {};
+}
 
 function Pill({
   active,
@@ -121,15 +141,7 @@ function Input({
 }) {
   return (
     <div style={{ marginTop: 12 }}>
-      <div
-        style={{
-          fontSize: 12,
-          fontWeight: 800,
-          textTransform: "lowercase",
-          color: "#222",
-          marginBottom: 6,
-        }}
-      >
+      <div style={{ fontSize: 12, fontWeight: 800, textTransform: "lowercase", color: "#222", marginBottom: 6 }}>
         {label}
       </div>
       <input
@@ -165,15 +177,7 @@ function Select({
 }) {
   return (
     <div style={{ marginTop: 12 }}>
-      <div
-        style={{
-          fontSize: 12,
-          fontWeight: 800,
-          textTransform: "lowercase",
-          color: "#222",
-          marginBottom: 6,
-        }}
-      >
+      <div style={{ fontSize: 12, fontWeight: 800, textTransform: "lowercase", color: "#222", marginBottom: 6 }}>
         {label}
       </div>
       <select
@@ -200,7 +204,6 @@ function Select({
   );
 }
 
-// ✅ динамические плейсхолдеры (как на старых скринах по смыслу)
 function titlePlaceholder(type: ItemType | "") {
   if (type === "music") return "например: cellophane";
   if (type === "book") return "например: the idiot";
@@ -229,34 +232,16 @@ export default function HomePage() {
   const [summary, setSummary] = useState<string>("");
   const [summaryError, setSummaryError] = useState<string>("");
 
-  // add content
-  const [type, setType] = useState<ItemType | "">("");
-  const [source, setSource] = useState<ItemSource | "">("");
-  const [title, setTitle] = useState("");
-  const [creator, setCreator] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string>("");
-
-  // library
-  const [items, setItems] = useState<Item[]>([]);
-  const [itemsLoading, setItemsLoading] = useState(false);
-  const [itemsError, setItemsError] = useState<string>("");
-  const [filterType, setFilterType] = useState<ItemType | "all">("all");
-
-  const headerTitle = useMemo(() => {
-    if (tab === "home") return "что это";
-    if (tab === "add") return "add content";
-    if (tab === "library") return "library";
-    return "вайбчек";
-  }, [tab]);
-
   async function runSummary() {
     setLoadingSummary(true);
     setSummaryError("");
     setSummary("");
 
     try {
-      const res = await fetch("/api/summary", { method: "POST" });
+      const res = await fetch("/api/summary", {
+        method: "POST",
+        headers: { ...authHeaders() },
+      });
       const json = await res.json().catch(() => ({}));
 
       if (!res.ok) {
@@ -272,34 +257,77 @@ export default function HomePage() {
     }
   }
 
-  async function loadItems() {
-    setItemsLoading(true);
-    setItemsError("");
+  // add content
+  const [type, setType] = useState<ItemType | "">("");
+  const [source, setSource] = useState<ItemSource | "">("");
+  const [title, setTitle] = useState("");
+  const [creator, setCreator] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string>("");
+
+  // import flow
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string>("");
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [selected, setSelected] = useState<Record<number, boolean>>({});
+  const [savingImport, setSavingImport] = useState(false);
+  const [savingImportError, setSavingImportError] = useState("");
+
+  function openFilePicker() {
+    setImportError("");
+    setImportResult(null);
+    setSelected({});
+    fileInputRef.current?.click();
+  }
+
+  async function onFilePicked(file: File | null) {
+    if (!file) return;
+
+    setImporting(true);
+    setImportError("");
+    setImportResult(null);
+    setSelected({});
 
     try {
-      const res = await fetch("/api/items", { method: "GET" });
-      const json = await res.json().catch(() => ({}));
+      const fd = new FormData();
+      fd.append("file", file);
 
+      const res = await fetch("/api/import-image", {
+        method: "POST",
+        headers: { ...authHeaders() },
+        body: fd,
+      });
+
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setItemsError(json?.error ?? "Failed to load items");
+        setImportError(json?.error ?? "Import failed");
         return;
       }
 
-      const list = (json?.items ?? []) as Item[];
-      setItems(Array.isArray(list) ? list : []);
+      const result = json as ImportResult;
+      setImportResult(result);
+
+      // по умолчанию выберем все
+      const sel: Record<number, boolean> = {};
+      (result.items ?? []).forEach((_, idx) => (sel[idx] = true));
+      setSelected(sel);
+
+      // можем сразу подсказать тип/источник в форме
+      if (result.detectedType !== "unknown") setType(result.detectedType);
+      setSource(result.detectedSource);
     } catch (e: any) {
-      setItemsError(e?.message ?? "Network error");
+      setImportError(e?.message ?? "Network error");
     } finally {
-      setItemsLoading(false);
+      setImporting(false);
     }
   }
 
-  async function addItem() {
+  async function addItemManual() {
     setSaving(true);
     setSaveError("");
 
     try {
-      // ✅ важно: creator (как у тебя в API), НЕ author_or_artist
       const payload = {
         type,
         source,
@@ -309,12 +337,11 @@ export default function HomePage() {
 
       const res = await fetch("/api/items", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...authHeaders() },
         body: JSON.stringify(payload),
       });
 
       const json = await res.json().catch(() => ({}));
-
       if (!res.ok) {
         setSaveError(json?.error ?? "Failed to save");
         return;
@@ -329,6 +356,85 @@ export default function HomePage() {
       setSaveError(e?.message ?? "Network error");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveImportedItems() {
+    if (!importResult) return;
+    setSavingImport(true);
+    setSavingImportError("");
+
+    try {
+      const chosen = importResult.items
+        .map((it, idx) => ({ it, idx }))
+        .filter(({ idx }) => selected[idx]);
+
+      if (chosen.length === 0) {
+        setSavingImportError("Вы ничего не выбрали для сохранения.");
+        return;
+      }
+
+      // сохраняем по одному через твой POST /api/items
+      for (const { it } of chosen) {
+        const payload = {
+          type: it.type,
+          source: it.source,
+          title: it.title,
+          creator: it.creator ?? null,
+        };
+
+        const res = await fetch("/api/items", {
+          method: "POST",
+          headers: { "content-type": "application/json", ...authHeaders() },
+          body: JSON.stringify(payload),
+        });
+
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(json?.error ?? "Failed to save imported item");
+        }
+      }
+
+      // очистим import state и уйдём в библиотеку
+      setImportResult(null);
+      setSelected({});
+      await loadItems();
+      setTab("library");
+    } catch (e: any) {
+      setSavingImportError(e?.message ?? "Network error");
+    } finally {
+      setSavingImport(false);
+    }
+  }
+
+  // library
+  const [items, setItems] = useState<Item[]>([]);
+  const [itemsLoading, setItemsLoading] = useState(false);
+  const [itemsError, setItemsError] = useState<string>("");
+  const [filterType, setFilterType] = useState<ItemType | "all">("all");
+
+  async function loadItems() {
+    setItemsLoading(true);
+    setItemsError("");
+
+    try {
+      const res = await fetch("/api/items", {
+        method: "GET",
+        headers: { ...authHeaders() },
+      });
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setItemsError(json?.error ?? "Failed to load items");
+        return;
+      }
+
+      const list = (json?.items ?? []) as Item[];
+      setItems(Array.isArray(list) ? list : []);
+    } catch (e: any) {
+      setItemsError(e?.message ?? "Network error");
+    } finally {
+      setItemsLoading(false);
     }
   }
 
@@ -348,7 +454,14 @@ export default function HomePage() {
     return { total: items.length, music, books, movies };
   }, [items]);
 
-  const canSave = Boolean(type && source && title.trim());
+  const canSaveManual = Boolean(type && source && title.trim());
+
+  const headerTitle = useMemo(() => {
+    if (tab === "home") return "что это";
+    if (tab === "add") return "add content";
+    if (tab === "library") return "library";
+    return "вайбчек";
+  }, [tab]);
 
   return (
     <main
@@ -361,25 +474,15 @@ export default function HomePage() {
       }}
     >
       <div style={{ marginTop: 6 }}>
-        <div style={{ fontSize: 42, fontWeight: 800, letterSpacing: -0.5 }}>
-          everyyou
-        </div>
+        <div style={{ fontSize: 42, fontWeight: 800, letterSpacing: -0.5 }}>everyyou</div>
         <div style={{ marginTop: 8, fontSize: 18, color: "#444" }}>привет!</div>
       </div>
 
       <div style={{ display: "flex", gap: 10, marginTop: 18, flexWrap: "wrap" }}>
-        <Pill active={tab === "home"} onClick={() => setTab("home")}>
-          home
-        </Pill>
-        <Pill active={tab === "add"} onClick={() => setTab("add")}>
-          add content
-        </Pill>
-        <Pill active={tab === "library"} onClick={() => setTab("library")}>
-          library
-        </Pill>
-        <Pill active={tab === "vibe"} onClick={() => setTab("vibe")}>
-          vibe check
-        </Pill>
+        <Pill active={tab === "home"} onClick={() => setTab("home")}>home</Pill>
+        <Pill active={tab === "add"} onClick={() => setTab("add")}>add content</Pill>
+        <Pill active={tab === "library"} onClick={() => setTab("library")}>library</Pill>
+        <Pill active={tab === "vibe"} onClick={() => setTab("vibe")}>vibe check</Pill>
       </div>
 
       <section
@@ -391,14 +494,7 @@ export default function HomePage() {
           background: "#fff",
         }}
       >
-        <div
-          style={{
-            fontSize: 26,
-            fontWeight: 900,
-            letterSpacing: -0.2,
-            textTransform: "lowercase",
-          }}
-        >
+        <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: -0.2, textTransform: "lowercase" }}>
           {headerTitle}
         </div>
 
@@ -426,18 +522,106 @@ export default function HomePage() {
           </>
         )}
 
-        {/* ADD CONTENT */}
+        {/* ADD */}
         {tab === "add" && (
           <>
             <div style={{ marginTop: 12, fontSize: 16, lineHeight: 1.55, color: "#222" }}>
               импорт — чтобы быстро накидать музыки. сами добавили — чтобы внести вообще что угодно.
             </div>
 
+            {/* hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={(e) => onFilePicked(e.target.files?.[0] ?? null)}
+            />
+
             <div style={{ marginTop: 14 }}>
-              <ActionButton label="импорт" variant="secondary" onClick={() => alert("Импорт подключим следующим шагом")} />
+              <ActionButton
+                label={importing ? "импортирую…" : "импорт"}
+                variant="secondary"
+                disabled={importing}
+                onClick={openFilePicker}
+              />
             </div>
 
-            <div style={{ marginTop: 10, fontSize: 13, color: "#666" }}>
+            {importError && (
+              <div style={{ marginTop: 12, color: "crimson", fontSize: 14 }}>
+                {importError}
+              </div>
+            )}
+
+            {/* import preview */}
+            {importResult && (
+              <div style={{ marginTop: 14, padding: 14, border: "1px solid #eee", borderRadius: 14 }}>
+                <div style={{ fontWeight: 900, fontSize: 16 }}>
+                  Предпросмотр импорта
+                </div>
+
+                <div style={{ marginTop: 8, fontSize: 13, color: "#444" }}>
+                  найдено: <b>{importResult.items.length}</b> · источник: <b>{importResult.detectedSource}</b> · тип:{" "}
+                  <b>{importResult.detectedType}</b> · уверенность: <b>{Math.round((importResult.confidence ?? 0) * 100)}%</b>
+                </div>
+
+                {importResult.warnings?.length > 0 && (
+                  <div style={{ marginTop: 8, fontSize: 13, color: "#666" }}>
+                    {importResult.warnings.join(" · ")}
+                  </div>
+                )}
+
+                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                  {importResult.items.slice(0, 40).map((it, idx) => (
+                    <label
+                      key={idx}
+                      style={{
+                        display: "flex",
+                        gap: 10,
+                        alignItems: "flex-start",
+                        padding: 12,
+                        border: "1px solid #eee",
+                        borderRadius: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!!selected[idx]}
+                        onChange={(e) => setSelected((p) => ({ ...p, [idx]: e.target.checked }))}
+                        style={{ marginTop: 3 }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 900 }}>{it.title}</div>
+                        {it.creator && <div style={{ marginTop: 4, color: "#444" }}>{it.creator}</div>}
+                        <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <Tag>{typeLabel(it.type)}</Tag>
+                          <Tag>{it.source}</Tag>
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+
+                <div style={{ marginTop: 12 }}>
+                  <ActionButton
+                    label={savingImport ? "сохраняю…" : "сохранить выбранное в библиотеку"}
+                    variant="primary"
+                    disabled={savingImport}
+                    onClick={saveImportedItems}
+                  />
+                </div>
+
+                {savingImportError && (
+                  <div style={{ marginTop: 10, color: "crimson", fontSize: 14 }}>
+                    {savingImportError}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* manual add (как было) */}
+            <div style={{ marginTop: 12, fontSize: 13, color: "#666" }}>
               импортировано: 0 треков
             </div>
 
@@ -469,14 +653,18 @@ export default function HomePage() {
             <Input label="название" value={title} onChange={setTitle} placeholder={titlePlaceholder(type)} />
             <Input label="автор / исполнитель" value={creator} onChange={setCreator} placeholder={creatorPlaceholder(type)} />
 
-            {saveError && <div style={{ marginTop: 12, color: "crimson", fontSize: 14 }}>{saveError}</div>}
+            {saveError && (
+              <div style={{ marginTop: 12, color: "crimson", fontSize: 14 }}>
+                {saveError}
+              </div>
+            )}
 
             <div style={{ marginTop: 14 }}>
               <ActionButton
                 label={saving ? "добавляю…" : "добавить в библиотеку"}
                 variant="primary"
-                disabled={!canSave || saving}
-                onClick={addItem}
+                disabled={!canSaveManual || saving}
+                onClick={addItemManual}
               />
             </div>
           </>
@@ -486,7 +674,8 @@ export default function HomePage() {
         {tab === "library" && (
           <>
             <div style={{ marginTop: 12, fontSize: 15, color: "#444" }}>
-              всего в библиотеке: <b>{counts.total}</b> · музыка: <b>{counts.music}</b> · книги: <b>{counts.books}</b> · фильмы: <b>{counts.movies}</b>
+              всего в библиотеке: <b>{counts.total}</b> · музыка: <b>{counts.music}</b> · книги: <b>{counts.books}</b> · фильмы:{" "}
+              <b>{counts.movies}</b>
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
@@ -520,7 +709,9 @@ export default function HomePage() {
                     background: "#fff",
                   }}
                 >
-                  <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.2 }}>{it.title}</div>
+                  <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: -0.2 }}>
+                    {it.title}
+                  </div>
 
                   {it.creator && (
                     <div style={{ marginTop: 6, fontSize: 14, color: "#444" }}>
@@ -530,7 +721,7 @@ export default function HomePage() {
 
                   <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <Tag>{typeLabel(it.type)}</Tag>
-                    <Tag>{it.source ?? "manual"}</Tag>
+                    <Tag>{(it.source ?? "manual") as any}</Tag>
                   </div>
                 </div>
               ))}
@@ -559,7 +750,11 @@ export default function HomePage() {
               />
             </div>
 
-            {summaryError && <div style={{ marginTop: 12, color: "crimson", fontSize: 14 }}>{summaryError}</div>}
+            {summaryError && (
+              <div style={{ marginTop: 12, color: "crimson", fontSize: 14 }}>
+                {summaryError}
+              </div>
+            )}
 
             {summary && (
               <div
