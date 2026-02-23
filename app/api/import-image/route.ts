@@ -64,7 +64,6 @@ function clampItems(items: any[]): ImportedItem[] {
 }
 
 function safeParseJson(text: string) {
-  // модель иногда может вернуть текст вокруг JSON — вырежем первый {...} блок
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start === -1 || end === -1 || end <= start) return null;
@@ -96,7 +95,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "only image/* is supported" }, { status: 400 });
   }
 
-  // ограничение на всякий случай
   if (file.size > 10 * 1024 * 1024) {
     return NextResponse.json({ error: "image too large (max 10MB)" }, { status: 400 });
   }
@@ -107,8 +105,6 @@ export async function POST(req: NextRequest) {
 
   const client = new OpenAI({ apiKey });
 
-  // Вынеси в Vercel env, если захочешь:
-  // OPENAI_VISION_MODEL=gpt-4o-mini (или другой vision-моделью)
   const model = process.env.OPENAI_VISION_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
   const instructions = [
@@ -135,8 +131,7 @@ export async function POST(req: NextRequest) {
     "- Letterboxd: фильмы, иногда режиссёр/год.",
   ].join("\n");
 
-  const userText =
-    "Распознай этот скрин. Верни JSON в указанном формате. В items: максимум 80 элементов.";
+  const userText = "Распознай этот скрин. Верни JSON в указанном формате. В items: максимум 80 элементов.";
 
   let outputText = "";
 
@@ -149,7 +144,8 @@ export async function POST(req: NextRequest) {
           role: "user",
           content: [
             { type: "input_text", text: userText },
-            { type: "input_image", image_url: dataUrl },
+            // ВАЖНО: image_url должен быть объектом с url + detail, иначе TS падает на openai@4
+            { type: "input_image", image_url: { url: dataUrl, detail: "auto" } },
           ],
         },
       ],
