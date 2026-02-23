@@ -50,7 +50,9 @@ function clampItems(items: any[]): ImportedItem[] {
     if (!title) continue;
     if (!["music", "book", "movie"].includes(type)) continue;
 
-    const src = (["spotify", "goodreads", "letterboxd"].includes(source) ? source : "manual") as ImportedItem["source"];
+    const src = (["spotify", "goodreads", "letterboxd"].includes(source)
+      ? source
+      : "manual") as ImportedItem["source"];
 
     out.push({
       type: type as ImportedItem["type"],
@@ -78,60 +80,72 @@ function safeParseJson(text: string) {
 
 export async function POST(req: NextRequest) {
   const auth = authTg(req);
-  if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
 
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY missing" }, { status: 500 });
+  if (!apiKey) {
+    return NextResponse.json({ error: "OPENAI_API_KEY missing" }, { status: 500 });
+  }
 
   const form = await req.formData().catch(() => null);
-  if (!form) return NextResponse.json({ error: "bad form data" }, { status: 400 });
+  if (!form) {
+    return NextResponse.json({ error: "bad form data" }, { status: 400 });
+  }
 
   const file = form.get("file");
   if (!(file instanceof File)) {
-    return NextResponse.json({ error: "file is required (multipart field name: file)" }, { status: 400 });
+    return NextResponse.json(
+      { error: "file is required (multipart field name: file)" },
+      { status: 400 }
+    );
   }
 
   if (!file.type?.startsWith("image/")) {
-    return NextResponse.json({ error: "only image/* is supported" }, { status: 400 });
+    return NextResponse.json({ error: "only image/* supported" }, { status: 400 });
   }
 
   if (file.size > 10 * 1024 * 1024) {
     return NextResponse.json({ error: "image too large (max 10MB)" }, { status: 400 });
   }
 
-  const buf = Buffer.from(await file.arrayBuffer());
-  const b64 = buf.toString("base64");
-  const dataUrl = `data:${file.type};base64,${b64}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const base64 = buffer.toString("base64");
+  const dataUrl = `data:${file.type};base64,${base64}`;
 
   const client = new OpenAI({ apiKey });
 
-  const model = process.env.OPENAI_VISION_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+  const model =
+    process.env.OPENAI_VISION_MODEL ??
+    process.env.OPENAI_MODEL ??
+    "gpt-4o-mini";
 
-  const instructions = [
-    "Ты помощник, который импортирует контент по скриншоту.",
-    "Твоя задача: определить, что на скриншоте (Spotify / Goodreads / Letterboxd / другое) и извлечь список элементов.",
-    "Возвращай ТОЛЬКО валидный JSON без пояснений и без обертки в ```.",
-    "Не выдумывай элементы: извлекай только то, что реально видно на изображении.",
-    "Если не уверен — лучше верни меньше элементов, чем придумай.",
-    "",
-    "Формат ответа (строго):",
-    "{",
-    '  "detectedType": "music" | "book" | "movie" | "unknown",',
-    '  "detectedSource": "spotify" | "goodreads" | "letterboxd" | "manual",',
-    '  "confidence": number,',
-    '  "items": [',
-    '    { "type": "music"|"book"|"movie", "source": "spotify"|"goodreads"|"letterboxd"|"manual", "title": string, "creator": string|null }',
-    "  ],",
-    '  "warnings": string[]',
-    "}",
-    "",
-    "Подсказка по скринам:",
-    "- Spotify: обычно треки/исполнители, иногда плейлист.",
-    "- Goodreads: книги/авторы, прочитано/читаю/хочу прочитать.",
-    "- Letterboxd: фильмы, иногда режиссёр/год.",
-  ].join("\n");
+  const instructions = `
+Ты помощник, который импортирует контент по скриншоту.
 
-  const userText = "Распознай этот скрин. Верни JSON в указанном формате. В items: максимум 80 элементов.";
+Определи, что на скриншоте (Spotify / Goodreads / Letterboxd / другое)
+и извлеки список элементов.
+
+Верни ТОЛЬКО валидный JSON без комментариев и без markdown.
+
+Формат строго такой:
+
+{
+  "detectedType": "music" | "book" | "movie" | "unknown",
+  "detectedSource": "spotify" | "goodreads" | "letterboxd" | "manual",
+  "confidence": number,
+  "items": [
+    { "type": "music"|"book"|"movie", "source": "spotify"|"goodreads"|"letterboxd"|"manual", "title": string, "creator": string|null }
+  ],
+  "warnings": string[]
+}
+
+Не выдумывай элементы. Извлекай только то, что реально видно.
+Максимум 80 элементов.
+`;
+
+  const userText = "Распознай этот скрин и верни JSON.";
 
   let outputText = "";
 
@@ -144,8 +158,8 @@ export async function POST(req: NextRequest) {
           role: "user",
           content: [
             { type: "input_text", text: userText },
-            // ВАЖНО: image_url должен быть объектом с url + detail, иначе TS падает на openai@4
-            { type: "input_image", image_url: { url: dataUrl, detail: "auto" } },
+            // ВАЖНО: image_url — строка, detail — отдельным полем
+            { type: "input_image", image_url: dataUrl, detail: "auto" },
           ],
         },
       ],
@@ -153,14 +167,17 @@ export async function POST(req: NextRequest) {
 
     outputText = resp.output_text ?? "";
   } catch (e: any) {
-    const msg = typeof e?.message === "string" ? e.message : "openai error";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json(
+      { error: e?.message ?? "openai error" },
+      { status: 500 }
+    );
   }
 
   const parsed = safeParseJson(outputText);
+
   if (!parsed) {
     return NextResponse.json(
-      { error: "failed to parse model output as json", raw: outputText.slice(0, 2000) },
+      { error: "failed to parse model output", raw: outputText.slice(0, 2000) },
       { status: 500 }
     );
   }
@@ -170,11 +187,17 @@ export async function POST(req: NextRequest) {
   const confidence = Number(parsed.confidence ?? 0);
 
   const items = clampItems(parsed.items ?? []);
-  const warnings = Array.isArray(parsed.warnings) ? parsed.warnings.map((x: any) => String(x)) : [];
+  const warnings = Array.isArray(parsed.warnings)
+    ? parsed.warnings.map((x: any) => String(x))
+    : [];
 
   return NextResponse.json({
-    detectedType: ["music", "book", "movie"].includes(detectedType) ? detectedType : "unknown",
-    detectedSource: ["spotify", "goodreads", "letterboxd"].includes(detectedSource) ? detectedSource : "manual",
+    detectedType: ["music", "book", "movie"].includes(detectedType)
+      ? detectedType
+      : "unknown",
+    detectedSource: ["spotify", "goodreads", "letterboxd"].includes(detectedSource)
+      ? detectedSource
+      : "manual",
     confidence: Number.isFinite(confidence) ? confidence : 0,
     items,
     warnings,
