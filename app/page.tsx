@@ -30,21 +30,41 @@ export default function HomePage() {
   }
 
   return (
-    <main style={{ maxWidth: 720, margin: "40px auto", padding: "0 16px", fontFamily: "system-ui" }}>
-      <h1 style={{ fontSize: 28, marginBottom: 12 }}>EveryYou</h1>
+    <main
+      style={{
+        maxWidth: 720,
+        margin: "40px auto",
+        padding: "0 16px",
+        fontFamily: "system-ui",
+        lineHeight: 1.6,
+      }}
+    >
+      <h1 style={{ fontSize: 28, marginBottom: 24 }}>EveryYou</h1>
+
+      <section style={{ marginBottom: 32 }}>
+        <h2 style={{ fontSize: 20, marginBottom: 12 }}>что это</h2>
+        <p>
+          EveryYou помогает собрать весь потребляемый контент в одном месте.
+          Музыка, книги и фильмы фиксируются в вашей библиотеке.
+        </p>
+        <p style={{ marginTop: 12 }}>
+          Когда данных накопится достаточно, можно провести вайбчек и увидеть общую динамику.
+        </p>
+      </section>
 
       <button
         onClick={runSummary}
         disabled={loading}
         style={{
-          padding: "10px 14px",
-          borderRadius: 10,
+          padding: "12px 16px",
+          borderRadius: 12,
           border: "1px solid #ddd",
           background: loading ? "#f3f3f3" : "white",
           cursor: loading ? "not-allowed" : "pointer",
+          fontSize: 16,
         }}
       >
-        {loading ? "Думаю..." : "Проанализировать мой контент"}
+        {loading ? "Провожу вайбчек…" : "Провести вайбчек"}
       </button>
 
       {error && (
@@ -54,7 +74,15 @@ export default function HomePage() {
       )}
 
       {summary && (
-        <div style={{ marginTop: 20, padding: 16, border: "1px solid #eee", borderRadius: 12, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+        <div
+          style={{
+            marginTop: 24,
+            padding: 16,
+            border: "1px solid #eee",
+            borderRadius: 12,
+            whiteSpace: "pre-wrap",
+          }}
+        >
           {summary}
         </div>
       )}
