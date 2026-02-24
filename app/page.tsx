@@ -160,9 +160,9 @@ export default function Page() {
   }
 
   // ===== BULK SAVE (iOS-safe) =====
-  async function saveSelected(items: ImportedItem[]) {
+  async function saveSelected(itemsToSave: ImportedItem[]) {
     const payload = {
-      items: items.map((item) => ({
+      items: itemsToSave.map((item) => ({
         type: item.type,
         source: item.source,
         title: item.title,
@@ -186,9 +186,7 @@ export default function Page() {
         cache: "no-store",
       });
     } catch (e: any) {
-      throw new Error(
-        e?.message ? `fetch failed: ${e.message}` : "fetch failed"
-      );
+      throw new Error(e?.message ? `fetch failed: ${e.message}` : "fetch failed");
     }
 
     const json = await safeJson(res);
@@ -257,10 +255,15 @@ export default function Page() {
 
   // ===== UI =====
 
-  const styles = {
+  const styles: Record<string, React.CSSProperties> = {
     page: { maxWidth: 720, margin: "0 auto", padding: 20, fontFamily: "system-ui" },
     brand: { fontSize: 42, fontWeight: 800, marginBottom: 10 },
-    tabs: { display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" },
+    tabs: {
+      display: "flex",
+      gap: 10,
+      marginBottom: 20,
+      flexWrap: "wrap" as const, // ✅ фикс TS
+    },
     tab: {
       padding: "8px 14px",
       borderRadius: 999,
@@ -314,13 +317,28 @@ export default function Page() {
 
       {tab === "home" && (
         <div style={styles.card}>
-          <p>музыка, книги и фильмы — в одном месте.</p>
+          <h2 style={{ fontSize: 26, fontWeight: 800, margin: 0 }}>что это</h2>
+          <p style={{ marginTop: 12 }}>
+            EveryYou помогает собрать весь потребляемый контент в одном месте. Музыка, книги и фильмы фиксируются в вашей библиотеке.
+          </p>
+          <p style={{ marginTop: 12 }}>
+            Когда данных накопится достаточно, можно провести вайбчек и увидеть общую динамику.
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
+            <button style={styles.btn} onClick={() => setTab("add")}>→ добавить контент</button>
+            <button style={styles.btnSecondary} onClick={() => setTab("library")}>→ открыть библиотеку</button>
+            <button style={styles.btnSecondary} onClick={() => setTab("vibe")}>→ вайбчек</button>
+          </div>
         </div>
       )}
 
       {tab === "add" && (
         <div style={styles.card}>
-          <p>импорт — чтобы быстро накидать контента</p>
+          <h2 style={{ fontSize: 34, fontWeight: 800, margin: 0 }}>add content</h2>
+          <p style={{ marginTop: 10 }}>
+            импорт — чтобы быстро накидать музыки. сами добавили — чтобы внести вообще что угодно.
+          </p>
 
           <input
             ref={fileRef}
@@ -334,7 +352,7 @@ export default function Page() {
           />
 
           <button
-            style={styles.btnSecondary}
+            style={{ ...styles.btnSecondary, marginTop: 12 }}
             onClick={() => fileRef.current?.click()}
           >
             {importLoading ? "импортирую..." : "→ импорт"}
@@ -342,55 +360,135 @@ export default function Page() {
 
           {importError && <div style={styles.error}>{importError}</div>}
 
-          {imported.map((it, i) => (
-            <div key={i} style={{ marginTop: 10 }}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={selectedIdx.has(i)}
-                  onChange={() => toggleImported(i)}
-                />{" "}
-                {it.title} — {it.creator}
-              </label>
-            </div>
-          ))}
-
           {imported.length > 0 && (
-            <button
-              style={{ ...styles.btn, marginTop: 16 }}
-              onClick={saveSelectedImported}
-              disabled={savingImported}
-            >
-              {savingImported
-                ? "сохраняю..."
-                : "сохранить выбранное в библиотеку"}
-            </button>
+            <div style={{ marginTop: 16 }}>
+              {imported.map((it, i) => (
+                <div
+                  key={i}
+                  style={{
+                    border: "1px solid #eee",
+                    borderRadius: 16,
+                    padding: 14,
+                    marginBottom: 10,
+                    display: "flex",
+                    gap: 10,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedIdx.has(i)}
+                    onChange={() => toggleImported(i)}
+                    style={{ marginTop: 4 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 800, fontSize: 18 }}>{it.title}</div>
+                    <div style={{ opacity: 0.8, marginTop: 2 }}>{it.creator || "—"}</div>
+                    <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" as const }}>
+                      <span style={{ padding: "6px 10px", borderRadius: 999, background: "#f3f3f3", fontSize: 12 }}>
+                        {it.type === "music" ? "музыка" : it.type === "book" ? "книги" : "фильмы"}
+                      </span>
+                      <span style={{ padding: "6px 10px", borderRadius: 999, background: "#f3f3f3", fontSize: 12 }}>
+                        {it.source}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <button
+                style={{ ...styles.btn, marginTop: 12 }}
+                onClick={saveSelectedImported}
+                disabled={savingImported}
+              >
+                {savingImported ? "сохраняю..." : "→ сохранить выбранное в библиотеку"}
+              </button>
+            </div>
           )}
         </div>
       )}
 
       {tab === "library" && (
         <div style={styles.card}>
-          <div>
-            всего: {counts.total} · музыка: {counts.music} · книги:{" "}
-            {counts.books} · фильмы: {counts.movies}
+          <h2 style={{ fontSize: 34, fontWeight: 800, margin: 0 }}>library</h2>
+          <p style={{ marginTop: 10 }}>
+            здесь будет ваша библиотека: музыка, книги и фильмы — всё в одном месте.
+          </p>
+
+          <div style={{ marginTop: 12, opacity: 0.85 }}>
+            всего айтемов: {counts.total} · музыка: {counts.music} · книги: {counts.books} · фильмы: {counts.movies}
           </div>
 
-          {items.map((it) => (
-            <div key={it.id} style={{ marginTop: 10 }}>
-              {it.title} — {it.creator}
+          <button style={{ ...styles.btnSecondary, marginTop: 14 }} onClick={() => setTab("add")}>
+            → добавить контент
+          </button>
+
+          {libraryError && <div style={styles.error}>{libraryError}</div>}
+
+          {libraryLoading ? (
+            <div style={{ marginTop: 14 }}>загружаю…</div>
+          ) : (
+            <div style={{ marginTop: 14 }}>
+              {items.map((it) => (
+                <div
+                  key={String(it.id)}
+                  style={{
+                    border: "1px solid #eee",
+                    borderRadius: 16,
+                    padding: 14,
+                    marginBottom: 10,
+                  }}
+                >
+                  <div style={{ fontWeight: 800, fontSize: 18 }}>{it.title}</div>
+                  <div style={{ opacity: 0.8, marginTop: 2 }}>{it.creator || "—"}</div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" as const }}>
+                    <span style={{ padding: "6px 10px", borderRadius: 999, background: "#f3f3f3", fontSize: 12 }}>
+                      {it.type === "music" ? "музыка" : it.type === "book" ? "книги" : "фильмы"}
+                    </span>
+                    <span style={{ padding: "6px 10px", borderRadius: 999, background: "#f3f3f3", fontSize: 12 }}>
+                      {it.source}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {items.length === 0 && <div style={{ marginTop: 10 }}>пока пусто</div>}
             </div>
-          ))}
+          )}
         </div>
       )}
 
       {tab === "vibe" && (
         <div style={styles.card}>
-          <button style={styles.btn} onClick={runVibeCheck}>
-            {vibeLoading ? "думаю..." : "провести вайбчек"}
+          <h2 style={{ fontSize: 34, fontWeight: 800, margin: 0 }}>вайбчек</h2>
+          <p style={{ marginTop: 10 }}>
+            Здесь можно провести вайбчек всей вашей библиотеки. Алгоритм анализирует сохранённый контент и собирает общий портрет периода.
+          </p>
+          <p style={{ marginTop: 10, opacity: 0.85 }}>
+            Это пока только демо-версия — не относитесь слишком строго и серьёзно.
+          </p>
+
+          <div style={{ marginTop: 12, opacity: 0.85 }}>
+            всего айтемов: {counts.total} · музыка: {counts.music} · книги: {counts.books} · фильмы: {counts.movies}
+          </div>
+
+          <button style={{ ...styles.btn, marginTop: 14 }} onClick={runVibeCheck} disabled={vibeLoading}>
+            {vibeLoading ? "провожу вайбчек…" : "провести вайбчек"}
           </button>
+
           {vibeError && <div style={styles.error}>{vibeError}</div>}
-          {summary && <div style={{ marginTop: 16 }}>{summary}</div>}
+          {summary && (
+            <div
+              style={{
+                marginTop: 14,
+                padding: 14,
+                border: "1px solid #eee",
+                borderRadius: 14,
+                whiteSpace: "pre-wrap",
+                lineHeight: 1.5,
+              }}
+            >
+              {summary}
+            </div>
+          )}
         </div>
       )}
     </main>
