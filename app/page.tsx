@@ -30,6 +30,14 @@ function getTgInitData(): string {
   return (window as any).Telegram?.WebApp?.initData || "";
 }
 
+async function safeJson(res: Response) {
+  try {
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
+
 export default function Page() {
   const [tab, setTab] = useState<Tab>("home");
 
@@ -49,7 +57,9 @@ export default function Page() {
     setHelloName(name ? `привет, ${name}!` : "привет!");
   }, []);
 
-  const tgInitData = useMemo(() => getTgInitData(), []);
+  // Важно: в Telegram WebApp initData может появиться не мгновенно,
+  // поэтому читаем его каждый раз перед запросом через getTgInitData().
+  const tgInitDataStatic = useMemo(() => getTgInitData(), []);
 
   // ====== Library state ======
   const [libraryLoading, setLibraryLoading] = useState(false);
@@ -60,13 +70,14 @@ export default function Page() {
     setLibraryLoading(true);
     setLibraryError("");
     try {
-      const res = await fetch(`${window.location.origin}/api/items`, {
+      const res = await fetch("/api/items", {
         method: "GET",
-        headers: { "x-telegram-init-data": tgInitData },
+        headers: { "x-telegram-init-data": getTgInitData() || tgInitDataStatic },
       });
-      const json = await res.json().catch(() => ({}));
+
+      const json = await safeJson(res);
       if (!res.ok) {
-        setLibraryError(json?.error ?? "Не удалось загрузить библиотеку");
+        setLibraryError(json?.error ?? `Не удалось загрузить библиотеку (HTTP ${res.status})`);
         setItems([]);
         return;
       }
@@ -115,11 +126,11 @@ export default function Page() {
 
     setSavingManual(true);
     try {
-      const res = await fetch(`${window.location.origin}/api/items`, {
+      const res = await fetch("/api/items", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-telegram-init-data": tgInitData,
+          "x-telegram-init-data": getTgInitData() || tgInitDataStatic,
         },
         body: JSON.stringify({
           type,
@@ -129,9 +140,9 @@ export default function Page() {
         }),
       });
 
-      const json = await res.json().catch(() => ({}));
+      const json = await safeJson(res);
       if (!res.ok) {
-        setManualError(json?.error ?? "Не удалось добавить");
+        setManualError(json?.error ?? `Не удалось добавить (HTTP ${res.status})`);
         return;
       }
 
@@ -172,15 +183,15 @@ export default function Page() {
       const form = new FormData();
       form.append("file", file);
 
-      const res = await fetch(`${window.location.origin}/api/import-image`, {
+      const res = await fetch("/api/import-image", {
         method: "POST",
-        headers: { "x-telegram-init-data": tgInitData },
+        headers: { "x-telegram-init-data": getTgInitData() || tgInitDataStatic },
         body: form,
       });
 
-      const json = await res.json().catch(() => ({}));
+      const json = await safeJson(res);
       if (!res.ok) {
-        setImportError(json?.error ?? "Импорт не сработал");
+        setImportError(json?.error ?? `Импорт не сработал (HTTP ${res.status})`);
         return;
       }
 
@@ -191,6 +202,30 @@ export default function Page() {
       setImportError(e?.message ?? "Network error");
     } finally {
       setImportLoading(false);
+    }
+  }
+
+  // ВАЖНО: относительный путь + Telegram header
+  async function saveSelected(itemsToSave: any[]) {
+    for (const item of itemsToSave) {
+      const res = await fetch("/api/items", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-telegram-init-data": getTgInitData() || tgInitDataStatic,
+        },
+        body: JSON.stringify({
+          type: item.type,
+          source: item.source,
+          title: item.title,
+          creator: item.creator,
+        }),
+      });
+
+      const json = await safeJson(res);
+      if (!res.ok) {
+        throw new Error(json?.error ?? `Не удалось сохранить (HTTP ${res.status})`);
+      }
     }
   }
 
@@ -205,24 +240,7 @@ export default function Page() {
         return;
       }
 
-      for (const it of selected) {
-        const res = await fetch(`${window.location.origin}/api/items`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-telegram-init-data": tgInitData,
-          },
-          body: JSON.stringify({
-            type: it.type,
-            source: it.source,
-            title: it.title,
-            creator: it.creator ?? null,
-          }),
-        });
-
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(json?.error ?? "Не удалось сохранить");
-      }
+      await saveSelected(selected);
 
       setImported([]);
       setSelectedIdx(new Set());
@@ -246,14 +264,14 @@ export default function Page() {
     setSummary("");
 
     try {
-      const res = await fetch(`${window.location.origin}/api/summary`, {
+      const res = await fetch("/api/summary", {
         method: "POST",
-        headers: { "x-telegram-init-data": tgInitData },
+        headers: { "x-telegram-init-data": getTgInitData() || tgInitDataStatic },
       });
 
-      const json = await res.json().catch(() => ({}));
+      const json = await safeJson(res);
       if (!res.ok) {
-        setVibeError(json?.error ?? "Request failed");
+        setVibeError(json?.error ?? `Request failed (HTTP ${res.status})`);
         return;
       }
       setSummary(json?.summary ?? "");
@@ -516,7 +534,11 @@ export default function Page() {
           <button style={styles.btnSecondary} onClick={() => setTab("add")}>
             → добавить контент
           </button>
-          <button style={{ ...styles.btnSecondary, ...(libraryLoading ? styles.btnDisabled : {}) }} onClick={loadLibrary} disabled={libraryLoading}>
+          <button
+            style={{ ...styles.btnSecondary, ...(libraryLoading ? styles.btnDisabled : {}) }}
+            onClick={loadLibrary}
+            disabled={libraryLoading}
+          >
             → {libraryLoading ? "обновляю..." : "обновить"}
           </button>
         </div>
@@ -528,7 +550,9 @@ export default function Page() {
         </div>
 
         <div style={{ marginTop: 14 }}>
-          {items.length === 0 && !libraryLoading ? <div style={{ opacity: 0.7 }}>Пока пусто. Добавьте пару айтемов — и библиотека оживёт.</div> : null}
+          {items.length === 0 && !libraryLoading ? (
+            <div style={{ opacity: 0.7 }}>Пока пусто. Добавьте пару айтемов — и библиотека оживёт.</div>
+          ) : null}
 
           {items.map((it) => (
             <div key={String(it.id)} style={styles.listCard}>
@@ -558,14 +582,27 @@ export default function Page() {
           всего айтемов: {counts.total} · музыка: {counts.music} · книги: {counts.books} · фильмы: {counts.movies}
         </div>
 
-        <button style={{ ...styles.btnPrimary, marginTop: 14, ...(vibeLoading ? styles.btnDisabled : {}) }} disabled={vibeLoading} onClick={runVibeCheck}>
+        <button
+          style={{ ...styles.btnPrimary, marginTop: 14, ...(vibeLoading ? styles.btnDisabled : {}) }}
+          disabled={vibeLoading}
+          onClick={runVibeCheck}
+        >
           {vibeLoading ? "провожу вайбчек…" : "провести вайбчек"}
         </button>
 
         {vibeError && <div style={styles.error}>{vibeError}</div>}
 
         {summary && (
-          <div style={{ marginTop: 16, padding: 14, border: "1px solid #eee", borderRadius: 16, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+          <div
+            style={{
+              marginTop: 16,
+              padding: 14,
+              border: "1px solid #eee",
+              borderRadius: 16,
+              whiteSpace: "pre-wrap",
+              lineHeight: 1.6,
+            }}
+          >
             {summary}
           </div>
         )}
