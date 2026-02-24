@@ -30,14 +30,9 @@ function getTgInitData(): string {
   return (window as any).Telegram?.WebApp?.initData || "";
 }
 
-function cx(...parts: Array<string | false | undefined | null>) {
-  return parts.filter(Boolean).join(" ");
-}
-
 export default function Page() {
   const [tab, setTab] = useState<Tab>("home");
 
-  // user label (если телега отдаёт имя)
   const [helloName, setHelloName] = useState<string>("привет!");
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
@@ -46,7 +41,11 @@ export default function Page() {
     const last = tg?.initDataUnsafe?.user?.last_name;
     const username = tg?.initDataUnsafe?.user?.username;
     const name =
-      (first || last) ? [first, last].filter(Boolean).join(" ") : (username ? `@${username}` : "");
+      first || last
+        ? [first, last].filter(Boolean).join(" ")
+        : username
+          ? `@${username}`
+          : "";
     setHelloName(name ? `привет, ${name}!` : "привет!");
   }, []);
 
@@ -63,9 +62,7 @@ export default function Page() {
     try {
       const res = await fetch(`${window.location.origin}/api/items`, {
         method: "GET",
-        headers: {
-          "x-telegram-init-data": tgInitData,
-        },
+        headers: { "x-telegram-init-data": tgInitData },
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -83,7 +80,6 @@ export default function Page() {
   }
 
   useEffect(() => {
-    // подгружаем библиотеку сразу, чтобы в library/vibe чек было что показать
     loadLibrary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -139,12 +135,9 @@ export default function Page() {
         return;
       }
 
-      // очистить форму
       setTitle("");
       setCreator("");
-      // обновить библиотеку
       await loadLibrary();
-      // можно мягко переключиться в library
       setTab("library");
     } catch (e: any) {
       setManualError(e?.message ?? "Network error");
@@ -181,9 +174,7 @@ export default function Page() {
 
       const res = await fetch(`${window.location.origin}/api/import-image`, {
         method: "POST",
-        headers: {
-          "x-telegram-init-data": tgInitData,
-        },
+        headers: { "x-telegram-init-data": tgInitData },
         body: form,
       });
 
@@ -257,9 +248,7 @@ export default function Page() {
     try {
       const res = await fetch(`${window.location.origin}/api/summary`, {
         method: "POST",
-        headers: {
-          "x-telegram-init-data": tgInitData,
-        },
+        headers: { "x-telegram-init-data": tgInitData },
       });
 
       const json = await res.json().catch(() => ({}));
@@ -283,7 +272,7 @@ export default function Page() {
     return { total, music, books, movies };
   }, [items]);
 
-  // ====== UI styles (как было: жирно, пилюли, карточки) ======
+  // ====== UI styles ======
   const styles = {
     page: {
       maxWidth: 720,
@@ -356,9 +345,29 @@ export default function Page() {
       fontWeight: 600,
       textTransform: "lowercase" as const,
     } as const,
-    fieldLabel: { fontSize: 12, fontWeight: 800, letterSpacing: 0.5, textTransform: "lowercase" as const, marginTop: 12 } as const,
-    select: { width: "100%", padding: "14px 14px", borderRadius: 14, border: "1px solid #ddd", background: "white", fontSize: 16 } as const,
-    input: { width: "100%", padding: "14px 14px", borderRadius: 14, border: "1px solid #ddd", background: "white", fontSize: 16 } as const,
+    fieldLabel: {
+      fontSize: 12,
+      fontWeight: 800,
+      letterSpacing: 0.5,
+      textTransform: "lowercase" as const,
+      marginTop: 12,
+    } as const,
+    select: {
+      width: "100%",
+      padding: "14px 14px",
+      borderRadius: 14,
+      border: "1px solid #ddd",
+      background: "white",
+      fontSize: 16,
+    } as const,
+    input: {
+      width: "100%",
+      padding: "14px 14px",
+      borderRadius: 14,
+      border: "1px solid #ddd",
+      background: "white",
+      fontSize: 16,
+    } as const,
     error: { marginTop: 10, color: "crimson", fontWeight: 600 } as const,
     listCard: { border: "1px solid #eee", borderRadius: 16, padding: 14, marginBottom: 10 } as const,
     row: { display: "flex", alignItems: "flex-start", gap: 10 } as const,
@@ -366,18 +375,14 @@ export default function Page() {
     subtitle: { margin: "4px 0 0", opacity: 0.65 } as const,
   };
 
-  // ====== Screens ======
   function HomeScreen() {
     return (
       <div style={styles.card}>
         <div style={styles.h2}>что это</div>
         <p style={styles.p}>
-          EveryYou помогает собрать весь потребляемый контент в одном месте.
-          Музыка, книги, фильмы — всё фиксируется в вашей библиотеке.
+          EveryYou помогает собрать весь потребляемый контент в одном месте. Музыка, книги, фильмы — всё фиксируется в вашей библиотеке.
         </p>
-        <p style={styles.p}>
-          Когда данных накопится достаточно, можно провести вайбчек и увидеть общую динамику.
-        </p>
+        <p style={styles.p}>Когда данных накопится достаточно, можно провести вайбчек и увидеть общую динамику.</p>
 
         <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
           <button style={styles.btnPrimary} onClick={() => setTab("add")}>
@@ -398,11 +403,8 @@ export default function Page() {
     return (
       <div style={styles.card}>
         <div style={styles.h2}>add content</div>
-        <p style={styles.p}>
-          импорт — чтобы быстро накидать музыки. сами добавили — чтобы внести вообще что угодно.
-        </p>
+        <p style={styles.p}>импорт — чтобы быстро накидать музыки. сами добавили — чтобы внести вообще что угодно.</p>
 
-        {/* import button */}
         <input
           ref={fileRef}
           type="file"
@@ -410,14 +412,13 @@ export default function Page() {
           style={{ display: "none" }}
           onChange={(e) => {
             const f = e.target.files?.[0];
-            // сброс, чтобы можно было выбрать тот же файл снова
             e.currentTarget.value = "";
             if (f) runImport(f);
           }}
         />
 
         <button
-          style={cx(JSON.stringify(styles.btnSecondary), "") as any}
+          style={{ ...styles.btnSecondary, ...(importLoading ? styles.btnDisabled : {}) }}
           onClick={() => fileRef.current?.click()}
           disabled={importLoading}
         >
@@ -452,10 +453,7 @@ export default function Page() {
             ))}
 
             <button
-              style={{
-                ...styles.btnPrimary,
-                ...(savingImported ? styles.btnDisabled : {}),
-              }}
+              style={{ ...styles.btnPrimary, ...(savingImported ? styles.btnDisabled : {}) }}
               disabled={savingImported}
               onClick={saveSelectedImported}
             >
@@ -465,16 +463,11 @@ export default function Page() {
         )}
 
         <div style={{ marginTop: 18, opacity: 0.7, fontWeight: 700 }}>
-          импортировано: {imported.length} {imported.length === 1 ? "айтем" : "айтемов"}
+          импортировано: {imported.length} айтемов
         </div>
 
-        {/* manual add */}
         <div style={styles.fieldLabel}>тип</div>
-        <select
-          style={styles.select}
-          value={type}
-          onChange={(e) => setType(e.target.value as any)}
-        >
+        <select style={styles.select} value={type} onChange={(e) => setType(e.target.value as any)}>
           <option value="">выберите тип</option>
           <option value="music">музыка</option>
           <option value="book">книга</option>
@@ -482,11 +475,7 @@ export default function Page() {
         </select>
 
         <div style={styles.fieldLabel}>источник</div>
-        <select
-          style={styles.select}
-          value={source}
-          onChange={(e) => setSource(e.target.value as any)}
-        >
+        <select style={styles.select} value={source} onChange={(e) => setSource(e.target.value as any)}>
           <option value="">выберите источник</option>
           <option value="spotify">spotify</option>
           <option value="goodreads">goodreads</option>
@@ -495,27 +484,16 @@ export default function Page() {
         </select>
 
         <div style={styles.fieldLabel}>название</div>
-        <input
-          style={styles.input}
-          placeholder={titlePh}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
+        <input style={styles.input} placeholder={titlePh} value={title} onChange={(e) => setTitle(e.target.value)} />
 
         <div style={styles.fieldLabel}>автор / исполнитель</div>
-        <input
-          style={styles.input}
-          placeholder={creatorPh}
-          value={creator}
-          onChange={(e) => setCreator(e.target.value)}
-        />
+        <input style={styles.input} placeholder={creatorPh} value={creator} onChange={(e) => setCreator(e.target.value)} />
 
         <button
           style={{
             ...styles.btnPrimary,
             marginTop: 14,
-            ...(savingManual ? styles.btnDisabled : {}),
-            ...(type && source && title.trim() ? {} : styles.btnDisabled),
+            ...(savingManual || !type || !source || !title.trim() ? styles.btnDisabled : {}),
           }}
           disabled={savingManual || !type || !source || !title.trim()}
           onClick={addManual}
@@ -532,20 +510,13 @@ export default function Page() {
     return (
       <div style={styles.card}>
         <div style={styles.h2}>library</div>
-        <p style={styles.p}>
-          Здесь будет ваша библиотека: музыка, книги и фильмы — всё в одном месте.
-        </p>
+        <p style={styles.p}>Здесь будет ваша библиотека: музыка, книги и фильмы — всё в одном месте.</p>
 
         <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
           <button style={styles.btnSecondary} onClick={() => setTab("add")}>
             → добавить контент
           </button>
-
-          <button
-            style={styles.btnSecondary}
-            onClick={loadLibrary}
-            disabled={libraryLoading}
-          >
+          <button style={{ ...styles.btnSecondary, ...(libraryLoading ? styles.btnDisabled : {}) }} onClick={loadLibrary} disabled={libraryLoading}>
             → {libraryLoading ? "обновляю..." : "обновить"}
           </button>
         </div>
@@ -557,20 +528,14 @@ export default function Page() {
         </div>
 
         <div style={{ marginTop: 14 }}>
-          {items.length === 0 && !libraryLoading ? (
-            <div style={{ opacity: 0.7 }}>
-              Пока пусто. Добавьте пару айтемов — и библиотека оживёт.
-            </div>
-          ) : null}
+          {items.length === 0 && !libraryLoading ? <div style={{ opacity: 0.7 }}>Пока пусто. Добавьте пару айтемов — и библиотека оживёт.</div> : null}
 
           {items.map((it) => (
             <div key={String(it.id)} style={styles.listCard}>
               <p style={styles.title}>{it.title}</p>
               {it.creator ? <p style={styles.subtitle}>{it.creator}</p> : null}
               <div style={styles.chipRow}>
-                <span style={styles.chip}>
-                  {it.type === "music" ? "музыка" : it.type === "book" ? "книги" : "фильмы"}
-                </span>
+                <span style={styles.chip}>{it.type === "music" ? "музыка" : it.type === "book" ? "книги" : "фильмы"}</span>
                 <span style={styles.chip}>{it.source}</span>
               </div>
             </div>
@@ -585,42 +550,22 @@ export default function Page() {
       <div style={styles.card}>
         <div style={styles.h2}>вайбчек</div>
         <p style={styles.p}>
-          Здесь можно провести вайбчек всей вашей библиотеки.
-          Алгоритм анализирует сохранённый контент и собирает общий портрет периода.
+          Здесь можно провести вайбчек всей вашей библиотеки. Алгоритм анализирует сохранённый контент и собирает общий портрет периода.
         </p>
-        <p style={styles.p}>
-          Это пока только демо-версия — не относитесь слишком строго и серьёзно.
-        </p>
+        <p style={styles.p}>Это пока только демо-версия — не относитесь слишком строго и серьёзно.</p>
 
         <div style={{ marginTop: 10, opacity: 0.8, fontWeight: 700 }}>
           всего айтемов: {counts.total} · музыка: {counts.music} · книги: {counts.books} · фильмы: {counts.movies}
         </div>
 
-        <button
-          style={{
-            ...styles.btnPrimary,
-            marginTop: 14,
-            ...(vibeLoading ? styles.btnDisabled : {}),
-          }}
-          disabled={vibeLoading}
-          onClick={runVibeCheck}
-        >
+        <button style={{ ...styles.btnPrimary, marginTop: 14, ...(vibeLoading ? styles.btnDisabled : {}) }} disabled={vibeLoading} onClick={runVibeCheck}>
           {vibeLoading ? "провожу вайбчек…" : "провести вайбчек"}
         </button>
 
         {vibeError && <div style={styles.error}>{vibeError}</div>}
 
         {summary && (
-          <div
-            style={{
-              marginTop: 16,
-              padding: 14,
-              border: "1px solid #eee",
-              borderRadius: 16,
-              whiteSpace: "pre-wrap",
-              lineHeight: 1.6,
-            }}
-          >
+          <div style={{ marginTop: 16, padding: 14, border: "1px solid #eee", borderRadius: 16, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
             {summary}
           </div>
         )}
@@ -634,28 +579,16 @@ export default function Page() {
       <div style={styles.hello}>{helloName}</div>
 
       <div style={styles.tabsRow}>
-        <button
-          style={{ ...styles.tab, ...(tab === "home" ? styles.tabActive : {}) }}
-          onClick={() => setTab("home")}
-        >
+        <button style={{ ...styles.tab, ...(tab === "home" ? styles.tabActive : {}) }} onClick={() => setTab("home")}>
           home
         </button>
-        <button
-          style={{ ...styles.tab, ...(tab === "add" ? styles.tabActive : {}) }}
-          onClick={() => setTab("add")}
-        >
+        <button style={{ ...styles.tab, ...(tab === "add" ? styles.tabActive : {}) }} onClick={() => setTab("add")}>
           add content
         </button>
-        <button
-          style={{ ...styles.tab, ...(tab === "library" ? styles.tabActive : {}) }}
-          onClick={() => setTab("library")}
-        >
+        <button style={{ ...styles.tab, ...(tab === "library" ? styles.tabActive : {}) }} onClick={() => setTab("library")}>
           library
         </button>
-        <button
-          style={{ ...styles.tab, ...(tab === "vibe" ? styles.tabActive : {}) }}
-          onClick={() => setTab("vibe")}
-        >
+        <button style={{ ...styles.tab, ...(tab === "vibe" ? styles.tabActive : {}) }} onClick={() => setTab("vibe")}>
           vibe check
         </button>
       </div>
@@ -665,9 +598,7 @@ export default function Page() {
       {tab === "library" ? <LibraryScreen /> : null}
       {tab === "vibe" ? <VibeScreen /> : null}
 
-      <div style={{ marginTop: 10, fontSize: 12, opacity: 0.55 }}>
-        telegram webapp: detected · ready: yes
-      </div>
+      <div style={{ marginTop: 10, fontSize: 12, opacity: 0.55 }}>telegram webapp: detected · ready: yes</div>
     </main>
   );
 }
