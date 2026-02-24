@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { verifyTelegramInitData } from "@/lib/telegram";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function getInitData(req: NextRequest) {
   return req.headers.get("x-telegram-init-data") ?? "";
@@ -30,42 +31,60 @@ function authTg(req: NextRequest) {
   return { ok: true as const, tgUserId: Number(tgUserId) };
 }
 
+/**
+ * DEBUG ping:
+ * Можно дернуть в браузере (не в Telegram) и увидеть, что роут живой.
+ * В Telegram всё равно будет POST с auth.
+ */
+export async function GET() {
+  return NextResponse.json({ ok: true, route: "/api/items/bulk" });
+}
+
 export async function POST(req: NextRequest) {
-  const auth = authTg(req);
-  if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
+  try {
+    const auth = authTg(req);
+    if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
 
-  const body = await req.json().catch(() => null);
-  const items = body?.items;
+    const body = await req.json().catch(() => null);
+    const items = body?.items;
 
-  if (!Array.isArray(items) || items.length === 0) {
-    return NextResponse.json({ error: "items[] is required" }, { status: 400 });
-  }
-
-  // нормализуем: ограничим размер пачки, чтобы не стрелять себе в ногу
-  const slice = items.slice(0, 100);
-
-  // ВАЖНО: ты в /api/items используешь поля: type, source, title, creator
-  // Если у тебя в таблице поле называется иначе (author_or_artist) — скажи, я подгоню.
-  const rows = slice.map((it: any) => ({
-    tg_user_id: auth.tgUserId,
-    type: it?.type,
-    source: it?.source,
-    title: it?.title,
-    creator: it?.creator ?? null,
-  }));
-
-  // базовая валидация
-  for (const r of rows) {
-    if (!r.type || !r.source || !r.title) {
-      return NextResponse.json({ error: "each item must include type, source, title" }, { status: 400 });
+    if (!Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: "items[] is required" }, { status: 400 });
     }
+
+    // режем пачку (на всякий)
+    const slice = items.slice(0, 100);
+
+    // ВАЖНО: здесь используем те же поля, что твой /api/items
+    // (type, source, title, creator)
+    const rows = slice.map((it: any) => ({
+      tg_user_id: auth.tgUserId,
+      type: it?.type,
+      source: it?.source,
+      title: it?.title,
+      creator: it?.creator ?? null,
+    }));
+
+    for (const r of rows) {
+      if (!r.type || !r.source || !r.title) {
+        return NextResponse.json(
+          { error: "each item must include type, source, title" },
+          { status: 400 }
+        );
+      }
+    }
+
+    const sb = supabaseAdmin();
+
+    const { data, error } = await sb.from("items").insert(rows).select("*");
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    return NextResponse.json({ ok: true, inserted: data?.length ?? 0 });
+  } catch (e: any) {
+    // Если вдруг iOS роняет соединение из-за крэша в функции,
+    // мы хотя бы гарантированно вернём JSON при любых ошибках.
+    const msg = typeof e?.message === "string" ? e.message : "unknown error";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
-
-  const sb = supabaseAdmin();
-
-  const { data, error } = await sb.from("items").insert(rows).select("*");
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return NextResponse.json({ ok: true, inserted: data?.length ?? 0, items: data ?? [] });
 }
