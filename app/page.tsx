@@ -1042,23 +1042,9 @@ export default function Page() {
         <button
           className={`nav-btn${tab === "vibe" ? " active" : ""}`}
           onClick={() => setTab("vibe")}
+
         >
-          <span className="nav-icon" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="18" height="18" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-              {/* тело */}
-              <ellipse cx="16" cy="20" rx="9" ry="7" />
-              {/* голова */}
-              <ellipse cx="16" cy="12" rx="6" ry="5" />
-              {/* левый глаз-бугор */}
-              <circle cx="11" cy="9" r="2.5" />
-              {/* правый глаз-бугор */}
-              <circle cx="21" cy="9" r="2.5" />
-              {/* левая лапа */}
-              <path d="M7 23 Q3 26 2 29 Q5 28 7 27 Q8 29 10 30 Q10 27 9 25Z" />
-              {/* правая лапа */}
-              <path d="M25 23 Q29 26 30 29 Q27 28 25 27 Q24 29 22 30 Q22 27 23 25Z" />
-            </svg>
-          </span>
+          <span className="nav-icon">🐸</span>
           вайбчек
         </button>
       </nav>
