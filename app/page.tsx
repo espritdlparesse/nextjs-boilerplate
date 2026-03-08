@@ -290,6 +290,8 @@ export default function Page() {
   const [summary, setSummary] = useState("");
   const [vibeLoading, setVibeLoading] = useState(false);
   const [vibeError, setVibeError] = useState("");
+  const [mentalAge, setMentalAge] = useState("");
+  const [mentalAgeLoading, setMentalAgeLoading] = useState(false);
 
   async function runVibeCheck() {
     setVibeLoading(true); setVibeError(""); setSummary("");
@@ -305,6 +307,22 @@ export default function Page() {
       setVibeError(e?.message ?? "Network error");
     } finally {
       setVibeLoading(false);
+    }
+  }
+
+  async function runMentalAge() {
+    setMentalAgeLoading(true); setMentalAge("");
+    try {
+      const res = await fetch("/api/mental-age", {
+        method: "POST",
+        headers: { "x-telegram-init-data": getTgInitData() },
+      });
+      const json = await safeJson(res);
+      setMentalAge(json?.result ?? "");
+    } catch (e: any) {
+      setMentalAge("не удалось посчитать");
+    } finally {
+      setMentalAgeLoading(false);
     }
   }
 
@@ -1024,6 +1042,30 @@ export default function Page() {
 
             {vibeError && <div className="error">{vibeError}</div>}
             {summary && <VibeResult summary={summary} />}
+
+            <button
+              className="btn btn-outline"
+              style={{marginTop: 12}}
+              onClick={runMentalAge}
+              disabled={mentalAgeLoading || counts.total === 0}
+            >
+              {mentalAgeLoading ? "считаю..." : "🧠 рассчитать ментальный возраст"}
+            </button>
+
+            {mentalAge && (
+              <div style={{marginTop:16,padding:"16px",background:"#fff",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>
+                {mentalAge.split("\n").map((line, i) => (
+                  <div key={i} style={{
+                    fontFamily: i === 0 ? "'Unbounded', sans-serif" : "inherit",
+                    fontWeight: i === 0 ? 700 : 400,
+                    fontSize: i === 0 ? 18 : 14,
+                    color: i === 0 ? "#1a1a1a" : "#555",
+                    marginTop: i === 0 ? 0 : 8,
+                    lineHeight: 1.5,
+                  }}>{line}</div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
