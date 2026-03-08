@@ -28,6 +28,64 @@ function getTgInitData(): string {
   return (window as any).Telegram?.WebApp?.initData || "";
 }
 
+// Примеры плейсхолдеров — твой вкус
+const PLACEHOLDER_EXAMPLES: Record<ItemType, { title: string; creator: string }[]> = {
+  movie: [
+    { title: "Трудности перевода", creator: "София Коппола" },
+    { title: "Крёстный отец", creator: "Фрэнсис Форд Коппола" },
+    { title: "Мария", creator: "Пабло Ларраин" },
+  ],
+  music: [
+    { title: "Bloodbuzz Ohio", creator: "The National" },
+    { title: "Apartment Story", creator: "The National" },
+    { title: "Sorrow", creator: "The National" },
+  ],
+  book: [
+    { title: "Котлован", creator: "Андрей Платонов" },
+    { title: "Чевенгур", creator: "Андрей Платонов" },
+    { title: "Счастливая Москва", creator: "Андрей Платонов" },
+  ],
+};
+
+function useAnimatedPlaceholder(type: ItemType, field: "title" | "creator") {
+  const examples = PLACEHOLDER_EXAMPLES[type];
+  const [idx, setIdx] = useState(0);
+  const [displayed, setDisplayed] = useState("");
+  const [phase, setPhase] = useState<"typing" | "pause" | "erasing">("typing");
+
+  useEffect(() => {
+    setIdx(0);
+    setDisplayed("");
+    setPhase("typing");
+  }, [type]);
+
+  useEffect(() => {
+    const target = examples[idx][field];
+    let timeout: ReturnType<typeof setTimeout>;
+
+    if (phase === "typing") {
+      if (displayed.length < target.length) {
+        timeout = setTimeout(() => setDisplayed(target.slice(0, displayed.length + 1)), 55);
+      } else {
+        timeout = setTimeout(() => setPhase("pause"), 1800);
+      }
+    } else if (phase === "pause") {
+      timeout = setTimeout(() => setPhase("erasing"), 400);
+    } else {
+      if (displayed.length > 0) {
+        timeout = setTimeout(() => setDisplayed(displayed.slice(0, -1)), 28);
+      } else {
+        setIdx((i) => (i + 1) % examples.length);
+        setPhase("typing");
+      }
+    }
+
+    return () => clearTimeout(timeout);
+  }, [displayed, phase, idx, examples, field]);
+
+  return displayed;
+}
+
 async function safeJson(res: Response) {
   try { return await res.json(); } catch { return {}; }
 }
@@ -166,6 +224,8 @@ export default function Page() {
   // ===== Manual Add =====
   const [manualMode, setManualMode] = useState(false);
   const [manualType, setManualType] = useState<ItemType>("book");
+  const titlePlaceholder = useAnimatedPlaceholder(manualType, "title");
+  const creatorPlaceholder = useAnimatedPlaceholder(manualType, "creator");
   const [manualTitle, setManualTitle] = useState("");
   const [manualCreator, setManualCreator] = useState("");
   const [manualSaving, setManualSaving] = useState(false);
@@ -730,10 +790,7 @@ export default function Page() {
                   <div className="input-label">название</div>
                   <input
                     className="input"
-                    placeholder={
-                      manualType === "music" ? "Название трека или альбома" :
-                      manualType === "book" ? "Название книги" : "Название фильма"
-                    }
+                    placeholder={titlePlaceholder}
                     value={manualTitle}
                     onChange={(e) => setManualTitle(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && saveManual()}
@@ -748,10 +805,7 @@ export default function Page() {
                   </div>
                   <input
                     className="input"
-                    placeholder={
-                      manualType === "music" ? "Исполнитель" :
-                      manualType === "book" ? "Автор" : "Режиссёр"
-                    }
+                    placeholder={creatorPlaceholder}
                     value={manualCreator}
                     onChange={(e) => setManualCreator(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && saveManual()}
