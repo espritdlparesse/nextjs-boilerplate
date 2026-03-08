@@ -983,7 +983,7 @@ export default function Page() {
           <div className="card">
             <div className="card-title">вайбчек</div>
             <p className="card-text">
-              Смотрит на всё что ты сохранил и говорит что думает. Коротко и без лишних слов.
+              Смотрит на всё что ты сохранил и говорит что думает.
             </p>
             <p className="card-text" style={{ marginTop: 8, opacity: 0.5, fontSize: 12 }}>
               work in progress. чем больше контента — тем точнее.
