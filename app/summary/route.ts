@@ -5,15 +5,10 @@ import { verifyTelegramInitData } from "@/lib/telegram";
 
 export const runtime = "nodejs";
 
-/**
- * В обычном браузере НЕ будет x-telegram-init-data.
- * Поэтому для локальной разработки разрешаем fallback через DEV_TG_USER_ID.
- */
 function getTgUserIdOrThrow(req: NextRequest) {
   const initData = req.headers.get("x-telegram-init-data") ?? "";
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
 
-  // Прод: требуем Telegram init data
   if (process.env.NODE_ENV === "production") {
     if (!botToken) throw new Error("TELEGRAM_BOT_TOKEN missing");
     const verified = verifyTelegramInitData(initData, botToken);
@@ -23,13 +18,11 @@ function getTgUserIdOrThrow(req: NextRequest) {
     return Number(tgUserId);
   }
 
-  // Dev: если initData есть — верифицируем как обычно
   if (initData && botToken) {
     const verified = verifyTelegramInitData(initData, botToken);
     if (verified.ok && verified.user?.id) return Number(verified.user.id);
   }
 
-  // Dev fallback: берем из env
   const devId = process.env.DEV_TG_USER_ID;
   if (!devId) {
     throw new Error(
@@ -40,10 +33,9 @@ function getTgUserIdOrThrow(req: NextRequest) {
 }
 
 function buildProfessorPrompt(items: Array<any>) {
-  // items: { type, source, title, author_or_artist, created_at }
-  // Нормализуем в короткий список для модели
   const lines = items.slice(0, 80).map((it) => {
-    const creator = it.author_or_artist ? ` — ${it.author_or_artist}` : "";
+    // поле теперь называется creator (было author_or_artist)
+    const creator = it.creator ? ` — ${it.creator}` : "";
     const src = it.source ? ` (${it.source})` : "";
     return `- [${it.type}] ${it.title}${creator}${src}`;
   });
@@ -56,9 +48,9 @@ function buildProfessorPrompt(items: Array<any>) {
       "Пиши по-русски.",
       "Не придумывай фактов: опирайся только на список items. Если чего-то мало — аккуратно обозначь как гипотезу.",
       "Структура: 1) короткое вступление (1–2 предложения), 2) 4–6 наблюдений (каждое 1–2 предложения), 3) финальный вывод/совет (1–2 предложения).",
-      "Добавь 1–2 мягкие подмигивающие реплики в стиле: «ого, Arctic Monkeys — похоже, вы по кому-то скучаете ;)» — но так, чтобы это было похоже на анализ, а не на флирт.",
+      "Добавь 1–2 мягкие подмигивающие реплики — но так, чтобы это было похоже на анализ, а не на флирт.",
       "Избегай эмодзи кроме одного ';)' максимум один раз за весь текст.",
-      "Не используй маркированные списки в финальном ответе — только связный текст с абзацами."
+      "Не используй маркированные списки в финальном ответе — только связный текст с абзацами.",
     ].join("\n"),
     input: `Вот список items (контент человека). Проанализируй:\n${lines.join("\n")}`,
   };
@@ -71,14 +63,18 @@ export async function POST(req: NextRequest) {
     const sb = supabaseAdmin();
     const { data: items, error } = await sb
       .from("items")
-      .select("id,tg_user_id,type,source,title,author_or_artist,created_at,updated_at")
+      .select("id,tg_user_id,type,source,title,creator,created_at,updated_at")
       .eq("tg_user_id", tgUserId)
       .order("created_at", { ascending: false });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
     if (!items || items.length === 0) {
       return NextResponse.json(
-        { summary: "Пока нечего анализировать: у вас нет items. Добавьте хотя бы пару книг/фильмов/треков — и я сделаю выводы." },
+        {
+          summary:
+            "Пока нечего анализировать: у вас нет items. Добавьте хотя бы пару книг/фильмов/треков — и я сделаю выводы.",
+        },
         { status: 200 }
       );
     }
@@ -89,16 +85,24 @@ export async function POST(req: NextRequest) {
     }
 
     const client = new OpenAI({ apiKey });
-
     const prompt = buildProfessorPrompt(items);
 
-    const response = await client.responses.create({
-      model: "gpt-5.2",
-      instructions: prompt.instructions,
-      input: prompt.input,
+    // gpt-4o — быстрая, умная, существующая модель
+    const model = process.env.OPENAI_MODEL ?? "gpt-4o";
+
+    const response = await client.chat.completions.create({
+      model,
+      messages: [
+        { role: "system", content: prompt.instructions },
+        { role: "user", content: prompt.input },
+      ],
+      max_tokens: 1000,
+      temperature: 0.85,
     });
 
-    return NextResponse.json({ summary: response.output_text });
+    const summary = response.choices[0]?.message?.content ?? "";
+
+    return NextResponse.json({ summary });
   } catch (e: any) {
     const msg = typeof e?.message === "string" ? e.message : "unknown error";
     const status =
