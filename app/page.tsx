@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-type Tab = "home" | "add" | "library" | "vibe";
+type Tab = "home" | "add" | "library" | "vibe" | "admin";
+
+const ADMIN_TG_ID = 394657396; // espritdlparesse
 type ItemType = "music" | "book" | "movie";
 type ItemSource = "spotify" | "goodreads" | "letterboxd" | "manual";
 
@@ -111,6 +113,7 @@ const TYPE_COLORS: Record<ItemType, string> = {
 export default function Page() {
   const [tab, setTab] = useState<Tab>("home");
   const [helloName, setHelloName] = useState("привет!");
+  const [tgUserId, setTgUserId] = useState<number | null>(null);
 
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
@@ -122,6 +125,8 @@ export default function Page() {
       ? [first, last].filter(Boolean).join(" ")
       : username ? `@${username}` : "";
     setHelloName(name ? `привет, ${name}` : "привет");
+    const uid = tg?.initDataUnsafe?.user?.id;
+    if (uid) setTgUserId(Number(uid));
   }, []);
 
   // ===== Library =====
@@ -1047,7 +1052,80 @@ export default function Page() {
           <span className="nav-icon" style={{display:"flex",alignItems:"center"}}><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAANp0lEQVR4nK2Ye3BdR3nAf9/unvvSy7IelixZtuWXLCcOwUmMk4BiYoITJjTjIvHKhFJmQmhhmClMh6ZQRUyY0tLpMDBQCkOmtAm0No/ShCEGQiLCJCR1Ak6c+Ems2PFTtiTrSvdxztn9+odkx44VICU79849Z+6e3d/37fc88NqH0I8F3Cu+5rw5FpA5nrX/j/1e0zAX3F2McA7MOceb175taU/XpeuuvfT6blU9O9v29/e/mgAXjT9o0nmb+0wmw8ru3r6TJ06sSELa5ZwrRc6e6Ghb/ORTzz7+nLWWlZ0rbz5dOf1xKfDmQnOUKU+WY6lk9tW5eV/a/9u93/DBX7Dm6wFoAb/x2hvWHTj2/D/GtvzWxoX1NMw3hKCMHp2iekoSl+T+K2jaqg3JDUvfOJ+WFTVk81mNKyrF09McfOw0/lT2nlxa9/3dL/7mQRHxzJxK+GMArRjx61e9ZdPJuhe/u2hDoaGlrTZkCoVgg0F9IPEJpenYxVMJiFLblg35qKCVojeSePFeVHKiSsroyKg5tTclFKNn6kzTZ3+9c8f3fPCvqsnfB+gQ0t7VvR/1ddNf7tnURn173penqtaXwacBMWBTCxYlwoOIVbW+GjAZQ5BAekYIQXE1hlxtJjUOc3J0zOwfPokZzf/lyMjIV1V1TsjfBWgBv27ttesnOPSL3i3NrqGxnmoxNd57ooJDnEIqxOVAKAsEJfEx1WqFXMHiMnl82YNVXINFy4ETI6cpUEv/+9/ri9NFvfeL/2PG9kz0vTR6+Jc6h02audkwgB/82GD9aGXk251vrc80zq9TnyTG5gyZWoexgp9SKqcgKVeRbEyxOEFO67h+/c30dFwOIeBzFXp6e1heu5bK7gaW8Cae2X6U408m9pNb7pZvfPkes+SS7ru1szO/tX/rnCBzaTXoPs1+83v3/Gfzqkx35+JmX43VqkAwHp8EyhOe0mQM2TI5V4c72siZZ7M8+K9P4F/McfcdX+GOLZ/glmvfx9+8659wR1v41UM7KE6M8+m/+wzf3fYddu/aZa+87Ar/kY039l3RUP9vA9sG/OArmNxcRz54+2Bh9cDKB7reWrOxZVGj90lqM85RoIAxhqApRYmhOcOfbnwvP/zaL3j80adobWvic3d/jvvuu5clXct4/63vO7fwmYlxKqUK+VwN93zpq1zSthj/wotMnZiU/tXr9MrPrF471tTWdNWmq8buAhERnQvQqKou6uj6YtfG+o1L1y9IklNp1JZtZGVuMe1RC1mTJWmocrJ6mjWX97HhylvY+oWfc+TwIXpWLeehn/yMFw6MsG//Xp7Y/TAHTu7jmt6NbLzxGn70sx9QYoz165by7g2baUk8ZmzKlETT5U0dPUdLU38rIn+lDz/sgPRCwEEMQ/i+vneszq2yH+q4rMGHinft9U1cUdvLpfkV1NoCDosPCdOZThqnGjh+cC9vettlbN/xIJ1rFnL/A/9NdkngkNnFl37wOFP2NA/t/D6ZqMAbP7iMgng2t69nca6FgrcYF2E0CHHJW0muRoBHHjkXF88B9j2CGYZwfPTg1R3X1JtsznmqIq3Zepa4NmpNgZwKxliCGBJJOHx4D7v2/Zjp4n4+fPMyismT3PLuHqbzMOFfwjhDjallOi4RT5Vp85ZFqaXh8HGkaR5xQw5jskBQMjkXV9Ofo8CaNXIR4PAwQQfVXPrQ8tvmdzSAN6gEpnyF8fQMTZlmDAYJKR5ICFRsoDA1xornjlGpGqJcDqaqVCWllHWkTkBjMilkg1CoBkzV8xLPcuLYKD3dq7m0+/rEpT46MTn2ha53bb5z69atVgYGzoUaOe9XN/Ox7LEbHty3elNrl1gbRL3JSJ6uzAJWFhaxIGqiQA2pxoyHKX4bH2H09AirDk4Sj8eU4xTrwISAU0GMEBuwQVEBT6AaLFaUzlpHEkSL2bUyfrK441MPbN0AeJ2B0TkBDY61b196YM3GtmUa2aAEowScWvImT63NkdMCnphpSkylFUq2wvxpZdkYNE6nZEtKkio+eFRBVDBicNZibCAygs8ZxhpCGN5zmKeeztw5cuTQl7du7a8ODGwLnAd3PqAF8Zcs6xmI25JvrdvSGiFiCQZEUFH07GMaQBRBmPkIqCWoUpsE5lVT8rGQTw1RCIiCCqRiiV2glK0yUciGY5MFc+iRytN7n/jlukryspJeEVWQs19VWLjoxmcn5t3Ru2J98Cu6/8Pma46CFwIRQUHFnFtj5iFQZgQwCl5m5A2ks5KniAEjMwfnk3kUi50cP/oWjhy7IkwfHPFX97zw9aFPtH/2yJH24sDA1ZU5NNhvrf2ev/mmGz+y/ZkNX9Wln/DOOFtX9zxdi7ezsOUJsoVjOJOgGASDIqAzsDpzByIIHpEwo2QJ+LSGSpqnNLWIU+OXMHr6DUyNr6JSbcZGBl+dCGFyt7mi9Sf/8uTwZ/+iGr/Lwjb/CkCVbMZqx9KBpw4VPnl5fsG6IJrakFhEEnJ1LzKv5hDzG/ZSV7+fXGYS41KsTGMMaIjwGlCfIUkLlJNm4koj06V2SsV2SnELxXInodo4YxIGjAmgHiTSpDLhm/2jpfdvGt3w90Mfep7BQcPQUDgPEDZt3LTlV4fe9t3QeYdGJmO8KBiLYCEY1EMwKTaq4NwUxlSJSBAbo8ERNIsGh/cFfMgRgsUHi4hDRRHxOLGIMGvLcs6eDbEvF4/ZxZlvfWPPL+76sNyFMCQvAxoD7Yv+5JETdXf25dqv8v7MQSs183FRA4GYEBcRk8HZGgIGhVnvvNjVRMCoomZ2fZUZTSGIvDKrzlhrkFipphTO/HRy+z/UdLzh7W8v9/UNmuuuIwwNDQXnfZ9rWVS7wNV0ENKKBDG4KI8SQIUwPY6tXUAwggkv2xuiF/mdnrXFYGesU0GxGHm1qk5QMhIiF+JMe+Hr2w+8E/jO8PBQGB6emeA2vOHY+lgvWy7ZGiWZMuJmO0oBjScJ4rCuZrZrkPN4ZI6gcB7orByca+bmBjSqiHVapTMa3vl4/wffedXOQ9WFKwqZ8oH779/+nBs/U6r1tt2ZqKB++jAmUzuzchB8ZQpxDqMBM+cRvcq2MivAuevfiYhRtT5bw+h4uG7nGd1ZXzftxqcrlQ984AOXG5E44CyKw4U8NtOMiiBSQbzHZuchr1p4vx5DCQjWZDHBNebyBZf6UpJ1UW5sbOxjbiaJCKRVquEI2TRg0xqqsQdjyEa1FzrE6zyCKmKhUj5KKy+qsR6TYpMQtFyubnGCqGpZI6myas0OWlp3kKY17N37Zs6UrkMlIDq3BpVwQVP7WjStBFQ8KhGhWsQQYeuWiIRfIUSSGmFystjmcvnEUcxJNj+hK3oeJ1vYQ6o52jv2sHu/svdAP9acyxev2AICglFB5GxW+UNabUXxWDUkfhI/dZxMYTEumodULaBY8UzHZTU33bRif8aMHrOUxGlVfWrBG0YnLmOiuGTGb0VmWpmze6uiOpP4ouQYtvobQnqAEC5+QTDj94GzaVFR1IpC5NPKmKalE2QKC5BMBu8NAQsmEFRUjIj7/D8/9tv6zoUvTZWa2w8ef4d2dfxQJsYu46lnP0ppej5RpkpSKSLBYzJ1qItmK4WIDEdo1vso6P+SpLWMm1uZjvrwRjDBoKIE0ZmwidGZuFyWJB416eRLVjMFsg3deCOq3hNrewgYDbjgRDItC1p/4lKPzF8Usmni9fm97+PQC9dRSppI0jxRJgWJEMmR+nGYPjVT9rgIJEut3UGT/pysFFEF5x+gnFmD0hbEElBBQ0yalF1aKolU9tjM5K/JpU+fsv6FA96tvbQ60V5DqIhqlulab83CHCZUiYyttDa1/LVzFm3v5kxl6piYmsZwptyFGMUaAAsq2GwtJldL8EAaE0IRTUtk011kpUhicqhJifwYUh3VSjUxpnrEhOAhPU2uup+CHj5e40a2L5g3su1Nq4/t+Mq2kyf6N+5bOHI43xRLJSNJSU2uZ3nzvJWrS5NjPfl8/tv33nvvTgHktts+euWPHut4+EzdLflC03JEnCiKqJxndy/bYDAQ6SRtyedpjYepOofRKiYs5MD41fhk/LmM3feYBnM8a0zcu3Bq+zUrnzlw59cOjZ8rfFHh9wcwEfr7Ldu2+c033XbrE3uW/fv0vHf7QvNyAKsgQQWZLRMUx1nwyB+nyw9RH54lNQYR732lxhanpu97Ztfjf2YNabho+/7ZN6znSnsDg+f9/7z09Z2U1tZW7e3t1aGhoSAAfX197tFHh9MNGzb/+e7j6785XdiIrVkB+SaMy6ZGQAWxMw5sQEV0nCXxp2lMd5IYBybrK5NlOT1x5JaDBw/eD5uzsN4DDA4ShoaGlFfN3r9DheddG2MIG6++ftO+o3UfnPQdm4IsaU3zXXibwWQ7wbVhsgWsyWmQKu36ldAafixGc0Qm9idOnYiCz96wZ8+un/IHvD19rYBn79UI3H5Ld+vI2Mrug8fzN5bioqlSt8LbhZ1qG1fG0t1ipZbmhuO0RtuJ3BniYpHxYuXH73nPe7YMDQ3FzGjrj06SF4X9fvrtNgC2+dnGDVUwAsbA7bfe1Pb0rqULaxvr64rFI7f7cLhH3Rjqw5OfuvEzHx8YGojPCvrHws0J+PJQgbsEHjEwJdAdoFdh6IJ0YWYNNOgFbcTrVl78H1ZYi33lL2DVAAAAAElFTkSuQmCC" width="24" height="24" style={{imageRendering:"auto"}}/></span>
           вайбчек
         </button>
+        {tgUserId === ADMIN_TG_ID && (
+          <button
+            className={`nav-btn${tab === "admin" ? " active" : ""}`}
+            onClick={() => setTab("admin")}
+          >
+            <span className="nav-icon">📊</span>
+            стата
+          </button>
+        )}
       </nav>
+      {tab === "admin" && tgUserId === ADMIN_TG_ID && <AdminTab />}
     </>
+  );
+}
+
+function AdminTab() {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [topUsers, setTopUsers] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function load() {
+      const initData = (window as any).Telegram?.WebApp?.initData || "";
+      const headers = { "x-telegram-init-data": initData };
+      try {
+        const [statsRes, topRes] = await Promise.all([
+          fetch("/api/admin/stats", { headers }),
+          fetch("/api/admin/top", { headers }),
+        ]);
+        if (statsRes.ok) setStats(await statsRes.json());
+        if (topRes.ok) setTopUsers(await topRes.json());
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  if (loading) return <div style={{padding:"32px",textAlign:"center",color:"#888"}}>загружаю...</div>;
+  if (!stats) return <div style={{padding:"32px",textAlign:"center",color:"#888"}}>ошибка загрузки</div>;
+
+  return (
+    <div style={{padding:"24px 16px",maxWidth:480,margin:"0 auto"}}>
+      <div style={{fontFamily:"'Unbounded',sans-serif",fontWeight:700,fontSize:18,marginBottom:24}}>статистика</div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:24}}>
+        {[
+          ["👤 пользователей", stats.total_users],
+          ["📦 айтемов всего", stats.total_items],
+          ["🎵 музыка", stats.music],
+          ["📚 книги", stats.books],
+          ["🎬 фильмы", stats.movies],
+          ["📅 за сегодня", stats.today],
+        ].map(([label, val]) => (
+          <div key={String(label)} style={{background:"#fff",borderRadius:12,padding:"14px 16px",boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>
+            <div style={{fontSize:12,color:"#888",marginBottom:4}}>{label}</div>
+            <div style={{fontFamily:"'Unbounded',sans-serif",fontWeight:700,fontSize:22}}>{val}</div>
+          </div>
+        ))}
+      </div>
+
+      {topUsers.length > 0 && (
+        <>
+          <div style={{fontWeight:600,fontSize:13,color:"#888",marginBottom:12,textTransform:"uppercase",letterSpacing:"0.08em"}}>топ пользователей</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {topUsers.map((u: any, i: number) => (
+              <div key={u.tg_user_id} style={{background:"#fff",borderRadius:10,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>
+                <span style={{color:"#888",fontSize:13}}>#{i+1} &nbsp;<span style={{color:"#1a1a1a",fontWeight:500}}>{u.tg_user_id}</span></span>
+                <span style={{fontFamily:"'Unbounded',sans-serif",fontWeight:700}}>{u.count} айт.</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
