@@ -1023,7 +1023,22 @@ export default function Page() {
             </button>
 
             {vibeError && <div className="error">{vibeError}</div>}
-            {summary && <div className="vibe-text">{summary}</div>}
+            {summary && (() => {
+              const parts = summary.split(/
+→/);
+              const roast = parts[0].trim();
+              const recs = parts[1]?.trim();
+              return (
+                <div>
+                  <div className="vibe-text">{roast}</div>
+                  {recs && (
+                    <div style={{marginTop:16,padding:"14px 16px",background:"#f0ede6",borderRadius:12,fontSize:14,lineHeight:1.6,color:"#555"}}>
+                      <span style={{fontWeight:600,color:"#1a1a1a"}}>→ </span>{recs}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>
