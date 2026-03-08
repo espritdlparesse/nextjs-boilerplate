@@ -34,7 +34,7 @@ type ImportedItem = {
   type: "music" | "book" | "movie";
   source: "spotify" | "goodreads" | "letterboxd" | "manual";
   title: string;
-  creator?: string | null;
+  creator: string | null;
 };
 
 function clampItems(items: any[]): ImportedItem[] {
@@ -45,7 +45,12 @@ function clampItems(items: any[]): ImportedItem[] {
     const type = String(it?.type ?? "").toLowerCase();
     const source = String(it?.source ?? "").toLowerCase();
     const title = String(it?.title ?? "").trim();
-    const creator = it?.creator == null ? null : String(it.creator).trim();
+
+    // creator: берём из creator / author / artist, fallback — пустая строка
+    const rawCreator =
+      it?.creator ?? it?.author ?? it?.artist ?? null;
+    const creator =
+      rawCreator == null ? null : String(rawCreator).trim() || null;
 
     if (!title) continue;
     if (!["music", "book", "movie"].includes(type)) continue;
@@ -58,7 +63,7 @@ function clampItems(items: any[]): ImportedItem[] {
       type: type as ImportedItem["type"],
       source: src,
       title,
-      creator: creator || null,
+      creator,
     });
   }
 
@@ -66,16 +71,24 @@ function clampItems(items: any[]): ImportedItem[] {
 }
 
 function safeParseJson(text: string) {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) return null;
+  // Убираем markdown-обёртку если есть
+  const stripped = text.replace(/```json|```/g, "").trim();
 
-  const maybe = text.slice(start, end + 1);
+  // Пробуем весь текст
   try {
-    return JSON.parse(maybe);
-  } catch {
-    return null;
+    return JSON.parse(stripped);
+  } catch {}
+
+  // Ищем первый объект {...}
+  const start = stripped.indexOf("{");
+  const end = stripped.lastIndexOf("}");
+  if (start !== -1 && end > start) {
+    try {
+      return JSON.parse(stripped.slice(start, end + 1));
+    } catch {}
   }
+
+  return null;
 }
 
 export async function POST(req: NextRequest) {
@@ -119,9 +132,9 @@ export async function POST(req: NextRequest) {
   const model =
     process.env.OPENAI_VISION_MODEL ??
     process.env.OPENAI_MODEL ??
-    "gpt-4o-mini";
+    "gpt-4o";
 
-  const instructions = `
+  const systemPrompt = `
 Ты помощник, который импортирует контент по скриншоту.
 
 Определи, что на скриншоте (Spotify / Goodreads / Letterboxd / другое)
@@ -142,30 +155,33 @@ export async function POST(req: NextRequest) {
 }
 
 Не выдумывай элементы. Извлекай только то, что реально видно.
+Для поля creator — если автор/исполнитель виден на скрине, укажи его. Если нет — null.
 Максимум 80 элементов.
-`;
-
-  const userText = "Распознай этот скрин и верни JSON.";
+`.trim();
 
   let outputText = "";
 
   try {
-    const resp = await client.responses.create({
+    const resp = await client.chat.completions.create({
       model,
-      instructions,
-      input: [
+      messages: [
+        { role: "system", content: systemPrompt },
         {
           role: "user",
           content: [
-            { type: "input_text", text: userText },
-            // ВАЖНО: image_url — строка, detail — отдельным полем
-            { type: "input_image", image_url: dataUrl, detail: "auto" },
+            { type: "text", text: "Распознай этот скрин и верни JSON." },
+            {
+              type: "image_url",
+              image_url: { url: dataUrl, detail: "auto" },
+            },
           ],
         },
       ],
+      max_tokens: 2000,
+      temperature: 0,
     });
 
-    outputText = resp.output_text ?? "";
+    outputText = resp.choices[0]?.message?.content ?? "";
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message ?? "openai error" },
