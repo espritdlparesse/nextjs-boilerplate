@@ -739,7 +739,13 @@ export default function Page() {
             <div className="card">
               <div className="card-title">что это</div>
               <p className="card-text">
-                EveryYou собирает весь контент в одном месте — музыку, книги и фильмы. Когда данных накопится достаточно, можно провести вайбчек.
+                EveryYou — место куда можно скидывать весь контент который ты потребляешь: музыку, книги, фильмы. Добавляй вручную или загружай скриншот — ИИ распознает что на нём.
+              </p>
+              <p className="card-text" style={{ marginTop: 10 }}>
+                Когда накопится достаточно, жми вайбчек — получишь короткий портрет периода от не очень объективного, но довольно проницательного алгоритма.
+              </p>
+              <p className="card-text" style={{ marginTop: 10, opacity: 0.5, fontSize: 12 }}>
+                work in progress. многое ещё не доделано — но уже работает.
               </p>
               <div className="actions">
                 <button className="btn" onClick={() => setTab("add")}>добавить контент →</button>
@@ -826,8 +832,11 @@ export default function Page() {
             {/* IMPORT MODE */}
             {!manualMode && (
               <>
-                <p className="card-text" style={{ marginBottom: 16 }}>
-                  Загрузи скриншот из Spotify, Goodreads или Letterboxd — распознаю автоматически.
+                <p className="card-text" style={{ marginBottom: 6 }}>
+                  Загрузи скриншот — из Spotify, заметок, списков, да откуда угодно. ИИ постарается разобрать что там.
+                </p>
+                <p className="card-text" style={{ marginBottom: 16, opacity: 0.5, fontSize: 12 }}>
+                  нормальной интеграции с площадками пока нет — авторам было лень. докрутим потом.
                 </p>
 
                 <input
@@ -871,7 +880,6 @@ export default function Page() {
                           <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{it.creator || "—"}</div>
                           <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
                             <span className="tag">{TYPE_LABELS[it.type]}</span>
-                            <span className="tag">{it.source}</span>
                           </div>
                         </div>
                       </div>
@@ -948,7 +956,6 @@ export default function Page() {
                     {it.creator && <div className="item-creator">{it.creator}</div>}
                     <div className="item-meta">
                       <span className="tag">{TYPE_LABELS[it.type]}</span>
-                      <span className="tag">{it.source}</span>
                     </div>
                   </div>
                   <button
@@ -976,7 +983,10 @@ export default function Page() {
           <div className="card">
             <div className="card-title">вайбчек</div>
             <p className="card-text">
-              Алгоритм анализирует сохранённый контент и собирает портрет периода. Это демо-версия — не относись слишком серьёзно ;)
+              Смотрит на всё что ты сохранил и говорит что думает. Коротко и без лишних слов.
+            </p>
+            <p className="card-text" style={{ marginTop: 8, opacity: 0.5, fontSize: 12 }}>
+              work in progress. чем больше контента — тем точнее.
             </p>
 
             <div className="stats" style={{ marginTop: 16 }}>
