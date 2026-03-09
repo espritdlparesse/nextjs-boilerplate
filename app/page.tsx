@@ -292,6 +292,10 @@ export default function Page() {
   const [vibeError, setVibeError] = useState("");
   const [mentalAge, setMentalAge] = useState("");
   const [mentalAgeLoading, setMentalAgeLoading] = useState(false);
+  const [deepVibeResult, setDeepVibeResult] = useState("");
+  const [deepVibeLoading, setDeepVibeLoading] = useState(false);
+  const [deepVibeAccess, setDeepVibeAccess] = useState<"free"|"forever"|"none"|null>(null);
+  const [deepVibeUsesLeft, setDeepVibeUsesLeft] = useState<number|null>(null);
 
   async function runVibeCheck() {
     setVibeLoading(true); setVibeError(""); setSummary("");
@@ -309,6 +313,71 @@ export default function Page() {
       setVibeLoading(false);
     }
   }
+
+  async function fetchDeepVibeAccess() {
+    try {
+      const res = await fetch("/api/deep-vibe", {
+        headers: { "x-telegram-init-data": getTgInitData() },
+      });
+      const json = await safeJson(res);
+      setDeepVibeAccess(json?.access ?? "none");
+      setDeepVibeUsesLeft(json?.usesLeft ?? 0);
+    } catch {}
+  }
+
+  async function runDeepVibe() {
+    setDeepVibeLoading(true); setDeepVibeResult("");
+    try {
+      const res = await fetch("/api/deep-vibe", {
+        method: "POST",
+        headers: {
+          "x-telegram-init-data": getTgInitData(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
+      const json = await safeJson(res);
+      if (json?.error === "no_access") {
+        setDeepVibeAccess("none");
+        setDeepVibeUsesLeft(0);
+        return;
+      }
+      setDeepVibeResult(json?.result ?? "");
+      // Обновляем счётчик после использования
+      fetchDeepVibeAccess();
+    } catch (e: any) {
+      setDeepVibeResult("не удалось загрузить");
+    } finally {
+      setDeepVibeLoading(false);
+    }
+  }
+
+  function buyDeepVibeOnce() {
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg?.openInvoice) {
+      tg.openInvoice(`/api/invoice?product=deep_vibe_once`, (status: string) => {
+        if (status === "paid") fetchDeepVibeAccess();
+      });
+    }
+  }
+
+  function buyDeepVibeForever() {
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg?.openInvoice) {
+      tg.openInvoice(`/api/invoice?product=deep_vibe_forever`, (status: string) => {
+        if (status === "paid") fetchDeepVibeAccess();
+      });
+    }
+  }
+
+  // Проверяем доступ при переходе на вкладку вайбчека
+  const prevTabRef = React.useRef<string>("");
+  React.useEffect(() => {
+    if (activeTab === "vibe" && prevTabRef.current !== "vibe") {
+      fetchDeepVibeAccess();
+    }
+    prevTabRef.current = activeTab;
+  }, [activeTab]);
 
   async function runMentalAge() {
     setMentalAgeLoading(true); setMentalAge("");
@@ -1066,6 +1135,69 @@ export default function Page() {
                 ))}
               </div>
             )}
+
+            {/* Глубокий вайбчек — платный */}
+            <div style={{marginTop:24,borderTop:"1px solid #e8e3da",paddingTop:20}}>
+              <div style={{fontSize:12,color:"#888",marginBottom:14,lineHeight:1.5,textAlign:"center"}}>
+                глубокий вайбчек — это не прожарка.<br/>
+                это честный разбор твоего ментального состояния по контенту.
+              </div>
+
+              {/* Кнопка запуска — если есть доступ */}
+              {(deepVibeAccess === "free" || deepVibeAccess === "forever") && (
+                <div>
+                  {deepVibeAccess === "free" && deepVibeUsesLeft !== null && (
+                    <div style={{textAlign:"center",fontSize:12,color:"#aaa",marginBottom:10}}>
+                      осталось бесплатных: {deepVibeUsesLeft} из 3
+                    </div>
+                  )}
+                  {deepVibeAccess === "forever" && (
+                    <div style={{textAlign:"center",fontSize:12,color:"#aaa",marginBottom:10}}>
+                      ✦ вечный доступ
+                    </div>
+                  )}
+                  <button
+                    className="btn"
+                    style={{background:"#1a1a1a",color:"#fff",width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}
+                    onClick={runDeepVibe}
+                    disabled={deepVibeLoading || counts.total === 0}
+                  >
+                    ✦ {deepVibeLoading ? "анализирую..." : "запустить глубокий вайбчек"}
+                  </button>
+                </div>
+              )}
+
+              {/* Нет доступа — показываем кнопки покупки */}
+              {deepVibeAccess === "none" && (
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  <button
+                    className="btn"
+                    style={{background:"#1a1a1a",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}
+                    onClick={buyDeepVibeOnce}
+                    disabled={counts.total === 0}
+                  >
+                    ✦ один анализ — 5 ★
+                  </button>
+                  <button
+                    className="btn btn-outline"
+                    style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,borderColor:"#1a1a1a"}}
+                    onClick={buyDeepVibeForever}
+                    disabled={counts.total === 0}
+                  >
+                    ✦ вечный доступ — 200 ★
+                  </button>
+                  <div style={{fontSize:11,color:"#aaa",textAlign:"center"}}>оплата через Telegram Stars</div>
+                </div>
+              )}
+
+              {/* Результат */}
+              {deepVibeResult && (
+                <div style={{marginTop:16,padding:"18px",background:"#fff",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.07)",fontSize:14,lineHeight:1.8,color:"#333",whiteSpace:"pre-wrap"}}>
+                  {deepVibeResult}
+                </div>
+              )}
+            </div>
+
           </div>
         )}
       </div>
