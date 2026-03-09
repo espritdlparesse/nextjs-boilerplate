@@ -352,23 +352,33 @@ export default function Page() {
     }
   }
 
-  function buyDeepVibeOnce() {
+  async function openDeepVibePurchase(product: "deep_vibe_once" | "deep_vibe_forever") {
     const tg = (window as any).Telegram?.WebApp;
-    if (tg?.openInvoice) {
-      tg.openInvoice(`/api/invoice?product=deep_vibe_once`, (status: string) => {
-        if (status === "paid") fetchDeepVibeAccess();
+    if (!tg?.openInvoice) {
+      alert("Покупка доступна только в Telegram");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/invoice?product=${product}`, {
+        headers: { "x-telegram-init-data": getTgInitData() },
       });
+      const json = await safeJson(res);
+      if (!json?.url) {
+        alert("Не удалось создать инвойс: " + (json?.error ?? "неизвестная ошибка"));
+        return;
+      }
+      tg.openInvoice(json.url, (status: string) => {
+        if (status === "paid") {
+          fetchDeepVibeAccess();
+        }
+      });
+    } catch (e: any) {
+      alert("Ошибка: " + e?.message);
     }
   }
 
-  function buyDeepVibeForever() {
-    const tg = (window as any).Telegram?.WebApp;
-    if (tg?.openInvoice) {
-      tg.openInvoice(`/api/invoice?product=deep_vibe_forever`, (status: string) => {
-        if (status === "paid") fetchDeepVibeAccess();
-      });
-    }
-  }
+  function buyDeepVibeOnce() { openDeepVibePurchase("deep_vibe_once"); }
+  function buyDeepVibeForever() { openDeepVibePurchase("deep_vibe_forever"); }
 
   // Проверяем доступ при переходе на вкладку вайбчека
   const prevTabRef = useRef<string>("");
