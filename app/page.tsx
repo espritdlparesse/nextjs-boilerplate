@@ -1207,23 +1207,34 @@ export default function Page() {
         {/* LIBRARY */}
         {tab === "library" && (
           <>
-            <div className="stats">
-              <div className="stat-pill">
-                <div className="stat-num">{counts.total}</div>
-                <div className="stat-label">всего</div>
-              </div>
-              <div className="stat-pill">
-                <div className="stat-num">{counts.music}</div>
-                <div className="stat-label">музыка</div>
-              </div>
-              <div className="stat-pill">
-                <div className="stat-num">{counts.books}</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+              <div className="stats" style={{margin:0,flex:1}}>
+                <div className="stat-pill">
+                  <div className="stat-num">{counts.total}</div>
+                  <div className="stat-label">всего</div>
+                </div>
+                <div className="stat-pill">
+                  <div className="stat-num">{counts.music}</div>
+                  <div className="stat-label">музыка</div>
+                </div>
+                <div className="stat-pill">
+                  <div className="stat-num">{counts.books}</div>
                 <div className="stat-label">книги</div>
               </div>
               <div className="stat-pill">
                 <div className="stat-num">{counts.movies}</div>
                 <div className="stat-label">фильмы</div>
               </div>
+            </div>
+              <button
+                style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#888",padding:"0 4px",flexShrink:0}}
+                title="поделиться"
+                onClick={async () => {
+                  const dataUrl = await generateShareCard();
+                  setShareCardDataUrl(dataUrl);
+                  setShowShareCard(true);
+                }}
+              >↗</button>
             </div>
 
             <div className="filter-row">
@@ -1285,7 +1296,18 @@ export default function Page() {
         {/* VIBE */}
         {tab === "vibe" && (
           <div className="card">
-            <div className="card-title">вайбчек</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div className="card-title">вайбчек</div>
+              <button
+                style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#888",padding:"0 4px"}}
+                title="поделиться"
+                onClick={async () => {
+                  const dataUrl = await generateShareCard(summary || undefined, summary ? "vibe" : undefined);
+                  setShareCardDataUrl(dataUrl);
+                  setShowShareCard(true);
+                }}
+              >↗</button>
+            </div>
             <p className="card-text">
               Смотрит на всё что ты сохранил и говорит что думает.
             </p>
