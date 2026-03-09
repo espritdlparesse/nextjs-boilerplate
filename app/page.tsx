@@ -373,11 +373,11 @@ export default function Page() {
   // Проверяем доступ при переходе на вкладку вайбчека
   const prevTabRef = useRef<string>("");
   useEffect(() => {
-    if (activeTab === "vibe" && prevTabRef.current !== "vibe") {
+    if (tab === "vibe" && prevTabRef.current !== "vibe") {
       fetchDeepVibeAccess();
     }
-    prevTabRef.current = activeTab;
-  }, [activeTab]);
+    prevTabRef.current = tab;
+  }, [tab]);
 
   async function runMentalAge() {
     setMentalAgeLoading(true); setMentalAge("");
