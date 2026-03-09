@@ -1136,11 +1136,13 @@ export default function Page() {
               </div>
             )}
 
-            {/* Глубокий вайбчек — платный */}
+            {/* Вайбчек без прикола — платный */}
             <div style={{marginTop:24,borderTop:"1px solid #e8e3da",paddingTop:20}}>
-              <div style={{fontSize:12,color:"#888",marginBottom:14,lineHeight:1.5,textAlign:"center"}}>
-                глубокий вайбчек — это не прожарка.<br/>
-                это честный разбор твоего ментального состояния по контенту.
+              <div style={{fontSize:13,fontWeight:600,color:"#1a1a1a",marginBottom:8,textAlign:"center"}}>
+                вайбчек без прикола
+              </div>
+              <div style={{fontSize:12,color:"#888",marginBottom:14,lineHeight:1.6,textAlign:"center"}}>
+                серьёзный анализ всего что ты добавил. алгоритм составит что-то вроде психологического портрета — какие темы тебя цепляют, какое настроение прослеживается, и посоветует что ещё почитать, посмотреть или послушать, исходя из твоего состояния.
               </div>
 
               {/* Кнопка запуска — если есть доступ */}
@@ -1162,7 +1164,7 @@ export default function Page() {
                     onClick={runDeepVibe}
                     disabled={deepVibeLoading || counts.total === 0}
                   >
-                    ✦ {deepVibeLoading ? "анализирую..." : "запустить глубокий вайбчек"}
+                    ✦ {deepVibeLoading ? "анализирую..." : "вайбчек без прикола →"}
                   </button>
                 </div>
               )}
@@ -1190,10 +1192,10 @@ export default function Page() {
                 </div>
               )}
 
-              {/* Результат */}
+              {/* Результат с markdown */}
               {deepVibeResult && (
-                <div style={{marginTop:16,padding:"18px",background:"#fff",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.07)",fontSize:14,lineHeight:1.8,color:"#333",whiteSpace:"pre-wrap"}}>
-                  {deepVibeResult}
+                <div style={{marginTop:16,padding:"18px",background:"#fff",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.07)",fontSize:14,lineHeight:1.8,color:"#333"}}>
+                  <MarkdownText text={deepVibeResult} />
                 </div>
               )}
             </div>
@@ -1238,6 +1240,25 @@ export default function Page() {
       </nav>
       {tab === "admin" && tgUserId === ADMIN_TG_ID && <AdminTab />}
     </>
+  );
+}
+
+function MarkdownText({ text }: { text: string }) {
+  // Рендерим **жирный** и абзацы
+  const paragraphs = text.split(/\n\n+/);
+  return (
+    <div>
+      {paragraphs.map((para, i) => {
+        const parts = para.split(/\*\*(.+?)\*\*/g);
+        return (
+          <p key={i} style={{margin: i === 0 ? 0 : "12px 0 0 0"}}>
+            {parts.map((part, j) =>
+              j % 2 === 1 ? <strong key={j}>{part}</strong> : part
+            )}
+          </p>
+        );
+      })}
+    </div>
   );
 }
 
