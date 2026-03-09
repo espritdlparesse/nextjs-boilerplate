@@ -22,12 +22,10 @@ async function getValidAccessToken(tgUserId: number, sb: any): Promise<string | 
 
   if (!tokenRow) return null;
 
-  // Токен ещё действителен?
   if (new Date(tokenRow.expires_at) > new Date(Date.now() + 60_000)) {
     return tokenRow.access_token;
   }
 
-  // Обновляем токен
   const clientId = process.env.SPOTIFY_CLIENT_ID!;
   const clientSecret = process.env.SPOTIFY_CLIENT_SECRET!;
 
@@ -57,7 +55,6 @@ async function getValidAccessToken(tgUserId: number, sb: any): Promise<string | 
   return tokens.access_token;
 }
 
-// GET — проверить подключён ли Spotify
 export async function GET(req: NextRequest) {
   try {
     const tgUserId = getTgUserOrThrow(req);
@@ -73,7 +70,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST — запустить синхронизацию вручную
 export async function POST(req: NextRequest) {
   try {
     const tgUserId = getTgUserOrThrow(req);
@@ -100,19 +96,36 @@ export async function POST(req: NextRequest) {
       const creator = track.artists?.map((a: any) => a.name).join(", ") ?? null;
       const playedAt = item.played_at;
 
-      const { error } = await sb.from("items").upsert({
-        tg_user_id: tgUserId,
-        type: "music",
-        source: "spotify",
-        title,
-        creator,
-        played_at: playedAt,
-      }, { onConflict: "tg_user_id,source,title,COALESCE(creator, '')" });
+      // Ищем существующий трек
+      const { data: existing } = await sb
+        .from("items")
+        .select("id, played_at")
+        .eq("tg_user_id", tgUserId)
+        .eq("source", "spotify")
+        .eq("title", title)
+        .eq("creator", creator ?? "")
+        .maybeSingle();
 
-      if (!error) added++;
+      if (existing) {
+        // Обновляем played_at если новее
+        if (!existing.played_at || playedAt > existing.played_at) {
+          await sb.from("items").update({ played_at: playedAt }).eq("id", existing.id);
+        }
+      } else {
+        // Добавляем новый трек
+        const { error } = await sb.from("items").insert({
+          tg_user_id: tgUserId,
+          type: "music",
+          source: "spotify",
+          title,
+          creator,
+          played_at: playedAt,
+        });
+        if (!error) added++;
+      }
     }
 
-    return NextResponse.json({ ok: true, synced: added });
+    return NextResponse.json({ ok: true, synced: tracks.length, added });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
