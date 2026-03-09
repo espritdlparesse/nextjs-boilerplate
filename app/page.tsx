@@ -171,6 +171,7 @@ export default function Page() {
   // ===== Import =====
   const fileRef = useRef<HTMLInputElement | null>(null);
   const csvRef = useRef<HTMLInputElement | null>(null);
+  const lbRef = useRef<HTMLInputElement | null>(null);
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState("");
   const [imported, setImported] = useState<ImportedItem[]>([]);
@@ -218,6 +219,64 @@ export default function Page() {
       }
 
       if (result.length === 0) { setImportError("книги не найдены в файле"); return; }
+
+      setImported(result);
+      setSelectedIdx(new Set(result.map((_, i) => i)));
+    } catch (e: any) {
+      setImportError("ошибка при чтении файла: " + e?.message);
+    } finally {
+      setImportLoading(false);
+    }
+  }
+
+  // Letterboxd официальный CSV экспорт: Date,Name,Year,Letterboxd URI,Rating,Rewatch,Tags,Watched Date
+  async function importLetterboxdCsv(file: File) {
+    setImportLoading(true);
+    setImportError("");
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(Boolean);
+      if (lines.length < 2) { setImportError("файл пустой"); return; }
+
+      const parseRow = (line: string) => {
+        // CSV с возможными кавычками
+        const result: string[] = [];
+        let cur = "", inQ = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') { inQ = !inQ; }
+          else if (ch === "," && !inQ) { result.push(cur.trim()); cur = ""; }
+          else { cur += ch; }
+        }
+        result.push(cur.trim());
+        return result;
+      };
+
+      const headers = parseRow(lines[0]).map(h => h.toLowerCase());
+      const col = (names: string[]) => {
+        for (const n of names) {
+          const i = headers.findIndex(h => h.includes(n));
+          if (i !== -1) return i;
+        }
+        return -1;
+      };
+
+      const nameCol = col(["name", "title"]);
+      const yearCol = col(["year"]);
+
+      if (nameCol === -1) { setImportError("не распознан формат Letterboxd CSV"); return; }
+
+      const result: ImportedItem[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const row = parseRow(lines[i]);
+        const title = row[nameCol];
+        if (!title) continue;
+        const year = yearCol !== -1 ? row[yearCol] : undefined;
+        const displayTitle = year ? `${title} (${year})` : title;
+        result.push({ type: "movie", title: displayTitle, creator: undefined, source: "letterboxd" });
+      }
+
+      if (result.length === 0) { setImportError("фильмы не найдены в файле"); return; }
 
       setImported(result);
       setSelectedIdx(new Set(result.map((_, i) => i)));
@@ -1227,6 +1286,31 @@ export default function Page() {
                       chimildic.github.io/livelib-backup
                     </a>
                     {" "}→ загрузи сюда
+                  </div>
+                </div>
+
+                {/* Letterboxd CSV */}
+                <div style={{marginBottom:16}}>
+                  <input
+                    ref={lbRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    style={{display:"none"}}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) importLetterboxdCsv(f); e.target.value = ""; }}
+                  />
+                  <button
+                    className="btn btn-outline"
+                    style={{fontSize:13,display:"flex",alignItems:"center",gap:6,width:"100%"}}
+                    onClick={() => lbRef.current?.click()}
+                    disabled={importLoading}
+                  >
+                    🎬 импорт из Letterboxd (CSV)
+                  </button>
+                  <div style={{fontSize:11,color:"#aaa",marginTop:6,lineHeight:1.6}}>
+                    1. открой letterboxd.com в браузере<br/>
+                    2. зайди в профиль → Settings → Import & Export<br/>
+                    3. нажми «Export Your Data» → скачается zip<br/>
+                    4. распакуй и загрузи сюда файл <b>watched.csv</b>
                   </div>
                 </div>
 
