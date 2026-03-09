@@ -326,7 +326,7 @@ export default function Page() {
         headers: { "x-telegram-init-data": getTgInitData() },
       });
       const json = await safeJson(res);
-      if (json?.ok) loadItems();
+      if (json?.ok) loadLibrary();
     } catch {}
     finally { setSpotifySyncing(false); }
   }
