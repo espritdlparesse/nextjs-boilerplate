@@ -371,8 +371,8 @@ export default function Page() {
   }
 
   // Проверяем доступ при переходе на вкладку вайбчека
-  const prevTabRef = React.useRef<string>("");
-  React.useEffect(() => {
+  const prevTabRef = useRef<string>("");
+  useEffect(() => {
     if (activeTab === "vibe" && prevTabRef.current !== "vibe") {
       fetchDeepVibeAccess();
     }
