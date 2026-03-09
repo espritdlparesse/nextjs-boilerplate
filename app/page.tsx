@@ -1236,7 +1236,6 @@ export default function Page() {
                   accept="image/*"
                   style={{ display: "none" }}
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) runImport(f); }}/>
-                />
 
                 <button
                   className="btn btn-outline"
