@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
     const tgUserId = getTgUserOrThrow(req);
     const sb = supabaseAdmin();
 
+    // Вечная подписка?
     const { data: forever } = await sb
       .from("purchases")
       .select("id")
@@ -46,13 +47,37 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ access: "forever", usesLeft: null });
     }
 
+    // Сколько бесплатных использовано?
     const { count } = await sb
       .from("deep_vibe_usage")
       .select("id", { count: "exact", head: true })
       .eq("tg_user_id", tgUserId);
 
     const usesLeft = Math.max(0, FREE_USES - (count ?? 0));
-    return NextResponse.json({ access: usesLeft > 0 ? "free" : "none", usesLeft });
+    if (usesLeft > 0) {
+      return NextResponse.json({ access: "free", usesLeft });
+    }
+
+    // Есть неиспользованная разовая покупка?
+    // Считаем: покупок минус использований после бесплатных
+    const { count: paidCount } = await sb
+      .from("purchases")
+      .select("id", { count: "exact", head: true })
+      .eq("tg_user_id", tgUserId)
+      .eq("product", "deep_vibe_once");
+
+    const { count: totalUsage } = await sb
+      .from("deep_vibe_usage")
+      .select("id", { count: "exact", head: true })
+      .eq("tg_user_id", tgUserId);
+
+    const paidUsesLeft = (paidCount ?? 0) - Math.max(0, (totalUsage ?? 0) - FREE_USES);
+
+    if (paidUsesLeft > 0) {
+      return NextResponse.json({ access: "paid", usesLeft: paidUsesLeft });
+    }
+
+    return NextResponse.json({ access: "none", usesLeft: 0 });
 
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
@@ -78,30 +103,32 @@ export async function POST(req: NextRequest) {
     const hasForever = forever && forever.length > 0;
 
     if (!hasForever) {
-      if (paymentChargeId) {
-        // Разовая покупка — проверяем что она есть
-        const { data: purchase } = await sb
-          .from("purchases")
-          .select("id")
-          .eq("tg_user_id", tgUserId)
-          .eq("product", "deep_vibe_once")
-          .eq("telegram_payment_charge_id", paymentChargeId)
-          .limit(1);
+      // Проверяем общее количество доступных использований
+      const { count: totalUsage } = await sb
+        .from("deep_vibe_usage")
+        .select("id", { count: "exact", head: true })
+        .eq("tg_user_id", tgUserId);
 
-        if (!purchase || purchase.length === 0) {
-          return NextResponse.json({ error: "payment_not_found" }, { status: 403 });
-        }
-      } else {
+      const used = totalUsage ?? 0;
+
+      if (used < FREE_USES) {
         // Бесплатная попытка
-        const { count } = await sb
-          .from("deep_vibe_usage")
+        await sb.from("deep_vibe_usage").insert({ tg_user_id: tgUserId });
+      } else {
+        // Проверяем есть ли оплаченные попытки
+        const { count: paidCount } = await sb
+          .from("purchases")
           .select("id", { count: "exact", head: true })
-          .eq("tg_user_id", tgUserId);
+          .eq("tg_user_id", tgUserId)
+          .eq("product", "deep_vibe_once");
 
-        if ((count ?? 0) >= FREE_USES) {
+        const paidUsesLeft = (paidCount ?? 0) - Math.max(0, used - FREE_USES);
+
+        if (paidUsesLeft <= 0) {
           return NextResponse.json({ error: "no_access", usesLeft: 0 }, { status: 403 });
         }
 
+        // Списываем платную попытку
         await sb.from("deep_vibe_usage").insert({ tg_user_id: tgUserId });
       }
     }
