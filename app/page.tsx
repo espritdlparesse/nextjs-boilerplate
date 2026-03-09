@@ -458,9 +458,8 @@ export default function Page() {
       // Режим вайбчека — выводим текст
       ctx.fillStyle = "#1a1a1a";
       ctx.font = "36px -apple-system, sans-serif";
-    const clean = text.replace(/[*][*]/g, "").replace(/[\n]{2,}/g, "\n").trim();
+      const clean = text.split("**").join("").split("\n\n").join("\n").trim();
 
-+/g, "
 ").trim();
       const words = clean.split(" ");
       let line = "";
@@ -564,9 +563,8 @@ export default function Page() {
     const maxWidth = W - 160;
     const lineHeight = 52;
     // Убираем markdown звёздочки
-    const clean = text.replace(/[*][*]/g, "").replace(/[\n]{2,}/g, "\n").trim();
+      const clean = text.split("**").join("").split("\n\n").join("\n").trim();
 
-+/g, "
 ").trim();
     const words = clean.split(" ");
     let line = "";
