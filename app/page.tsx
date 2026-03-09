@@ -541,8 +541,11 @@ export default function Page() {
       setShareCardDataUrl(dataUrl);
       setShowShareCard(true);
     };
-    tg.onEvent?.("screenshot_taken", handler);
-    return () => tg.offEvent?.("screenshot_taken", handler);
+    // Telegram WebApp использует tg.onEvent напрямую
+    if (typeof tg.onEvent === "function") {
+      tg.onEvent("screenshot_taken", handler);
+      return () => tg.offEvent("screenshot_taken", handler);
+    }
   }, [items]);
 
   // Проверяем доступ при переходе на вкладку вайбчека
@@ -1021,6 +1024,17 @@ export default function Page() {
                 <button className="btn" onClick={() => setTab("add")}>добавить контент →</button>
                 <button className="btn btn-outline" onClick={() => setTab("library")}>библиотека →</button>
                 <button className="btn btn-outline" onClick={() => setTab("vibe")}>вайбчек →</button>
+                <button
+                  className="btn btn-outline"
+                  style={{display:"flex",alignItems:"center",gap:6}}
+                  onClick={async () => {
+                    const dataUrl = await generateShareCard();
+                    setShareCardDataUrl(dataUrl);
+                    setShowShareCard(true);
+                  }}
+                >
+                  ↗ поделиться
+                </button>
               </div>
             </div>
           </>
