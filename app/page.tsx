@@ -133,6 +133,8 @@ export default function Page() {
   const [items, setItems] = useState<DbItem[]>([]);
   const [libraryLoading, setLibraryLoading] = useState(false);
   const [libraryError, setLibraryError] = useState("");
+  const [spotifyConnected, setSpotifyConnected] = useState<boolean | null>(null);
+  const [spotifySyncing, setSpotifySyncing] = useState(false);
 
   async function loadLibrary() {
     setLibraryLoading(true);
@@ -297,6 +299,38 @@ export default function Page() {
   const [deepVibeAccess, setDeepVibeAccess] = useState<"free"|"paid"|"forever"|"none"|null>(null);
   const [deepVibeUsesLeft, setDeepVibeUsesLeft] = useState<number|null>(null);
 
+  async function checkSpotify() {
+    try {
+      const res = await fetch("/api/spotify/sync", {
+        headers: { "x-telegram-init-data": getTgInitData() },
+      });
+      const json = await safeJson(res);
+      setSpotifyConnected(json?.connected ?? false);
+    } catch { setSpotifyConnected(false); }
+  }
+
+  async function connectSpotify() {
+    const initData = getTgInitData();
+    const url = `/api/spotify/auth?initData=${encodeURIComponent(initData)}`;
+    const tg = (window as any).Telegram?.WebApp;
+    tg?.openLink ? tg.openLink(url) : window.open(url, "_blank");
+    // Проверяем подключение через 5 секунд
+    setTimeout(() => checkSpotify(), 5000);
+  }
+
+  async function syncSpotify() {
+    setSpotifySyncing(true);
+    try {
+      const res = await fetch("/api/spotify/sync", {
+        method: "POST",
+        headers: { "x-telegram-init-data": getTgInitData() },
+      });
+      const json = await safeJson(res);
+      if (json?.ok) loadItems();
+    } catch {}
+    finally { setSpotifySyncing(false); }
+  }
+
   async function runVibeCheck() {
     setVibeLoading(true); setVibeError(""); setSummary("");
     try {
@@ -385,6 +419,9 @@ export default function Page() {
   useEffect(() => {
     if (tab === "vibe" && prevTabRef.current !== "vibe") {
       fetchDeepVibeAccess();
+    }
+    if (tab === "library" && prevTabRef.current !== "library") {
+      checkSpotify();
     }
     prevTabRef.current = tab;
   }, [tab]);
@@ -1022,6 +1059,29 @@ export default function Page() {
                 <div className="stat-num">{counts.movies}</div>
                 <div className="stat-label">фильмы</div>
               </div>
+            </div>
+
+            {/* Spotify */}
+            <div style={{marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
+              {spotifyConnected === false && (
+                <button
+                  className="btn btn-outline"
+                  style={{fontSize:13,display:"flex",alignItems:"center",gap:6,flex:1}}
+                  onClick={connectSpotify}
+                >
+                  <span style={{color:"#1db954"}}>♫</span> подключить Spotify
+                </button>
+              )}
+              {spotifyConnected === true && (
+                <button
+                  className="btn btn-outline"
+                  style={{fontSize:13,display:"flex",alignItems:"center",gap:6,flex:1}}
+                  onClick={syncSpotify}
+                  disabled={spotifySyncing}
+                >
+                  <span style={{color:"#1db954"}}>♫</span> {spotifySyncing ? "синхронизирую..." : "обновить из Spotify"}
+                </button>
+              )}
             </div>
 
             <div className="filter-row">
