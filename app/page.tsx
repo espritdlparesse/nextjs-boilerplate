@@ -488,7 +488,7 @@ export default function Page() {
       // Режим библиотеки — показываем топ контент
       const music = items.filter(i => i.type === "music").slice(0, 4);
       const books = items.filter(i => i.type === "book").slice(0, 3);
-      const movies = items.filter(i => i.type === "movie" || i.type === "film").slice(0, 3);
+      const movies = items.filter(i => i.type === "movie" || (i.type as string) === "film").slice(0, 3);
 
       let y = 270;
 
@@ -527,88 +527,9 @@ export default function Page() {
   }
 
   async function shareVibeCard(text: string, type: "vibe" | "deep") {
-    const canvas = document.createElement("canvas");
-    const W = 1080, H = 1080;
-    canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext("2d")!;
-
-    // Фон
-    ctx.fillStyle = "#f5f0e8";
-    ctx.fillRect(0, 0, W, H);
-
-    // Декоративный круг
-    ctx.beginPath();
-    ctx.arc(W * 0.85, H * 0.15, 300, 0, Math.PI * 2);
-    ctx.fillStyle = "#ede7d9";
-    ctx.fill();
-
-    // Логотип
-    ctx.fillStyle = "#1a1a1a";
-    ctx.font = "bold 52px Georgia, serif";
-    ctx.fillText("everyyou", 80, 110);
-
-    // Подпись типа
-    ctx.fillStyle = "#888";
-    ctx.font = "28px -apple-system, sans-serif";
-    ctx.fillText(type === "deep" ? "вайбчек без прикола" : "вайбчек", 80, 155);
-
-    // Разделитель
-    ctx.fillStyle = "#d4cfc6";
-    ctx.fillRect(80, 175, W - 160, 1);
-
-    // Текст вайбчека — wrap
-    ctx.fillStyle = "#1a1a1a";
-    ctx.font = "34px -apple-system, sans-serif";
-    const maxWidth = W - 160;
-    const lineHeight = 52;
-    // Убираем markdown звёздочки
-      const clean = text.split("**").join("").split("\n\n").join("\n").trim();
-
-    const words = clean.split(" ");
-    let line = "";
-    let y = 250;
-    const maxY = H - 220;
-
-    for (const word of words) {
-      const testLine = line + (line ? " " : "") + word;
-      const metrics = ctx.measureText(testLine);
-      if (metrics.width > maxWidth && line) {
-        ctx.fillText(line, 80, y);
-        line = word;
-        y += lineHeight;
-        if (y > maxY) { ctx.fillText("...", 80, y); break; }
-      } else {
-        line = testLine;
-      }
-    }
-    if (y <= maxY && line) ctx.fillText(line, 80, y);
-
-    // Ссылка внизу
-    ctx.fillStyle = "#888";
-    ctx.font = "26px -apple-system, sans-serif";
-    ctx.fillText("t.me/every_you_bot", 80, H - 100);
-
-    // Иконка ✦
-    ctx.fillStyle = "#1a1a1a";
-    ctx.font = "bold 32px Georgia";
-    ctx.fillText("✦", W - 120, H - 95);
-
-    // Конвертируем в blob
-    const blob = await new Promise<Blob>((res) => canvas.toBlob((b) => res(b!), "image/png"));
-    const file = new File([blob], "everyyou-vibe.png", { type: "image/png" });
-
-    if (navigator.share && navigator.canShare?.({ files: [file] })) {
-      await navigator.share({
-        files: [file],
-        text: "мой вайбчек в every you — t.me/every_you_bot",
-      });
-    } else {
-      // Fallback — скачиваем
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = "everyyou-vibe.png"; a.click();
-      URL.revokeObjectURL(url);
-    }
+    const dataUrl = await generateShareCard(text, type);
+    setShareCardDataUrl(dataUrl);
+    setShowShareCard(true);
   }
 
   // Подписка на скриншот (Telegram WebApp API)
