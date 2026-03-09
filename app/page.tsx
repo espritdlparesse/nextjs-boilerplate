@@ -1508,6 +1508,36 @@ export default function Page() {
           </div>
         </div>
       )}
+
+      {/* Плавающая кнопка шаринга */}
+      <button
+        onClick={async () => {
+          const dataUrl = await generateShareCard();
+          setShareCardDataUrl(dataUrl);
+          setShowShareCard(true);
+        }}
+        style={{
+          position: "fixed",
+          bottom: 80,
+          right: 16,
+          width: 44,
+          height: 44,
+          borderRadius: "50%",
+          background: "#1a1a1a",
+          color: "#fff",
+          border: "none",
+          fontSize: 18,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.2)",
+          cursor: "pointer",
+          zIndex: 100,
+        }}
+        title="поделиться"
+      >
+        ↗
+      </button>
     </>
   );
 }
