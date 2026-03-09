@@ -6,7 +6,7 @@ type Tab = "home" | "add" | "library" | "vibe" | "admin";
 
 const ADMIN_TG_ID = 394657396; // espritdlparesse
 type ItemType = "music" | "book" | "movie";
-type ItemSource = "spotify" | "goodreads" | "letterboxd" | "manual";
+type ItemSource = "spotify" | "goodreads" | "letterboxd" | "manual" | "livelib";
 
 type ImportedItem = {
   type: ItemType;
@@ -166,11 +166,63 @@ export default function Page() {
 
   // ===== Import =====
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const csvRef = useRef<HTMLInputElement | null>(null);
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState("");
   const [imported, setImported] = useState<ImportedItem[]>([]);
   const [selectedIdx, setSelectedIdx] = useState<Set<number>>(new Set());
   const [savingImported, setSavingImported] = useState(false);
+
+  async function importLivelibCsv(file: File) {
+    setImportLoading(true);
+    setImportError("");
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(Boolean);
+      if (lines.length < 2) { setImportError("файл пустой или не распознан"); return; }
+
+      // Парсим заголовки (могут быть в кавычках)
+      const parseRow = (line: string) =>
+        line.split(",").map(v => v.trim().replace(/^"|"$/g, "").trim());
+
+      const headers = parseRow(lines[0]).map(h => h.toLowerCase());
+
+      // Ищем нужные колонки по разным возможным названиям
+      const col = (names: string[]) => {
+        for (const n of names) {
+          const i = headers.findIndex(h => h.includes(n));
+          if (i !== -1) return i;
+        }
+        return -1;
+      };
+
+      const titleCol  = col(["title", "название", "book title", "name"]);
+      const authorCol = col(["author", "автор", "writer"]);
+
+      if (titleCol === -1) {
+        setImportError("не нашли колонку с названием книги. попробуй формат из chimildic/livelib-backup");
+        return;
+      }
+
+      const result: ImportedItem[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const row = parseRow(lines[i]);
+        const title = row[titleCol];
+        if (!title) continue;
+        const creator = authorCol !== -1 ? row[authorCol] : undefined;
+        result.push({ type: "book", title, creator, source: "livelib" });
+      }
+
+      if (result.length === 0) { setImportError("книги не найдены в файле"); return; }
+
+      setImported(result);
+      setSelectedIdx(new Set(result.map((_, i) => i)));
+    } catch (e: any) {
+      setImportError("ошибка при чтении файла: " + e?.message);
+    } finally {
+      setImportLoading(false);
+    }
+  }
 
   function toggleImported(i: number) {
     const next = new Set(selectedIdx);
@@ -1143,12 +1195,38 @@ export default function Page() {
                   )}
                 </div>
 
+                {/* Livelib CSV */}
+                <div style={{marginBottom:16}}>
+                  <input
+                    ref={csvRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    style={{display:"none"}}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) importLivelibCsv(f); e.target.value = ""; }}
+                  />
+                  <button
+                    className="btn btn-outline"
+                    style={{fontSize:13,display:"flex",alignItems:"center",gap:6,width:"100%"}}
+                    onClick={() => csvRef.current?.click()}
+                    disabled={importLoading}
+                  >
+                    📚 импорт из Livelib (CSV)
+                  </button>
+                  <div style={{fontSize:11,color:"#aaa",marginTop:6,lineHeight:1.5}}>
+                    экспортируй книги через{" "}
+                    <a href="https://chimildic.github.io/livelib-backup/" target="_blank" rel="noreferrer" style={{color:"#888"}}>
+                      chimildic.github.io/livelib-backup
+                    </a>
+                    {" "}→ загрузи сюда
+                  </div>
+                </div>
+
                 <input
                   ref={fileRef}
                   type="file"
                   accept="image/*"
                   style={{ display: "none" }}
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) runImport(f); }}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) runImport(f); }}/>
                 />
 
                 <button
