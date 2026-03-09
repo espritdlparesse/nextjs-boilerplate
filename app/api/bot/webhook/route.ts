@@ -1,0 +1,74 @@
+import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+
+export const runtime = "nodejs";
+
+export async function POST(req: NextRequest) {
+  try {
+    const update = await req.json();
+
+    // pre_checkout_query — Telegram просит подтвердить платёж, всегда говорим ok
+    if (update.pre_checkout_query) {
+      await answerPreCheckoutQuery(update.pre_checkout_query.id, true);
+      return NextResponse.json({ ok: true });
+    }
+
+    // successful_payment — платёж прошёл
+    if (update.message?.successful_payment) {
+      const msg = update.message;
+      const payment = msg.successful_payment;
+      const tgUserId = msg.from.id;
+      const tgUsername = msg.from.username ?? null;
+
+      // payload содержит JSON: { product, tg_user_id }
+      let product = "deep_vibe_once";
+      try {
+        const parsed = JSON.parse(payment.invoice_payload);
+        product = parsed.product ?? "deep_vibe_once";
+      } catch {
+        product = payment.invoice_payload; // fallback — строка напрямую
+      }
+
+      const sb = supabaseAdmin();
+      await sb.from("purchases").upsert({
+        tg_user_id: tgUserId,
+        product,
+        stars_amount: payment.total_amount,
+        telegram_payment_charge_id: payment.telegram_payment_charge_id,
+      }, { onConflict: "telegram_payment_charge_id" });
+
+      // Сообщение пользователю
+      const text = product === "deep_vibe_forever"
+        ? "✨ Оплата прошла! Вечный доступ к глубокому вайбчеку активирован. Открой приложение."
+        : "✨ Оплата прошла! Открой приложение и нажми «глубокий вайбчек».";
+
+      await sendMessage(tgUserId, text);
+      return NextResponse.json({ ok: true });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    console.error("webhook error:", e?.message);
+    return NextResponse.json({ ok: true }); // всегда 200 для Telegram
+  }
+}
+
+async function answerPreCheckoutQuery(id: string, ok: boolean, errorMessage?: string) {
+  const token = process.env.TELEGRAM_BOT_TOKEN!;
+  const body: any = { pre_checkout_query_id: id, ok };
+  if (!ok && errorMessage) body.error_message = errorMessage;
+  await fetch(`https://api.telegram.org/bot${token}/answerPreCheckoutQuery`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+async function sendMessage(chatId: number, text: string) {
+  const token = process.env.TELEGRAM_BOT_TOKEN!;
+  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text }),
+  });
+}
