@@ -134,6 +134,8 @@ export default function Page() {
   const [libraryLoading, setLibraryLoading] = useState(false);
   const [libraryError, setLibraryError] = useState("");
   const [spotifyConnected, setSpotifyConnected] = useState<boolean | null>(null);
+  const [showShareCard, setShowShareCard] = useState(false);
+  const [shareCardDataUrl, setShareCardDataUrl] = useState<string | null>(null);
   const [spotifySyncing, setSpotifySyncing] = useState(false);
 
   async function loadLibrary() {
@@ -413,6 +415,215 @@ export default function Page() {
 
   function buyDeepVibeOnce() { openDeepVibePurchase("deep_vibe_once"); }
   function buyDeepVibeForever() { openDeepVibePurchase("deep_vibe_forever"); }
+
+  // Генерируем карточку по текущему состоянию приложения
+  async function generateShareCard(text?: string, type?: "vibe" | "deep"): Promise<string> {
+    const canvas = document.createElement("canvas");
+    const W = 1080, H = 1080;
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext("2d")!;
+
+    // Фон бежевый
+    ctx.fillStyle = "#f5f0e8";
+    ctx.fillRect(0, 0, W, H);
+
+    // Декоративный круг вверху справа
+    ctx.beginPath();
+    ctx.arc(W - 60, 60, 340, 0, Math.PI * 2);
+    ctx.fillStyle = "#ede7d9";
+    ctx.fill();
+
+    // Маленький круг снизу слева
+    ctx.beginPath();
+    ctx.arc(80, H - 80, 160, 0, Math.PI * 2);
+    ctx.fillStyle = "#ede7d9";
+    ctx.fill();
+
+    // Логотип
+    ctx.fillStyle = "#1a1a1a";
+    ctx.font = "bold 72px Georgia, serif";
+    ctx.fillText("everyyou", 80, 130);
+
+    // Подпись типа
+    ctx.fillStyle = "#999";
+    ctx.font = "32px -apple-system, sans-serif";
+    const label = type === "deep" ? "вайбчек без прикола" : type === "vibe" ? "вайбчек" : "моя библиотека";
+    ctx.fillText(label, 80, 180);
+
+    // Разделитель
+    ctx.fillStyle = "#d4cfc6";
+    ctx.fillRect(80, 205, W - 160, 2);
+
+    if (text) {
+      // Режим вайбчека — выводим текст
+      ctx.fillStyle = "#1a1a1a";
+      ctx.font = "36px -apple-system, sans-serif";
+      const clean = text.replace(/\*\*/g, "").replace(/\n\n+/g, "\n").trim();
+      const words = clean.split(" ");
+      let line = "";
+      let y = 290;
+      const maxWidth = W - 160;
+      const lineH = 56;
+      const maxY = H - 200;
+
+      for (const word of words) {
+        if (word === "\n" || word.includes("\n")) {
+          ctx.fillText(line, 80, y);
+          line = word.replace("\n", "");
+          y += lineH;
+          if (y > maxY) { ctx.fillText("...", 80, y); break; }
+          continue;
+        }
+        const test = line + (line ? " " : "") + word;
+        if (ctx.measureText(test).width > maxWidth && line) {
+          ctx.fillText(line, 80, y);
+          line = word;
+          y += lineH;
+          if (y > maxY) { ctx.fillText("...", 80, y); break; }
+        } else { line = test; }
+      }
+      if (y <= maxY && line) ctx.fillText(line, 80, y);
+    } else {
+      // Режим библиотеки — показываем топ контент
+      const music = items.filter(i => i.type === "music").slice(0, 4);
+      const books = items.filter(i => i.type === "book").slice(0, 3);
+      const movies = items.filter(i => i.type === "movie" || i.type === "film").slice(0, 3);
+
+      let y = 270;
+
+      const drawSection = (emoji: string, title: string, list: typeof items) => {
+        if (list.length === 0) return;
+        ctx.fillStyle = "#888";
+        ctx.font = "bold 28px -apple-system, sans-serif";
+        ctx.fillText(`${emoji}  ${title}`, 80, y);
+        y += 44;
+        ctx.fillStyle = "#1a1a1a";
+        ctx.font = "36px -apple-system, sans-serif";
+        for (const item of list) {
+          const t = item.creator ? `${item.title} — ${item.creator}` : item.title;
+          const short = t.length > 42 ? t.slice(0, 40) + "…" : t;
+          ctx.fillText(short, 80, y);
+          y += 50;
+        }
+        y += 20;
+      };
+
+      drawSection("♫", "музыка", music);
+      drawSection("📖", "книги", books);
+      drawSection("🎬", "фильмы", movies);
+    }
+
+    // Ссылка внизу
+    ctx.fillStyle = "#aaa";
+    ctx.font = "28px -apple-system, sans-serif";
+    ctx.fillText("t.me/every_you_bot", 80, H - 80);
+
+    ctx.fillStyle = "#1a1a1a";
+    ctx.font = "bold 40px Georgia";
+    ctx.fillText("✦", W - 120, H - 75);
+
+    return canvas.toDataURL("image/png");
+  }
+
+  async function shareVibeCard(text: string, type: "vibe" | "deep") {
+    const canvas = document.createElement("canvas");
+    const W = 1080, H = 1080;
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext("2d")!;
+
+    // Фон
+    ctx.fillStyle = "#f5f0e8";
+    ctx.fillRect(0, 0, W, H);
+
+    // Декоративный круг
+    ctx.beginPath();
+    ctx.arc(W * 0.85, H * 0.15, 300, 0, Math.PI * 2);
+    ctx.fillStyle = "#ede7d9";
+    ctx.fill();
+
+    // Логотип
+    ctx.fillStyle = "#1a1a1a";
+    ctx.font = "bold 52px Georgia, serif";
+    ctx.fillText("everyyou", 80, 110);
+
+    // Подпись типа
+    ctx.fillStyle = "#888";
+    ctx.font = "28px -apple-system, sans-serif";
+    ctx.fillText(type === "deep" ? "вайбчек без прикола" : "вайбчек", 80, 155);
+
+    // Разделитель
+    ctx.fillStyle = "#d4cfc6";
+    ctx.fillRect(80, 175, W - 160, 1);
+
+    // Текст вайбчека — wrap
+    ctx.fillStyle = "#1a1a1a";
+    ctx.font = "34px -apple-system, sans-serif";
+    const maxWidth = W - 160;
+    const lineHeight = 52;
+    // Убираем markdown звёздочки
+    const clean = text.replace(/\*\*/g, "").replace(/
+
++/g, "
+").trim();
+    const words = clean.split(" ");
+    let line = "";
+    let y = 250;
+    const maxY = H - 220;
+
+    for (const word of words) {
+      const testLine = line + (line ? " " : "") + word;
+      const metrics = ctx.measureText(testLine);
+      if (metrics.width > maxWidth && line) {
+        ctx.fillText(line, 80, y);
+        line = word;
+        y += lineHeight;
+        if (y > maxY) { ctx.fillText("...", 80, y); break; }
+      } else {
+        line = testLine;
+      }
+    }
+    if (y <= maxY && line) ctx.fillText(line, 80, y);
+
+    // Ссылка внизу
+    ctx.fillStyle = "#888";
+    ctx.font = "26px -apple-system, sans-serif";
+    ctx.fillText("t.me/every_you_bot", 80, H - 100);
+
+    // Иконка ✦
+    ctx.fillStyle = "#1a1a1a";
+    ctx.font = "bold 32px Georgia";
+    ctx.fillText("✦", W - 120, H - 95);
+
+    // Конвертируем в blob
+    const blob = await new Promise<Blob>((res) => canvas.toBlob((b) => res(b!), "image/png"));
+    const file = new File([blob], "everyyou-vibe.png", { type: "image/png" });
+
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        text: "мой вайбчек в every you — t.me/every_you_bot",
+      });
+    } else {
+      // Fallback — скачиваем
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "everyyou-vibe.png"; a.click();
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  // Подписка на скриншот (Telegram WebApp API)
+  useEffect(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    if (!tg) return;
+    const handler = async () => {
+      const dataUrl = await generateShareCard();
+      setShareCardDataUrl(dataUrl);
+      setShowShareCard(true);
+    };
+    tg.onEvent?.("screenshot_taken", handler);
+    return () => tg.offEvent?.("screenshot_taken", handler);
+  }, [items]);
 
   // Проверяем доступ при переходе на вкладку вайбчека
   const prevTabRef = useRef<string>("");
@@ -1177,7 +1388,18 @@ export default function Page() {
             </button>
 
             {vibeError && <div className="error">{vibeError}</div>}
-            {summary && <VibeResult summary={summary} />}
+            {summary && (
+              <>
+                <VibeResult summary={summary} />
+                <button
+                  className="btn btn-outline"
+                  style={{marginTop:12,fontSize:13,display:"flex",alignItems:"center",gap:6,width:"100%"}}
+                  onClick={() => shareVibeCard(summary, "vibe")}
+                >
+                  ↗ поделиться вайбчеком
+                </button>
+              </>
+            )}
 
             <button
               className="btn btn-outline"
@@ -1263,6 +1485,13 @@ export default function Page() {
               {deepVibeResult && (
                 <div style={{marginTop:16,padding:"18px",background:"#fff",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.07)",fontSize:14,lineHeight:1.8,color:"#333"}}>
                   <MarkdownText text={deepVibeResult} />
+                  <button
+                    className="btn btn-outline"
+                    style={{marginTop:14,fontSize:13,display:"flex",alignItems:"center",gap:6,width:"100%"}}
+                    onClick={() => shareVibeCard(deepVibeResult, "deep")}
+                  >
+                    ↗ поделиться
+                  </button>
                 </div>
               )}
             </div>
@@ -1306,6 +1535,59 @@ export default function Page() {
         )}
       </nav>
       {tab === "admin" && tgUserId === ADMIN_TG_ID && <AdminTab />}
+
+      {/* Share Card Modal */}
+      {showShareCard && shareCardDataUrl && (
+        <div
+          style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:1000,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}}
+          onClick={() => setShowShareCard(false)}
+        >
+          <div
+            style={{background:"#f5f0e8",borderRadius:20,overflow:"hidden",width:"100%",maxWidth:400,boxShadow:"0 8px 40px rgba(0,0,0,0.4)"}}
+            onClick={e => e.stopPropagation()}
+          >
+            <img src={shareCardDataUrl} style={{width:"100%",display:"block"}} alt="share card" />
+            <div style={{padding:"16px 20px 20px",display:"flex",flexDirection:"column",gap:10}}>
+              <button
+                className="btn"
+                style={{background:"#1a1a1a",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}
+                onClick={async () => {
+                  const res = await fetch(shareCardDataUrl);
+                  const blob = await res.blob();
+                  const file = new File([blob], "everyyou.png", { type: "image/png" });
+                  if (navigator.share && navigator.canShare?.({ files: [file] })) {
+                    await navigator.share({ files: [file], text: "t.me/every_you_bot" });
+                  } else {
+                    const a = document.createElement("a");
+                    a.href = shareCardDataUrl; a.download = "everyyou.png"; a.click();
+                  }
+                }}
+              >
+                ↗ поделиться
+              </button>
+              <button
+                className="btn btn-outline"
+                style={{fontSize:13}}
+                onClick={async () => {
+                  const res = await fetch(shareCardDataUrl);
+                  const blob = await res.blob();
+                  const a = document.createElement("a");
+                  a.href = URL.createObjectURL(blob); a.download = "everyyou.png"; a.click();
+                }}
+              >
+                ↓ сохранить в галерею
+              </button>
+              <button
+                className="btn btn-outline"
+                style={{fontSize:13,color:"#999",borderColor:"#ddd"}}
+                onClick={() => setShowShareCard(false)}
+              >
+                закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
