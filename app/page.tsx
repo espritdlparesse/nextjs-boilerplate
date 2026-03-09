@@ -294,7 +294,7 @@ export default function Page() {
   const [mentalAgeLoading, setMentalAgeLoading] = useState(false);
   const [deepVibeResult, setDeepVibeResult] = useState("");
   const [deepVibeLoading, setDeepVibeLoading] = useState(false);
-  const [deepVibeAccess, setDeepVibeAccess] = useState<"free"|"forever"|"none"|null>(null);
+  const [deepVibeAccess, setDeepVibeAccess] = useState<"free"|"paid"|"forever"|"none"|null>(null);
   const [deepVibeUsesLeft, setDeepVibeUsesLeft] = useState<number|null>(null);
 
   async function runVibeCheck() {
@@ -1156,7 +1156,7 @@ export default function Page() {
               </div>
 
               {/* Кнопка запуска — если есть доступ */}
-              {(deepVibeAccess === "free" || deepVibeAccess === "forever") && (
+              {(deepVibeAccess === "free" || deepVibeAccess === "forever" || deepVibeAccess === "paid") && (
                 <div>
                   {deepVibeAccess === "free" && deepVibeUsesLeft !== null && (
                     <div style={{textAlign:"center",fontSize:12,color:"#aaa",marginBottom:10}}>
