@@ -460,7 +460,6 @@ export default function Page() {
       ctx.font = "36px -apple-system, sans-serif";
       const clean = text.split("**").join("").split("\n\n").join("\n").trim();
 
-").trim();
       const words = clean.split(" ");
       let line = "";
       let y = 290;
@@ -565,7 +564,6 @@ export default function Page() {
     // Убираем markdown звёздочки
       const clean = text.split("**").join("").split("\n\n").join("\n").trim();
 
-").trim();
     const words = clean.split(" ");
     let line = "";
     let y = 250;
