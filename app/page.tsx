@@ -136,6 +136,10 @@ export default function Page() {
   const [spotifyConnected, setSpotifyConnected] = useState<boolean | null>(null);
   const [showShareCard, setShowShareCard] = useState(false);
   const [shareCardDataUrl, setShareCardDataUrl] = useState<string | null>(null);
+  const [showSharePicker, setShowSharePicker] = useState(false);
+  const [sharePickerSelected, setSharePickerSelected] = useState<Set<string | number>>(new Set());
+  const [sharePickerText, setSharePickerText] = useState<string | undefined>(undefined);
+  const [sharePickerType, setSharePickerType] = useState<"vibe" | "deep" | undefined>(undefined);
   const [spotifySyncing, setSpotifySyncing] = useState(false);
 
   async function loadLibrary() {
@@ -469,7 +473,7 @@ export default function Page() {
   function buyDeepVibeForever() { openDeepVibePurchase("deep_vibe_forever"); }
 
   // Генерируем карточку по текущему состоянию приложения
-  async function generateShareCard(text?: string, type?: "vibe" | "deep"): Promise<string> {
+  async function generateShareCard(text?: string, type?: "vibe" | "deep", customItems?: DbItem[]): Promise<string> {
     const canvas = document.createElement("canvas");
     const W = 1080, H = 1080;
     canvas.width = W; canvas.height = H;
@@ -538,9 +542,10 @@ export default function Page() {
       if (y <= maxY && line) ctx.fillText(line, 80, y);
     } else {
       // Режим библиотеки — показываем топ контент
-      const music = items.filter(i => i.type === "music").slice(0, 4);
-      const books = items.filter(i => i.type === "book").slice(0, 3);
-      const movies = items.filter(i => i.type === "movie" || (i.type as string) === "film").slice(0, 3);
+      const sourceItems = customItems ?? items;
+      const music = sourceItems.filter(i => i.type === "music").slice(0, 4);
+      const books = sourceItems.filter(i => i.type === "book").slice(0, 3);
+      const movies = sourceItems.filter(i => i.type === "movie" || (i.type as string) === "film").slice(0, 3);
 
       let y = 270;
 
@@ -578,10 +583,16 @@ export default function Page() {
     return canvas.toDataURL("image/png");
   }
 
+  function openSharePicker(text?: string, type?: "vibe" | "deep") {
+    setSharePickerText(text);
+    setSharePickerType(type);
+    // По умолчанию выбираем все айтемы
+    setSharePickerSelected(new Set(items.map(i => i.id)));
+    setShowSharePicker(true);
+  }
+
   async function shareVibeCard(text: string, type: "vibe" | "deep") {
-    const dataUrl = await generateShareCard(text, type);
-    setShareCardDataUrl(dataUrl);
-    setShowShareCard(true);
+    openSharePicker(text, type);
   }
 
   // Подписка на скриншот (Telegram WebApp API)
@@ -1080,9 +1091,7 @@ export default function Page() {
                   className="btn btn-outline"
                   style={{display:"flex",alignItems:"center",gap:6}}
                   onClick={async () => {
-                    const dataUrl = await generateShareCard();
-                    setShareCardDataUrl(dataUrl);
-                    setShowShareCard(true);
+                    openSharePicker();
                   }}
                 >
                   ↗ поделиться
@@ -1307,11 +1316,7 @@ export default function Page() {
               <button
                 style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#888",padding:"0 4px",flexShrink:0}}
                 title="поделиться"
-                onClick={async () => {
-                  const dataUrl = await generateShareCard();
-                  setShareCardDataUrl(dataUrl);
-                  setShowShareCard(true);
-                }}
+                onClick={() => openSharePicker()}
               >↗</button>
             </div>
 
@@ -1379,11 +1384,7 @@ export default function Page() {
               <button
                 style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#888",padding:"0 4px"}}
                 title="поделиться"
-                onClick={async () => {
-                  const dataUrl = await generateShareCard(summary || undefined, summary ? "vibe" : undefined);
-                  setShareCardDataUrl(dataUrl);
-                  setShowShareCard(true);
-                }}
+                onClick={() => openSharePicker(summary || undefined, summary ? "vibe" : undefined)}
               >↗</button>
             </div>
             <p className="card-text">
@@ -1570,6 +1571,94 @@ export default function Page() {
       </nav>
       {tab === "admin" && tgUserId === ADMIN_TG_ID && <AdminTab />}
 
+      {/* Share Picker Modal — выбор контента */}
+      {showSharePicker && (
+        <div
+          style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:1000,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",padding:"0 0 0 0"}}
+          onClick={() => setShowSharePicker(false)}
+        >
+          <div
+            style={{background:"#f5f0e8",borderRadius:"20px 20px 0 0",width:"100%",maxWidth:480,maxHeight:"80vh",display:"flex",flexDirection:"column"}}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{padding:"20px 20px 12px",borderBottom:"1px solid #e8e3da"}}>
+              <div style={{fontWeight:700,fontSize:16,marginBottom:4}}>выбери что показать на карточке</div>
+              <div style={{fontSize:12,color:"#888"}}>выбрано: {sharePickerSelected.size} из {items.length}</div>
+            </div>
+
+            {/* Фильтры по типу */}
+            <div style={{display:"flex",gap:8,padding:"10px 20px",borderBottom:"1px solid #e8e3da"}}>
+              {(["music","book","movie"] as const).map(t => {
+                const typeItems = items.filter(i => i.type === t || (t === "movie" && (i.type as string) === "film"));
+                const allSelected = typeItems.every(i => sharePickerSelected.has(i.id));
+                return (
+                  <button key={t} className={`filter-btn${allSelected ? " active" : ""}`}
+                    onClick={() => {
+                      const ids = typeItems.map(i => i.id);
+                      setSharePickerSelected(prev => {
+                        const next = new Set(prev);
+                        if (allSelected) ids.forEach(id => next.delete(id));
+                        else ids.forEach(id => next.add(id));
+                        return next;
+                      });
+                    }}
+                  >
+                    {t === "music" ? "♫ музыка" : t === "book" ? "📖 книги" : "🎬 фильмы"}
+                  </button>
+                );
+              })}
+              <button className="filter-btn" style={{marginLeft:"auto"}}
+                onClick={() => setSharePickerSelected(new Set(items.map(i => i.id)))}
+              >все</button>
+            </div>
+
+            {/* Список айтемов */}
+            <div style={{overflowY:"auto",flex:1,padding:"8px 0"}}>
+              {items.map(item => {
+                const selected = sharePickerSelected.has(item.id);
+                return (
+                  <div key={item.id}
+                    style={{display:"flex",alignItems:"center",gap:12,padding:"10px 20px",cursor:"pointer",background:selected?"#ede7d9":"transparent"}}
+                    onClick={() => setSharePickerSelected(prev => {
+                      const next = new Set(prev);
+                      selected ? next.delete(item.id) : next.add(item.id);
+                      return next;
+                    })}
+                  >
+                    <div style={{width:20,height:20,borderRadius:4,border:"1.5px solid #ccc",background:selected?"#1a1a1a":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      {selected && <span style={{color:"#fff",fontSize:12}}>✓</span>}
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:14,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.title}</div>
+                      {item.creator && <div style={{fontSize:12,color:"#888",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.creator}</div>}
+                    </div>
+                    <div style={{fontSize:11,color:"#aaa",flexShrink:0}}>{item.type === "music" ? "♫" : item.type === "book" ? "📖" : "🎬"}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Кнопка генерации */}
+            <div style={{padding:"16px 20px 32px",borderTop:"1px solid #e8e3da"}}>
+              <button
+                className="btn"
+                style={{background:"#1a1a1a",color:"#fff",width:"100%"}}
+                disabled={sharePickerSelected.size === 0}
+                onClick={async () => {
+                  setShowSharePicker(false);
+                  const selectedItems = items.filter(i => sharePickerSelected.has(i.id));
+                  const dataUrl = await generateShareCard(sharePickerText, sharePickerType, selectedItems.length > 0 ? selectedItems : undefined);
+                  setShareCardDataUrl(dataUrl);
+                  setShowShareCard(true);
+                }}
+              >
+                сгенерировать карточку →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Share Card Modal */}
       {showShareCard && shareCardDataUrl && (
         <div
@@ -1625,11 +1714,7 @@ export default function Page() {
 
       {/* Плавающая кнопка шаринга */}
       <button
-        onClick={async () => {
-          const dataUrl = await generateShareCard();
-          setShareCardDataUrl(dataUrl);
-          setShowShareCard(true);
-        }}
+        onClick={() => openSharePicker()}
         style={{
           position: "fixed",
           bottom: 80,
