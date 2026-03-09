@@ -420,7 +420,7 @@ export default function Page() {
     if (tab === "vibe" && prevTabRef.current !== "vibe") {
       fetchDeepVibeAccess();
     }
-    if (tab === "library" && prevTabRef.current !== "library") {
+    if (tab === "add" && prevTabRef.current !== "add") {
       checkSpotify();
     }
     prevTabRef.current = tab;
@@ -974,9 +974,29 @@ export default function Page() {
                 <p className="card-text" style={{ marginBottom: 6 }}>
                   Загрузи скриншот — из Spotify, заметок, списков, да откуда угодно. ИИ постарается разобрать что там.
                 </p>
-                <p className="card-text" style={{ marginBottom: 16, opacity: 0.5, fontSize: 12 }}>
-                  нормальной интеграции с площадками пока нет — авторам было лень. докрутим потом.
-                </p>
+
+                {/* Spotify */}
+                <div style={{marginBottom:16}}>
+                  {spotifyConnected === false && (
+                    <button
+                      className="btn btn-outline"
+                      style={{fontSize:13,display:"flex",alignItems:"center",gap:6,width:"100%"}}
+                      onClick={connectSpotify}
+                    >
+                      <span style={{color:"#1db954"}}>♫</span> подключить Spotify — и музыка будет добавляться сама
+                    </button>
+                  )}
+                  {spotifyConnected === true && (
+                    <button
+                      className="btn btn-outline"
+                      style={{fontSize:13,display:"flex",alignItems:"center",gap:6,width:"100%"}}
+                      onClick={syncSpotify}
+                      disabled={spotifySyncing}
+                    >
+                      <span style={{color:"#1db954"}}>♫</span> {spotifySyncing ? "синхронизирую..." : "обновить музыку из Spotify →"}
+                    </button>
+                  )}
+                </div>
 
                 <input
                   ref={fileRef}
@@ -1059,29 +1079,6 @@ export default function Page() {
                 <div className="stat-num">{counts.movies}</div>
                 <div className="stat-label">фильмы</div>
               </div>
-            </div>
-
-            {/* Spotify */}
-            <div style={{marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
-              {spotifyConnected === false && (
-                <button
-                  className="btn btn-outline"
-                  style={{fontSize:13,display:"flex",alignItems:"center",gap:6,flex:1}}
-                  onClick={connectSpotify}
-                >
-                  <span style={{color:"#1db954"}}>♫</span> подключить Spotify
-                </button>
-              )}
-              {spotifyConnected === true && (
-                <button
-                  className="btn btn-outline"
-                  style={{fontSize:13,display:"flex",alignItems:"center",gap:6,flex:1}}
-                  onClick={syncSpotify}
-                  disabled={spotifySyncing}
-                >
-                  <span style={{color:"#1db954"}}>♫</span> {spotifySyncing ? "синхронизирую..." : "обновить из Spotify"}
-                </button>
-              )}
             </div>
 
             <div className="filter-row">
