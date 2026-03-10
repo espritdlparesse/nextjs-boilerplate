@@ -60,10 +60,10 @@ export async function POST(req: NextRequest) {
     // /start — приветствие
     if (update.message?.text?.startsWith("/start")) {
       const chatId = update.message.chat.id;
-      const firstName = update.message.from?.first_name ?? "привет";
+      const firstName = update.message.from?.first_name ?? "there";
       await sendMessage(chatId,
-        `👋 ${firstName}!\n\nevery you — это твой личный трекер музыки, книг и фильмов.\n\nДобавляй что слушаешь, читаешь и смотришь — и получай вайбчек: анализ своего вкуса от ИИ.\n\n👇 Открой приложение`,
-        { reply_markup: { inline_keyboard: [[{ text: "открыть every you →", web_app: { url: "https://everyyou-mvp.vercel.app" } }]] } }
+        `👋 Hey, ${firstName}!\n\nevery you is your personal tracker for music, books, and movies.\n\nAdd what you're listening to, reading, and watching — and get a vibe check: an AI analysis of your taste.\n\n👇 Open the app`,
+        { reply_markup: { inline_keyboard: [[{ text: "open every you →", web_app: { url: "https://everyyou-mvp.vercel.app" } }]] } }
       );
       return NextResponse.json({ ok: true });
     }
