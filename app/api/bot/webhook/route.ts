@@ -46,6 +46,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    // /paysupport — обязательная команда для публикации в каталоге Telegram
+    if (update.message?.text === "/paysupport") {
+      const chatId = update.message.chat.id;
+      await sendMessage(chatId,
+        "💬 Поддержка по оплате\n\n" +
+        "Если у тебя возникли проблемы с оплатой через Telegram Stars — напиши нам: @espritdlparesse\n\n" +
+        "Мы разберёмся и вернём Stars если что-то пошло не так."
+      );
+      return NextResponse.json({ ok: true });
+    }
+
+    // /start — приветствие
+    if (update.message?.text?.startsWith("/start")) {
+      const chatId = update.message.chat.id;
+      const firstName = update.message.from?.first_name ?? "привет";
+      await sendMessage(chatId,
+        `👋 ${firstName}!\n\nevery you — это твой личный трекер музыки, книг и фильмов.\n\nДобавляй что слушаешь, читаешь и смотришь — и получай вайбчек: анализ своего вкуса от ИИ.\n\n👇 Открой приложение`,
+        { reply_markup: { inline_keyboard: [[{ text: "открыть every you →", web_app: { url: "https://everyyou-mvp.vercel.app" } }]] } }
+      );
+      return NextResponse.json({ ok: true });
+    }
+
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     console.error("webhook error:", e?.message);
@@ -64,11 +86,11 @@ async function answerPreCheckoutQuery(id: string, ok: boolean, errorMessage?: st
   });
 }
 
-async function sendMessage(chatId: number, text: string) {
+async function sendMessage(chatId: number, text: string, extra?: Record<string, any>) {
   const token = process.env.TELEGRAM_BOT_TOKEN!;
   await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text }),
+    body: JSON.stringify({ chat_id: chatId, text, ...extra }),
   });
 }
