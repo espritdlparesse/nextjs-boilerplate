@@ -115,6 +115,17 @@ export default function Page() {
   const [helloName, setHelloName] = useState("привет!");
   const [tgUserId, setTgUserId] = useState<number | null>(null);
 
+  // Telegram Analytics SDK
+  useEffect(() => {
+    if (document.getElementById("tg-analytics-sdk")) return;
+    const script = document.createElement("script");
+    script.id = "tg-analytics-sdk";
+    script.async = true;
+    script.src = "https://tonsdk.io/sdk.js";
+    script.setAttribute("data-telegram-analytics-token", process.env.NEXT_PUBLIC_TG_ANALYTICS_TOKEN || "");
+    document.head.appendChild(script);
+  }, []);
+
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
     try { tg?.ready?.(); tg?.expand?.(); } catch {}
