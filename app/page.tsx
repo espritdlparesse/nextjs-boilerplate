@@ -23,6 +23,7 @@ type DbItem = {
   title: string;
   creator?: string | null;
   created_at?: string;
+  custom_category_id?: string | null;
 };
 
 function getTgInitData(): string {
