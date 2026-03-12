@@ -183,6 +183,7 @@ export default function Page() {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const csvRef = useRef<HTMLInputElement | null>(null);
   const lbRef = useRef<HTMLInputElement | null>(null);
+  const grRef = useRef<HTMLInputElement | null>(null);
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState("");
   const [imported, setImported] = useState<ImportedItem[]>([]);
@@ -298,6 +299,66 @@ export default function Page() {
     }
   }
 
+  // Goodreads CSV экспорт: Title,Author,ISBN,My Rating,Average Rating,Publisher,Binding,Number of Pages,Year Published,Original Publication Year,Date Read,Date Added,Bookshelves,Exclusive Shelf,...
+  async function importGoodreadsCsv(file: File) {
+    setImportLoading(true);
+    setImportError("");
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(Boolean);
+      if (lines.length < 2) { setImportError("файл пустой"); return; }
+
+      const parseRow = (line: string) => {
+        const result: string[] = [];
+        let cur = "", inQ = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') { inQ = !inQ; }
+          else if (ch === "," && !inQ) { result.push(cur.trim()); cur = ""; }
+          else { cur += ch; }
+        }
+        result.push(cur.trim());
+        return result;
+      };
+
+      const headers = parseRow(lines[0]).map(h => h.toLowerCase().trim());
+      const col = (names: string[]) => {
+        for (const n of names) {
+          const i = headers.findIndex(h => h.includes(n));
+          if (i !== -1) return i;
+        }
+        return -1;
+      };
+
+      const titleCol  = col(["title"]);
+      const authorCol = col(["author"]);
+      const shelfCol  = col(["exclusive shelf", "bookshelves"]);
+
+      if (titleCol === -1) { setImportError("не распознан формат Goodreads CSV"); return; }
+
+      const result: ImportedItem[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const row = parseRow(lines[i]);
+        const title = row[titleCol]?.replace(/\s*\(.*?\)\s*$/, "").trim(); // убираем "(Series #1)"
+        if (!title) continue;
+        const creator = authorCol !== -1 ? row[authorCol] : undefined;
+        // Фильтруем только прочитанные если есть полка
+        const shelf = shelfCol !== -1 ? row[shelfCol]?.toLowerCase() : "";
+        if (shelf && shelf !== "read" && shelf !== "currently-reading" && shelf !== "") continue;
+        result.push({ type: "book", title, creator: creator || undefined, source: "goodreads" });
+      }
+
+      if (result.length === 0) { setImportError("книги не найдены. убедись что выбрал правильный файл из Goodreads"); return; }
+
+      setImported(result);
+      setSelectedIdx(new Set(result.map((_, i) => i)));
+    } catch (e: any) {
+      setImportError("ошибка при чтении файла: " + e?.message);
+    } finally {
+      setImportLoading(false);
+    }
+  }
+
   function toggleImported(i: number) {
     const next = new Set(selectedIdx);
     next.has(i) ? next.delete(i) : next.add(i);
@@ -317,6 +378,10 @@ export default function Page() {
       const json = await safeJson(res);
       if (!res.ok) { setImportError(json?.error ?? "Импорт не удался"); return; }
       const list: ImportedItem[] = json?.items ?? [];
+      if (list.length === 0) {
+        setImportError("не удалось распознать контент на этом фото. попробуй скриншот с названиями книг, музыки или фильмов — например, из Spotify, Кинопоиска или книжной полки.");
+        return;
+      }
       setImported(list);
       setSelectedIdx(new Set(list.map((_, i) => i)));
     } catch (e: any) {
@@ -713,7 +778,7 @@ export default function Page() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -733,13 +798,12 @@ export default function Page() {
         .header { margin-bottom: 36px; }
 
         .brand {
-          font-family: 'Cormorant Garamond', serif;
-          font-size: 32px;
-          font-weight: 300;
-          letter-spacing: 0.08em;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 22px;
+          font-weight: 700;
+          letter-spacing: -0.02em;
           color: #000000;
           line-height: 1;
-          text-transform: lowercase;
         }
 
         .greeting {
@@ -793,12 +857,11 @@ export default function Page() {
         }
 
         .card-title {
-          font-family: 'Cormorant Garamond', serif;
-          font-size: 24px;
-          font-weight: 400;
-          letter-spacing: 0.03em;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 18px;
+          font-weight: 700;
+          letter-spacing: -0.01em;
           margin-bottom: 12px;
-          font-style: italic;
         }
 
         .card-text {
@@ -855,9 +918,9 @@ export default function Page() {
         .stat-pill:last-child { border-right: none; }
 
         .stat-num {
-          font-family: 'Cormorant Garamond', serif;
-          font-size: 28px;
-          font-weight: 300;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 24px;
+          font-weight: 700;
           line-height: 1;
         }
 
@@ -922,70 +985,72 @@ export default function Page() {
         .input:focus { border-color: #000000; }
         .input::placeholder { color: #ccc; }
 
+        /* Grid layout for items */
+        .items-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+
         .item-card {
-          background: #ffffff;
+          background: #f9f9f9;
           border-radius: 0;
-          padding: 14px 0;
-          margin-bottom: 0;
+          padding: 14px;
           display: flex;
-          align-items: flex-start;
-          gap: 14px;
-          border-bottom: 1px solid #f0f0f0;
-          box-shadow: none;
+          flex-direction: column;
+          gap: 6px;
+          border: 1px solid #efefef;
+          position: relative;
+          min-height: 88px;
         }
 
-        .item-icon {
-          width: 34px;
-          height: 34px;
-          border-radius: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 14px;
-          flex-shrink: 0;
-          border: 1px solid #e8e8e8;
-        }
-
+        .item-icon { display: none; }
         .item-body { flex: 1; min-width: 0; }
 
         .item-title {
           font-family: 'DM Sans', sans-serif;
           font-size: 13px;
-          font-weight: 500;
+          font-weight: 600;
+          line-height: 1.3;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+
+        .item-creator {
+          font-size: 11px;
+          color: #999;
+          font-weight: 300;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
 
-        .item-creator {
-          font-size: 12px;
-          color: #999;
-          margin-top: 2px;
-          font-weight: 300;
-        }
-
-        .item-meta { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+        .item-meta { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
 
         .tag {
-          padding: 2px 8px;
-          font-size: 10px;
-          font-weight: 400;
-          background: #f5f5f5;
+          padding: 2px 6px;
+          font-size: 9px;
+          font-weight: 500;
+          background: #ebebeb;
           color: #888;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.04em;
           text-transform: uppercase;
         }
 
         .delete-btn {
           background: none;
           border: none;
-          color: #ddd;
+          color: #ccc;
           cursor: pointer;
-          font-size: 16px;
-          padding: 4px;
-          flex-shrink: 0;
-          transition: color 0.15s;
+          font-size: 14px;
+          padding: 0;
+          position: absolute;
+          top: 8px;
+          right: 8px;
           line-height: 1;
+          transition: color 0.15s;
         }
         .delete-btn:hover { color: #000; }
 
@@ -1037,11 +1102,10 @@ export default function Page() {
           padding: 24px;
           background: #fafafa;
           border: 1px solid #e8e8e8;
-          font-family: 'Cormorant Garamond', serif;
-          font-style: italic;
-          font-size: 16px;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 14px;
           font-weight: 300;
-          line-height: 1.9;
+          line-height: 1.8;
           white-space: pre-wrap;
           color: #222;
         }
@@ -1283,6 +1347,31 @@ export default function Page() {
                   </div>
                 </div>
 
+                {/* Goodreads CSV */}
+                <div style={{marginBottom:16}}>
+                  <input
+                    ref={grRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    style={{display:"none"}}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) importGoodreadsCsv(f); e.target.value = ""; }}
+                  />
+                  <button
+                    className="btn btn-outline"
+                    style={{fontSize:13,display:"flex",alignItems:\"center\",gap:6,width:"100%"}}
+                    onClick={() => grRef.current?.click()}
+                    disabled={importLoading}
+                  >
+                    📖 импорт из Goodreads (CSV)
+                  </button>
+                  <div style={{fontSize:11,color:"#aaa",marginTop:6,lineHeight:1.6}}>
+                    1. открой goodreads.com → My Books<br/>
+                    2. нажми Import and export (внизу слева)<br/>
+                    3. нажми «Export Library» → скачается goodreads_library_export.csv<br/>
+                    4. загрузи файл сюда — импортируем прочитанные книги
+                  </div>
+                </div>
+
                 <input
                   ref={fileRef}
                   type="file"
@@ -1393,31 +1482,27 @@ export default function Page() {
                 {items.length === 0 ? "пока пусто — добавь что-нибудь!" : "нет айтемов этого типа"}
               </div>
             ) : (
-              filteredItems.map((it) => (
-                <div key={String(it.id)} className="item-card">
-                  <div
-                    className="item-icon"
-                    style={{ background: TYPE_COLORS[it.type] }}
-                  >
-                    {TYPE_ICONS[it.type]}
-                  </div>
-                  <div className="item-body">
-                    <div className="item-title">{it.title}</div>
-                    {it.creator && <div className="item-creator">{it.creator}</div>}
-                    <div className="item-meta">
-                      <span className="tag">{TYPE_LABELS[it.type]}</span>
+              <div className="items-grid">
+                {filteredItems.map((it) => (
+                  <div key={String(it.id)} className="item-card">
+                    <div className="item-body">
+                      <div className="item-title">{it.title}</div>
+                      {it.creator && <div className="item-creator">{it.creator}</div>}
+                      <div className="item-meta">
+                        <span className="tag">{TYPE_LABELS[it.type]}</span>
+                      </div>
                     </div>
+                    <button
+                      className="delete-btn"
+                      onClick={() => deleteItem(it.id)}
+                      disabled={deletingId === it.id}
+                      title="удалить"
+                    >
+                      {deletingId === it.id ? "…" : "×"}
+                    </button>
                   </div>
-                  <button
-                    className="delete-btn"
-                    onClick={() => deleteItem(it.id)}
-                    disabled={deletingId === it.id}
-                    title="удалить"
-                  >
-                    {deletingId === it.id ? "…" : "×"}
-                  </button>
-                </div>
-              ))
+                ))}
+              </div>
             )}
 
             <div style={{ marginTop: 16 }}>
