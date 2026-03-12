@@ -48,6 +48,9 @@ const PLACEHOLDER_EXAMPLES: Record<ItemType, { title: string; creator: string }[
     { title: "Чевенгур", creator: "Андрей Платонов" },
     { title: "Счастливая Москва", creator: "Андрей Платонов" },
   ],
+  custom: [
+    { title: "название", creator: "автор / бренд" },
+  ],
 };
 
 function useAnimatedPlaceholder(type: ItemType, field: "title" | "creator") {
@@ -104,6 +107,7 @@ const TYPE_ICONS: Record<ItemType, string> = {
   music: "♪",
   book: "◻",
   movie: "◈",
+  custom: "✦",
 };
 
 const TYPE_COLORS: Record<ItemType, string> = {
