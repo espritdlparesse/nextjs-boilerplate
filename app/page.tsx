@@ -549,41 +549,35 @@ export default function Page() {
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext("2d")!;
 
-    // Фон бежевый
-    ctx.fillStyle = "#f5f0e8";
+    // Фон белый
+    ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, W, H);
 
-    // Декоративный круг вверху справа
-    ctx.beginPath();
-    ctx.arc(W - 60, 60, 340, 0, Math.PI * 2);
-    ctx.fillStyle = "#ede7d9";
-    ctx.fill();
+    // Тонкая рамка
+    ctx.strokeStyle = "#e8e8e8";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(40, 40, W - 80, H - 80);
 
-    // Маленький круг снизу слева
-    ctx.beginPath();
-    ctx.arc(80, H - 80, 160, 0, Math.PI * 2);
-    ctx.fillStyle = "#ede7d9";
-    ctx.fill();
-
-    // Логотип
-    ctx.fillStyle = "#1a1a1a";
-    ctx.font = "bold 72px Georgia, serif";
-    ctx.fillText("everyyou", 80, 130);
+    // Логотип — тонкий serif
+    ctx.fillStyle = "#000000";
+    ctx.font = "300 80px Georgia, serif";
+    ctx.fillText("every you", 80, 150);
 
     // Подпись типа
     ctx.fillStyle = "#999";
-    ctx.font = "32px -apple-system, sans-serif";
+    ctx.font = "28px -apple-system, sans-serif";
     const label = type === "deep" ? "вайбчек без прикола" : type === "vibe" ? "вайбчек" : "моя библиотека";
-    ctx.fillText(label, 80, 180);
+    ctx.fillText(label.toUpperCase(), 80, 195);
 
     // Разделитель
-    ctx.fillStyle = "#d4cfc6";
-    ctx.fillRect(80, 205, W - 160, 2);
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(80, 218, W - 160, 1);
 
     if (text) {
       // Режим вайбчека — выводим текст
-      ctx.fillStyle = "#1a1a1a";
-      ctx.font = "36px -apple-system, sans-serif";
+      ctx.fillStyle = "#000000";
+      ctx.font = "300 38px Georgia, serif";
+      ctx.font = "italic 38px Georgia, serif";
       const clean = text.split("**").join("").split("\n\n").join("\n").trim();
 
       const words = clean.split(" ");
@@ -621,12 +615,12 @@ export default function Page() {
 
       const drawSection = (emoji: string, title: string, list: typeof items) => {
         if (list.length === 0) return;
-        ctx.fillStyle = "#888";
-        ctx.font = "bold 28px -apple-system, sans-serif";
-        ctx.fillText(`${emoji}  ${title}`, 80, y);
-        y += 44;
-        ctx.fillStyle = "#1a1a1a";
-        ctx.font = "36px -apple-system, sans-serif";
+        ctx.fillStyle = "#999";
+        ctx.font = "22px -apple-system, sans-serif";
+        ctx.fillText(`${emoji}  ${title.toUpperCase()}`, 80, y);
+        y += 40;
+        ctx.fillStyle = "#000000";
+        ctx.font = "300 34px Georgia, serif";
         for (const item of list) {
           const t = item.creator ? `${item.title} — ${item.creator}` : item.title;
           const short = t.length > 42 ? t.slice(0, 40) + "…" : t;
@@ -642,13 +636,13 @@ export default function Page() {
     }
 
     // Ссылка внизу
-    ctx.fillStyle = "#aaa";
-    ctx.font = "28px -apple-system, sans-serif";
-    ctx.fillText("t.me/every_you_bot", 80, H - 80);
+    ctx.fillStyle = "#999";
+    ctx.font = "24px -apple-system, sans-serif";
+    ctx.fillText("t.me/every_you_bot", 80, H - 70);
 
-    ctx.fillStyle = "#1a1a1a";
-    ctx.font = "bold 40px Georgia";
-    ctx.fillText("✦", W - 120, H - 75);
+    ctx.fillStyle = "#000000";
+    ctx.font = "300 36px Georgia";
+    ctx.fillText("✦", W - 110, H - 65);
 
     return canvas.toDataURL("image/png");
   }
@@ -719,200 +713,195 @@ export default function Page() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Onest:wght@300;400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap');
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-          background: #f5f2ec;
-          color: #1a1a1a;
-          font-family: 'Onest', sans-serif;
+          background: #ffffff;
+          color: #000000;
+          font-family: 'DM Sans', sans-serif;
           min-height: 100vh;
         }
 
         .app {
           max-width: 480px;
           margin: 0 auto;
-          padding: 24px 16px 100px;
+          padding: 32px 20px 100px;
         }
 
-        .header {
-          margin-bottom: 28px;
-        }
+        .header { margin-bottom: 36px; }
 
         .brand {
-          font-family: 'Unbounded', sans-serif;
-          font-size: 28px;
-          font-weight: 900;
-          letter-spacing: -1px;
-          color: #1a1a1a;
+          font-family: 'Cormorant Garamond', serif;
+          font-size: 32px;
+          font-weight: 300;
+          letter-spacing: 0.08em;
+          color: #000000;
           line-height: 1;
+          text-transform: lowercase;
         }
 
         .greeting {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 300;
-          color: #888;
-          margin-top: 4px;
-          letter-spacing: 0.3px;
+          color: #999;
+          margin-top: 6px;
+          letter-spacing: 0.05em;
         }
 
-        /* Bottom nav */
         .nav {
           position: fixed;
           bottom: 0; left: 0; right: 0;
           display: flex;
-          background: #1a1a1a;
+          background: #000000;
           z-index: 100;
           max-width: 480px;
           margin: 0 auto;
+          border-top: 1px solid #000;
         }
 
         .nav-btn {
           flex: 1;
-          padding: 14px 4px 16px;
+          padding: 14px 4px 18px;
           border: none;
           background: transparent;
-          color: #888;
-          font-family: 'Onest', sans-serif;
-          font-size: 11px;
-          font-weight: 500;
+          color: #555;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 10px;
+          font-weight: 400;
           cursor: pointer;
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 4px;
           transition: color 0.15s;
-          letter-spacing: 0.3px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
         }
 
-        .nav-btn.active { color: #f5f2ec; }
+        .nav-btn.active { color: #ffffff; }
+        .nav-icon { font-size: 16px; line-height: 1; }
 
-        .nav-icon {
-          font-size: 18px;
-          line-height: 1;
-        }
-
-        /* Cards */
         .card {
-          background: white;
-          border-radius: 20px;
-          padding: 24px;
-          margin-bottom: 16px;
-          box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+          background: #ffffff;
+          border-radius: 0;
+          padding: 28px 0;
+          margin-bottom: 0;
+          border-bottom: 1px solid #e8e8e8;
+          box-shadow: none;
         }
 
         .card-title {
-          font-family: 'Unbounded', sans-serif;
-          font-size: 20px;
-          font-weight: 700;
-          letter-spacing: -0.5px;
+          font-family: 'Cormorant Garamond', serif;
+          font-size: 24px;
+          font-weight: 400;
+          letter-spacing: 0.03em;
           margin-bottom: 12px;
+          font-style: italic;
         }
 
         .card-text {
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 300;
-          color: #555;
-          line-height: 1.6;
+          color: #666;
+          line-height: 1.7;
         }
 
-        /* Buttons */
         .btn {
           width: 100%;
           padding: 14px;
-          border-radius: 14px;
-          border: none;
-          background: #1a1a1a;
-          color: #f5f2ec;
-          font-family: 'Onest', sans-serif;
-          font-size: 14px;
-          font-weight: 500;
+          border-radius: 0;
+          border: 1px solid #000;
+          background: #000000;
+          color: #ffffff;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 12px;
+          font-weight: 400;
           cursor: pointer;
           transition: opacity 0.15s, transform 0.1s;
-          letter-spacing: 0.2px;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
         }
-        .btn:disabled { opacity: 0.5; cursor: default; }
-        .btn:active:not(:disabled) { transform: scale(0.98); }
+        .btn:disabled { opacity: 0.3; cursor: default; }
+        .btn:active:not(:disabled) { transform: scale(0.99); }
 
         .btn-outline {
           background: transparent;
-          border: 1.5px solid #ddd;
-          color: #1a1a1a;
+          border: 1px solid #000;
+          color: #000;
         }
 
         .btn-sm {
           width: auto;
-          padding: 8px 14px;
-          font-size: 13px;
-          border-radius: 10px;
+          padding: 8px 16px;
+          font-size: 11px;
         }
 
-        /* Stats row */
         .stats {
           display: flex;
-          gap: 10px;
-          margin-bottom: 20px;
+          gap: 0;
+          margin-bottom: 24px;
+          border: 1px solid #e8e8e8;
         }
 
         .stat-pill {
           flex: 1;
-          background: #f5f2ec;
-          border-radius: 12px;
-          padding: 12px 8px;
+          background: #ffffff;
+          padding: 16px 8px;
           text-align: center;
+          border-right: 1px solid #e8e8e8;
         }
+        .stat-pill:last-child { border-right: none; }
 
         .stat-num {
-          font-family: 'Unbounded', sans-serif;
-          font-size: 22px;
-          font-weight: 700;
+          font-family: 'Cormorant Garamond', serif;
+          font-size: 28px;
+          font-weight: 300;
           line-height: 1;
         }
 
         .stat-label {
-          font-size: 11px;
-          color: #888;
-          margin-top: 3px;
-          font-weight: 300;
+          font-size: 10px;
+          color: #999;
+          margin-top: 4px;
+          font-weight: 400;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
         }
 
-        /* Home quick actions */
-        .actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+        .actions { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
 
-        /* Type selector */
         .type-row {
           display: flex;
-          gap: 8px;
-          margin-bottom: 16px;
+          gap: 0;
+          margin-bottom: 20px;
+          border: 1px solid #e8e8e8;
         }
 
         .type-btn {
           flex: 1;
-          padding: 10px 6px;
-          border-radius: 12px;
-          border: 2px solid transparent;
-          background: #f5f2ec;
-          font-family: 'Onest', sans-serif;
-          font-size: 13px;
-          font-weight: 500;
+          padding: 11px 6px;
+          border: none;
+          border-right: 1px solid #e8e8e8;
+          background: #ffffff;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 12px;
+          font-weight: 400;
           cursor: pointer;
           text-align: center;
           transition: all 0.15s;
+          letter-spacing: 0.05em;
         }
+        .type-btn:last-child { border-right: none; }
+        .type-btn.active { background: #000000; color: #ffffff; }
 
-        .type-btn.active {
-          border-color: #1a1a1a;
-          background: white;
-        }
-
-        /* Input */
-        .input-group { margin-bottom: 12px; }
+        .input-group { margin-bottom: 14px; }
         .input-label {
-          font-size: 12px;
-          font-weight: 500;
-          color: #888;
-          letter-spacing: 0.5px;
+          font-size: 10px;
+          font-weight: 400;
+          color: #999;
+          letter-spacing: 0.1em;
           text-transform: uppercase;
           margin-bottom: 6px;
         }
@@ -920,50 +909,49 @@ export default function Page() {
         .input {
           width: 100%;
           padding: 13px 14px;
-          border: 1.5px solid #e8e8e8;
-          border-radius: 12px;
-          font-family: 'Onest', sans-serif;
-          font-size: 15px;
-          font-weight: 400;
-          color: #1a1a1a;
-          background: white;
+          border: 1px solid #e8e8e8;
+          border-radius: 0;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 14px;
+          font-weight: 300;
+          color: #000000;
+          background: #ffffff;
           outline: none;
           transition: border-color 0.15s;
         }
-        .input:focus { border-color: #1a1a1a; }
-        .input::placeholder { color: #bbb; }
+        .input:focus { border-color: #000000; }
+        .input::placeholder { color: #ccc; }
 
-        /* Item card */
         .item-card {
-          background: white;
-          border-radius: 16px;
-          padding: 14px 16px;
-          margin-bottom: 10px;
+          background: #ffffff;
+          border-radius: 0;
+          padding: 14px 0;
+          margin-bottom: 0;
           display: flex;
           align-items: flex-start;
-          gap: 12px;
-          box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+          gap: 14px;
+          border-bottom: 1px solid #f0f0f0;
+          box-shadow: none;
         }
 
         .item-icon {
-          width: 38px;
-          height: 38px;
-          border-radius: 10px;
+          width: 34px;
+          height: 34px;
+          border-radius: 0;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 16px;
+          font-size: 14px;
           flex-shrink: 0;
-          margin-top: 1px;
+          border: 1px solid #e8e8e8;
         }
 
         .item-body { flex: 1; min-width: 0; }
 
         .item-title {
-          font-family: 'Unbounded', sans-serif;
+          font-family: 'DM Sans', sans-serif;
           font-size: 13px;
-          font-weight: 700;
-          letter-spacing: -0.3px;
+          font-weight: 500;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -971,147 +959,117 @@ export default function Page() {
 
         .item-creator {
           font-size: 12px;
-          color: #888;
+          color: #999;
           margin-top: 2px;
           font-weight: 300;
         }
 
-        .item-meta {
-          display: flex;
-          gap: 6px;
-          margin-top: 8px;
-          flex-wrap: wrap;
-        }
+        .item-meta { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 
         .tag {
-          padding: 3px 8px;
-          border-radius: 6px;
-          font-size: 11px;
-          font-weight: 500;
-          background: #f0f0f0;
-          color: #666;
+          padding: 2px 8px;
+          font-size: 10px;
+          font-weight: 400;
+          background: #f5f5f5;
+          color: #888;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
         }
 
         .delete-btn {
           background: none;
           border: none;
-          color: #ccc;
+          color: #ddd;
           cursor: pointer;
-          font-size: 18px;
+          font-size: 16px;
           padding: 4px;
           flex-shrink: 0;
           transition: color 0.15s;
           line-height: 1;
         }
-        .delete-btn:hover { color: #e74c3c; }
+        .delete-btn:hover { color: #000; }
 
-        /* Import item */
         .import-item {
-          border: 1.5px solid #eee;
-          border-radius: 14px;
+          border: 1px solid #e8e8e8;
           padding: 14px;
-          margin-bottom: 10px;
+          margin-bottom: 8px;
           display: flex;
           gap: 10px;
           cursor: pointer;
           transition: border-color 0.15s;
         }
-        .import-item.selected { border-color: #1a1a1a; }
+        .import-item.selected { border-color: #000000; background: #fafafa; }
 
-        /* Filter tabs */
         .filter-row {
           display: flex;
           gap: 8px;
-          margin-bottom: 16px;
+          margin-bottom: 20px;
           overflow-x: auto;
           padding-bottom: 2px;
         }
 
         .filter-btn {
           flex-shrink: 0;
-          padding: 7px 14px;
-          border-radius: 999px;
-          border: 1.5px solid #e0e0e0;
+          padding: 6px 14px;
+          border: 1px solid #e0e0e0;
           background: white;
-          font-family: 'Onest', sans-serif;
-          font-size: 13px;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 11px;
           font-weight: 400;
           cursor: pointer;
           transition: all 0.15s;
           white-space: nowrap;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
         }
 
         .filter-btn.active {
-          background: #1a1a1a;
-          border-color: #1a1a1a;
+          background: #000000;
+          border-color: #000000;
           color: white;
         }
 
-        /* Error & success */
-        .error { color: #e74c3c; font-size: 13px; margin-top: 10px; }
-        .success { color: #27ae60; font-size: 13px; margin-top: 10px; font-weight: 500; }
+        .error { color: #c0392b; font-size: 13px; margin-top: 10px; font-weight: 300; }
+        .success { color: #27ae60; font-size: 13px; margin-top: 10px; font-weight: 400; }
 
-        /* Vibe output */
         .vibe-text {
-          margin-top: 16px;
-          padding: 20px;
-          background: #f5f2ec;
-          border-radius: 16px;
-          font-size: 14px;
+          margin-top: 20px;
+          padding: 24px;
+          background: #fafafa;
+          border: 1px solid #e8e8e8;
+          font-family: 'Cormorant Garamond', serif;
+          font-style: italic;
+          font-size: 16px;
           font-weight: 300;
-          line-height: 1.8;
+          line-height: 1.9;
           white-space: pre-wrap;
-          color: #333;
+          color: #222;
         }
 
-        /* Divider */
         .divider {
           border: none;
-          border-top: 1.5px solid #f0f0f0;
+          border-top: 1px solid #f0f0f0;
           margin: 20px 0;
         }
 
         .section-label {
-          font-size: 11px;
-          font-weight: 500;
-          color: #aaa;
+          font-size: 10px;
+          font-weight: 400;
+          color: #bbb;
           text-transform: uppercase;
-          letter-spacing: 0.8px;
-          margin-bottom: 12px;
+          letter-spacing: 0.1em;
+          margin-bottom: 14px;
         }
 
         .empty {
           text-align: center;
-          padding: 40px 20px;
-          color: #aaa;
-          font-size: 14px;
-          font-weight: 300;
-        }
-
-        .mode-toggle {
-          display: flex;
-          gap: 8px;
-          margin-bottom: 20px;
-        }
-
-        .mode-btn {
-          flex: 1;
-          padding: 11px;
-          border-radius: 12px;
-          border: 1.5px solid #e0e0e0;
-          background: white;
-          font-family: 'Onest', sans-serif;
+          padding: 48px 20px;
+          color: #ccc;
           font-size: 13px;
-          font-weight: 500;
-          cursor: pointer;
-          text-align: center;
-          transition: all 0.15s;
+          font-weight: 300;
+          letter-spacing: 0.05em;
         }
-        .mode-btn.active {
-          background: #1a1a1a;
-          border-color: #1a1a1a;
-          color: white;
-        }
+
       `}</style>
 
       <div className="app">
