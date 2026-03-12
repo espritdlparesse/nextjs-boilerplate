@@ -13,6 +13,9 @@ type ImportedItem = {
   source: ItemSource;
   title: string;
   creator?: string | null;
+  custom_category_id?: string | null;
+  custom_category_name?: string | null;
+  custom_category_emoji?: string | null;
 };
 
 type DbItem = {
@@ -24,6 +27,8 @@ type DbItem = {
   creator?: string | null;
   created_at?: string;
   custom_category_id?: string | null;
+  custom_category_name?: string | null;
+  custom_category_emoji?: string | null;
 };
 
 function getTgInitData(): string {
