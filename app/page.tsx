@@ -108,7 +108,7 @@ const TYPE_ICONS: Record<ItemType, string> = {
 const TYPE_COLORS: Record<ItemType, string> = {
   music: "#c8f0d8",
   book: "#fde8c8",
-  movie: "#d8e8fd",,
+  movie: "#d8e8fd",
   custom: "#f0f0f0",
 };
 
