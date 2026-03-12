@@ -5,8 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 type Tab = "home" | "add" | "library" | "vibe" | "admin";
 
 const ADMIN_TG_ID = 394657396; // espritdlparesse
-type ItemType = "music" | "book" | "movie";
-type ItemSource = "spotify" | "goodreads" | "letterboxd" | "manual" | "livelib";
+type ItemType = "music" | "book" | "movie" | "custom";
+type ItemSource = "spotify" | "goodreads" | "letterboxd" | "manual" | "livelib" | "import_spotify";
 
 type ImportedItem = {
   type: ItemType;
@@ -96,6 +96,7 @@ const TYPE_LABELS: Record<ItemType, string> = {
   music: "музыка",
   book: "книга",
   movie: "фильм",
+  custom: "своё",
 };
 
 const TYPE_ICONS: Record<ItemType, string> = {
@@ -107,7 +108,8 @@ const TYPE_ICONS: Record<ItemType, string> = {
 const TYPE_COLORS: Record<ItemType, string> = {
   music: "#c8f0d8",
   book: "#fde8c8",
-  movie: "#d8e8fd",
+  movie: "#d8e8fd",,
+  custom: "#f0f0f0",
 };
 
 export default function Page() {
@@ -170,7 +172,7 @@ export default function Page() {
     }
   }
 
-  useEffect(() => { loadLibrary(); }, []);
+  useEffect(() => { loadLibrary(); loadCustomCategories(); }, []);
 
   const counts = useMemo(() => ({
     total: items.length,
@@ -421,6 +423,45 @@ export default function Page() {
     }
   }
 
+  // ===== Custom Categories =====
+  type CustomCategory = { id: string; name: string; emoji: string; };
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
+  const [showCreateCategory, setShowCreateCategory] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [newCatEmoji, setNewCatEmoji] = useState("📌");
+  const [catSaving, setCatSaving] = useState(false);
+  const [catError, setCatError] = useState("");
+  const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
+
+  async function loadCustomCategories() {
+    try {
+      const res = await fetch("/api/custom-categories", {
+        headers: { "x-telegram-init-data": getTgInitData() },
+      });
+      const json = await safeJson(res);
+      if (res.ok) setCustomCategories(json?.categories ?? []);
+    } catch {}
+  }
+
+  async function createCustomCategory() {
+    if (!newCatName.trim()) return;
+    setCatSaving(true); setCatError("");
+    try {
+      const res = await fetch("/api/custom-categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-telegram-init-data": getTgInitData() },
+        body: JSON.stringify({ name: newCatName.trim(), emoji: newCatEmoji }),
+      });
+      const json = await safeJson(res);
+      if (!res.ok) { setCatError(json?.error ?? "ошибка"); return; }
+      await loadCustomCategories();
+      setSelectedCatId(json?.category?.id ?? null);
+      setNewCatName(""); setNewCatEmoji("📌");
+      setShowCreateCategory(false);
+    } catch (e: any) { setCatError(e?.message); }
+    finally { setCatSaving(false); }
+  }
+
   // ===== Manual Add =====
   const [manualMode, setManualMode] = useState(false);
   const [manualType, setManualType] = useState<ItemType>("book");
@@ -434,6 +475,7 @@ export default function Page() {
 
   async function saveManual() {
     if (!manualTitle.trim()) { setManualError("Введи название"); return; }
+    if (manualType === "custom" && !selectedCatId) { setManualError("Выбери категорию"); return; }
     setManualSaving(true); setManualError(""); setManualSuccess(false);
     try {
       const res = await fetch("/api/items", {
@@ -447,6 +489,7 @@ export default function Page() {
           source: "manual",
           title: manualTitle.trim(),
           creator: manualCreator.trim() || null,
+          ...(manualType === "custom" && selectedCatId ? { custom_category_id: selectedCatId } : {}),
         }),
       });
       const json = await safeJson(res);
@@ -769,11 +812,13 @@ export default function Page() {
   }
 
   // ===== Library filter =====
-  const [libFilter, setLibFilter] = useState<ItemType | "all">("all");
-  const filteredItems = useMemo(() =>
-    libFilter === "all" ? items : items.filter((i) => i.type === libFilter),
-    [items, libFilter]
-  );
+  const [libFilter, setLibFilter] = useState<ItemType | "all" | string>("all");
+  const filteredItems = useMemo(() => {
+    if (libFilter === "all") return items;
+    if (libFilter === "music" || libFilter === "book" || libFilter === "movie") return items.filter(i => i.type === libFilter);
+    // кастомная категория по id
+    return items.filter(i => i.custom_category_id === libFilter);
+  }, [items, libFilter]);
 
   return (
     <>
@@ -1227,6 +1272,96 @@ export default function Page() {
                       {TYPE_ICONS[t]} {TYPE_LABELS[t]}
                     </button>
                   ))}
+                  {/* Кнопка своей категории — только для платных */}
+                  {(deepVibeAccess === "forever" || deepVibeAccess === "paid") ? (
+                    <button
+                      className={`type-btn${manualType === "custom" ? " active" : ""}`}
+                      onClick={() => setManualType("custom")}
+                      title="своя категория"
+                    >
+                      ✦ своё
+                    </button>
+                  ) : (
+                    <button
+                      className="type-btn"
+                      style={{opacity:0.45, position:"relative"}}
+                      onClick={() => { buyDeepVibeForever(); }}
+                      title="доступно с подпиской"
+                    >
+                      ✦ своё 🔒
+                    </button>
+                  )}
+                </div>
+
+                {/* UI кастомной категории */}
+                {manualType === "custom" && (
+                  <div style={{marginBottom:16}}>
+                    <div className="section-label">категория</div>
+                    {customCategories.length > 0 && (
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+                        {customCategories.map(cat => (
+                          <button
+                            key={cat.id}
+                            onClick={() => setSelectedCatId(cat.id)}
+                            style={{
+                              padding:"7px 14px",
+                              border:`1px solid ${selectedCatId === cat.id ? "#000" : "#e0e0e0"}`,
+                              background: selectedCatId === cat.id ? "#000" : "#fff",
+                              color: selectedCatId === cat.id ? "#fff" : "#000",
+                              fontSize:13,
+                              cursor:"pointer",
+                              display:"flex",alignItems:"center",gap:6,
+                            }}
+                          >
+                            {cat.emoji} {cat.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {!showCreateCategory ? (
+                      <button
+                        className="btn btn-outline btn-sm"
+                        onClick={() => setShowCreateCategory(true)}
+                        style={{width:"auto",fontSize:12}}
+                      >
+                        + новая категория
+                      </button>
+                    ) : (
+                      <div style={{border:"1px solid #e8e8e8",padding:16,marginTop:8}}>
+                        <div className="input-group" style={{marginBottom:10}}>
+                          <div className="input-label">эмодзи</div>
+                          <input
+                            className="input"
+                            placeholder="📌"
+                            value={newCatEmoji}
+                            onChange={e => setNewCatEmoji(e.target.value)}
+                            style={{width:72}}
+                            maxLength={2}
+                          />
+                        </div>
+                        <div className="input-group" style={{marginBottom:10}}>
+                          <div className="input-label">название категории</div>
+                          <input
+                            className="input"
+                            placeholder="подкасты, чипсы, игры..."
+                            value={newCatName}
+                            onChange={e => setNewCatName(e.target.value)}
+                            onKeyDown={e => e.key === "Enter" && createCustomCategory()}
+                          />
+                        </div>
+                        {catError && <div className="error">{catError}</div>}
+                        <div style={{display:"flex",gap:8,marginTop:10}}>
+                          <button className="btn btn-sm" onClick={createCustomCategory} disabled={catSaving}>
+                            {catSaving ? "..." : "создать"}
+                          </button>
+                          <button className="btn btn-outline btn-sm" onClick={() => { setShowCreateCategory(false); setCatError(""); }}>
+                            отмена
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
                 </div>
 
                 <div className="input-group">
@@ -1242,7 +1377,7 @@ export default function Page() {
 
                 <div className="input-group">
                   <div className="input-label">
-                    {manualType === "music" ? "исполнитель" : manualType === "book" ? "автор" : "режиссёр"}
+                    {manualType === "music" ? "исполнитель" : manualType === "book" ? "автор" : manualType === "custom" ? "автор / бренд" : "режиссёр"}
                     {" "}
                     <span style={{ color: "#bbb", fontWeight: 300 }}>(необязательно)</span>
                   </div>
@@ -1358,7 +1493,7 @@ export default function Page() {
                   />
                   <button
                     className="btn btn-outline"
-                    style={{fontSize:13,display:"flex",alignItems:\"center\",gap:6,width:"100%"}}
+                    style={{fontSize:13,display:"flex",alignItems:"center",gap:6,width:"100%"}}
                     onClick={() => grRef.current?.click()}
                     disabled={importLoading}
                   >
@@ -1411,7 +1546,7 @@ export default function Page() {
                           <div style={{ fontWeight: 600, fontSize: 14 }}>{it.title}</div>
                           <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{it.creator || "—"}</div>
                           <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                            <span className="tag">{TYPE_LABELS[it.type]}</span>
+                            <span className="tag">{it.type === "custom" && it.custom_category_name ? `${it.custom_category_emoji ?? "✦"} ${it.custom_category_name}` : TYPE_LABELS[it.type]}</span>
                           </div>
                         </div>
                       </div>
@@ -1462,13 +1597,22 @@ export default function Page() {
             </div>
 
             <div className="filter-row">
-              {([["all", "все"], ["music", "музыка"], ["book", "книги"], ["movie", "фильмы"]] as [ItemType | "all", string][]).map(([val, label]) => (
+              {([["all", "все"], ["music", "музыка"], ["book", "книги"], ["movie", "фильмы"]] as [string, string][]).map(([val, label]) => (
                 <button
                   key={val}
                   className={`filter-btn${libFilter === val ? " active" : ""}`}
                   onClick={() => setLibFilter(val)}
                 >
                   {label}
+                </button>
+              ))}
+              {customCategories.map(cat => (
+                <button
+                  key={cat.id}
+                  className={`filter-btn${libFilter === cat.id ? " active" : ""}`}
+                  onClick={() => setLibFilter(cat.id)}
+                >
+                  {cat.emoji} {cat.name}
                 </button>
               ))}
             </div>
@@ -1489,7 +1633,7 @@ export default function Page() {
                       <div className="item-title">{it.title}</div>
                       {it.creator && <div className="item-creator">{it.creator}</div>}
                       <div className="item-meta">
-                        <span className="tag">{TYPE_LABELS[it.type]}</span>
+                        <span className="tag">{it.type === "custom" && it.custom_category_name ? `${it.custom_category_emoji ?? "✦"} ${it.custom_category_name}` : TYPE_LABELS[it.type]}</span>
                       </div>
                     </div>
                     <button
