@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
   const sb = supabaseAdmin();
   const { data, error } = await sb
     .from("items")
-    .select("*, custom_categories(name, emoji)")
+    .select("*, custom_categories!custom_category_id(name, emoji)")
     .eq("tg_user_id", auth.tgUserId)
     .order("created_at", { ascending: false });
 
