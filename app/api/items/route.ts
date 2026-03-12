@@ -33,12 +33,21 @@ export async function GET(req: NextRequest) {
   const sb = supabaseAdmin();
   const { data, error } = await sb
     .from("items")
-    .select("*")
+    .select("*, custom_categories(name, emoji)")
     .eq("tg_user_id", auth.tgUserId)
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ items: data ?? [] });
+
+  // Разворачиваем join
+  const items = (data ?? []).map((it: any) => ({
+    ...it,
+    custom_category_name: it.custom_categories?.name ?? null,
+    custom_category_emoji: it.custom_categories?.emoji ?? null,
+    custom_categories: undefined,
+  }));
+
+  return NextResponse.json({ items });
 }
 
 export async function POST(req: NextRequest) {
@@ -48,7 +57,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "bad json" }, { status: 400 });
 
-  const { type, source, title, creator } = body;
+  const { type, source, title, creator, custom_category_id } = body;
   if (!type || !source || !title) {
     return NextResponse.json({ error: "type, source, title are required" }, { status: 400 });
   }
@@ -63,6 +72,7 @@ export async function POST(req: NextRequest) {
       source,
       title,
       creator: creator ?? null,
+      custom_category_id: custom_category_id ?? null,
     })
     .select("*")
     .single();
