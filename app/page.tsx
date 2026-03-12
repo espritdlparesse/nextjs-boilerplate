@@ -1363,7 +1363,6 @@ export default function Page() {
                     )}
                   </div>
                 )}
-                </div>
 
                 <div className="input-group">
                   <div className="input-label">название</div>
