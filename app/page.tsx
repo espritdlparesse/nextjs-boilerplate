@@ -182,7 +182,7 @@ export default function Page() {
     }
   }
 
-  useEffect(() => { loadLibrary(); loadCustomCategories(); }, []);
+  useEffect(() => { loadLibrary(); loadCustomCategories(); fetchDeepVibeAccess(); }, []);
 
   const counts = useMemo(() => ({
     total: items.length,
@@ -801,6 +801,7 @@ export default function Page() {
     }
     if (tab === "add" && prevTabRef.current !== "add") {
       checkSpotify();
+      if (deepVibeAccess === null) fetchDeepVibeAccess();
     }
     prevTabRef.current = tab;
   }, [tab]);
@@ -1283,24 +1284,20 @@ export default function Page() {
                     </button>
                   ))}
                   {/* Кнопка своей категории — только для платных */}
-                  {(deepVibeAccess === "forever" || deepVibeAccess === "paid") ? (
-                    <button
-                      className={`type-btn${manualType === "custom" ? " active" : ""}`}
-                      onClick={() => setManualType("custom")}
-                      title="своя категория"
-                    >
-                      ✦ своё
-                    </button>
-                  ) : (
-                    <button
-                      className="type-btn"
-                      style={{opacity:0.45, position:"relative"}}
-                      onClick={() => { buyDeepVibeForever(); }}
-                      title="доступно с подпиской"
-                    >
-                      ✦ своё 🔒
-                    </button>
-                  )}
+                  <button
+                    className={`type-btn${manualType === "custom" ? " active" : ""}`}
+                    style={!(deepVibeAccess === "forever" || deepVibeAccess === "paid") ? {opacity:0.45} : {}}
+                    onClick={() => {
+                      if (deepVibeAccess === "forever" || deepVibeAccess === "paid") {
+                        setManualType("custom");
+                      } else {
+                        buyDeepVibeForever();
+                      }
+                    }}
+                    title={deepVibeAccess === "forever" || deepVibeAccess === "paid" ? "своя категория" : "доступно с подпиской"}
+                  >
+                    ✦ своё {!(deepVibeAccess === "forever" || deepVibeAccess === "paid") && "🔒"}
+                  </button>
                 </div>
 
                 {/* UI кастомной категории */}
