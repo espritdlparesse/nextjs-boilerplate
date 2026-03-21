@@ -76,21 +76,61 @@ export default function App() {
     ]).start();
   }, [app.toastMessage, toastOpacity, toastScale, toastTranslateY]);
 
+  const headerBlock = (
+    <>
+      <Text style={appStyles.brand}>everyyou</Text>
+      {app.hasCustomName ? (
+        <Text style={appStyles.subtitle}>привет, {app.displayName.toLowerCase()}</Text>
+      ) : null}
+      <Text style={appStyles.syncText}>
+        синхронизация: {app.syncStatus === "online" ? "онлайн" : app.syncStatus === "syncing" ? "обновляем" : "офлайн"} ·{" "}
+        {app.syncMessage}
+      </Text>
+    </>
+  );
+
   return (
     <SafeAreaView style={appStyles.safeArea}>
       <StatusBar style="dark" />
       <View style={appStyles.shell}>
-        <ScrollView style={appStyles.scroll} contentContainerStyle={appStyles.container}>
-          <Text style={appStyles.brand}>everyyou</Text>
-          {app.hasCustomName ? (
-            <Text style={appStyles.subtitle}>привет, {app.displayName.toLowerCase()}</Text>
-          ) : null}
-          <Text style={appStyles.syncText}>
-            синхронизация: {app.syncStatus === "online" ? "онлайн" : app.syncStatus === "syncing" ? "обновляем" : "офлайн"} ·{" "}
-            {app.syncMessage}
-          </Text>
+        {app.tab === "library" ? (
+          <View style={appStyles.libraryShell}>
+            <View style={appStyles.libraryHeader}>{headerBlock}</View>
+            <LibraryScreen
+              typeFilter={app.typeFilter}
+              sourceFilter={app.sourceFilter}
+              undatedVisibleLibrary={app.undatedVisibleLibrary}
+              timelineSpreading={app.timelineSpreading}
+              timelinePromptVisible={app.timelinePromptVisible}
+              selectedItem={app.selectedItem}
+              visibleLibrary={app.visibleLibrary}
+              onTypeFilterChange={app.setTypeFilter}
+              onSourceFilterChange={app.setSourceFilter}
+              onSelectItem={app.setSelectedId}
+              onSpreadThisMonth={app.spreadIntoThisMonth}
+              onSpreadLastMonth={app.spreadIntoLastMonth}
+              onSpreadLast6Months={app.spreadIntoLast6Months}
+              onSpreadThisYear={app.spreadIntoThisYear}
+              onSpreadVeryOld={app.spreadIntoVeryOld}
+              onAssignItemTime={app.assignItemTime}
+              onAssignSelectedThisMonth={app.assignSelectedToThisMonth}
+              onAssignSelectedLastMonth={app.assignSelectedToLastMonth}
+              onAssignSelectedLast6Months={app.assignSelectedToLast6Months}
+              onAssignSelectedThisYear={app.assignSelectedToThisYear}
+              onAssignSelectedVeryOld={app.assignSelectedToVeryOld}
+              onDismissTimelinePrompt={app.dismissTimelinePrompt}
+              onEditItem={(id) => {
+                app.startEdit(id);
+                app.setTab("add");
+              }}
+              onDeleteItem={app.removeItem}
+            />
+          </View>
+        ) : (
+          <ScrollView style={appStyles.scroll} contentContainerStyle={appStyles.container}>
+            {headerBlock}
 
-          {app.tab === "home" && (
+            {app.tab === "home" && (
             <HomeScreen
               hasCustomName={app.hasCustomName}
               nameDraft={app.nameDraft}
@@ -162,49 +202,18 @@ export default function App() {
             />
           )}
 
-          {app.tab === "library" && (
-            <LibraryScreen
-              typeFilter={app.typeFilter}
-              sourceFilter={app.sourceFilter}
-              undatedVisibleLibrary={app.undatedVisibleLibrary}
-              timelineSpreading={app.timelineSpreading}
-              timelinePromptVisible={app.timelinePromptVisible}
-              selectedItem={app.selectedItem}
-              visibleLibrary={app.visibleLibrary}
-              onTypeFilterChange={app.setTypeFilter}
-              onSourceFilterChange={app.setSourceFilter}
-              onSelectItem={app.setSelectedId}
-              onSpreadThisMonth={app.spreadIntoThisMonth}
-              onSpreadLastMonth={app.spreadIntoLastMonth}
-              onSpreadLast6Months={app.spreadIntoLast6Months}
-              onSpreadThisYear={app.spreadIntoThisYear}
-              onSpreadVeryOld={app.spreadIntoVeryOld}
-              onAssignItemTime={app.assignItemTime}
-              onAssignSelectedThisMonth={app.assignSelectedToThisMonth}
-              onAssignSelectedLastMonth={app.assignSelectedToLastMonth}
-              onAssignSelectedLast6Months={app.assignSelectedToLast6Months}
-              onAssignSelectedThisYear={app.assignSelectedToThisYear}
-              onAssignSelectedVeryOld={app.assignSelectedToVeryOld}
-              onDismissTimelinePrompt={app.dismissTimelinePrompt}
-              onEditItem={(id) => {
-                app.startEdit(id);
-                app.setTab("add");
-              }}
-              onDeleteItem={app.removeItem}
-            />
-          )}
-
-          {app.tab === "analysis" && (
-            <AnalysisScreen
-              counters={app.counters}
-              analysisRunning={app.analysisRunning}
-              analysisResult={app.analysisResult}
-              analysisHistory={app.analysisHistory}
-              onRunPress={app.runFakeAnalysis}
-              onOpenResult={app.openAnalysisResult}
-            />
-          )}
-        </ScrollView>
+            {app.tab === "analysis" && (
+              <AnalysisScreen
+                counters={app.counters}
+                analysisRunning={app.analysisRunning}
+                analysisResult={app.analysisResult}
+                analysisHistory={app.analysisHistory}
+                onRunPress={app.runFakeAnalysis}
+                onOpenResult={app.openAnalysisResult}
+              />
+            )}
+          </ScrollView>
+        )}
 
         <View style={appStyles.bottomBarWrap}>
           {app.toastMessage ? (

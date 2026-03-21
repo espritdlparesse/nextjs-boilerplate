@@ -22,6 +22,10 @@ export const appStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.white,
   },
+  libraryShell: {
+    flex: 1,
+    backgroundColor: colors.white,
+  },
   scroll: {
     flex: 1,
   },
@@ -29,6 +33,11 @@ export const appStyles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 140,
+    gap: 18,
+  },
+  libraryHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
     gap: 18,
   },
   brand: {
@@ -50,6 +59,24 @@ export const appStyles = StyleSheet.create({
   },
   screen: {
     gap: 16,
+  },
+  libraryScreen: {
+    flex: 1,
+  },
+  libraryListContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 140,
+  },
+  libraryListTop: {
+    gap: 16,
+    marginBottom: 16,
+  },
+  libraryListSpacer: {
+    height: 12,
+  },
+  libraryColumn: {
+    gap: 12,
   },
   card: {
     backgroundColor: colors.white,
@@ -397,7 +424,7 @@ export const appStyles = StyleSheet.create({
     textTransform: "lowercase",
   },
   libraryTile: {
-    width: "48%",
+    flex: 1,
     minHeight: 154,
     justifyContent: "space-between",
     paddingTop: 14,
@@ -409,6 +436,13 @@ export const appStyles = StyleSheet.create({
   dragCaptureLayer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 20,
+  },
+  timelineDragPanel: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    bottom: 118,
+    zIndex: 18,
   },
   timelineMonth: {
     fontSize: 22,
