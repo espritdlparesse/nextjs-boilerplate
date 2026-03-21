@@ -21,6 +21,7 @@ type LibraryScreenProps = {
   sourceFilter: SourceFilter;
   undatedVisibleLibrary: LibraryItem[];
   timelineSpreading: boolean;
+  timelinePromptVisible: boolean;
   selectedItem: LibraryItem | null;
   visibleLibrary: LibraryItem[];
   onTypeFilterChange: (value: TypeFilter) => void;
@@ -30,6 +31,7 @@ type LibraryScreenProps = {
   onSpreadLastMonth: () => void;
   onSpreadLast3Months: () => void;
   onSpreadThisYear: () => void;
+  onDismissTimelinePrompt: () => void;
   onEditItem: (id: string) => void;
   onDeleteItem: (id: string) => void;
 };
@@ -55,6 +57,7 @@ export function LibraryScreen({
   sourceFilter,
   undatedVisibleLibrary,
   timelineSpreading,
+  timelinePromptVisible,
   selectedItem,
   visibleLibrary,
   onTypeFilterChange,
@@ -64,6 +67,7 @@ export function LibraryScreen({
   onSpreadLastMonth,
   onSpreadLast3Months,
   onSpreadThisYear,
+  onDismissTimelinePrompt,
   onEditItem,
   onDeleteItem,
 }: LibraryScreenProps) {
@@ -106,21 +110,22 @@ export function LibraryScreen({
         </View>
       </View>
 
-      {undatedVisibleLibrary.length > 0 ? (
+      {timelinePromptVisible && undatedVisibleLibrary.length > 0 ? (
         <View style={[appStyles.card, appStyles.cardAccentGreen]}>
-          <Text style={appStyles.sectionTitle}>разложить по времени</Text>
+          <Text style={appStyles.sectionTitle}>когда это было?</Text>
           <Text style={appStyles.helper}>
-            в текущем фильтре {undatedVisibleLibrary.length} импортированн{undatedVisibleLibrary.length === 1 ? "ая карточка" : "ых карточек"} без даты потребления. можно быстро раскидать их по периоду, а потом уже точечно поправить.
+            мы добавили {undatedVisibleLibrary.length} импортированн{undatedVisibleLibrary.length === 1 ? "ую карточку" : "ых карточек"} без времени. выбери, как это примерно разложить по твоей линии времени.
           </Text>
           <View style={appStyles.row}>
             <PillButton
-              label={timelineSpreading ? "раскладываем..." : "этот месяц"}
+              label={timelineSpreading ? "раскладываем..." : "это было недавно"}
               onPress={onSpreadThisMonth}
               disabled={timelineSpreading}
             />
-            <PillButton label="прошлый месяц" onPress={onSpreadLastMonth} disabled={timelineSpreading} />
-            <PillButton label="3 месяца" onPress={onSpreadLast3Months} disabled={timelineSpreading} />
-            <PillButton label="этот год" onPress={onSpreadThisYear} disabled={timelineSpreading} />
+            <PillButton label="это было в прошлом месяце" onPress={onSpreadLastMonth} disabled={timelineSpreading} />
+            <PillButton label="это было за 3 месяца" onPress={onSpreadLast3Months} disabled={timelineSpreading} />
+            <PillButton label="это было в этом году" onPress={onSpreadThisYear} disabled={timelineSpreading} />
+            <PillButton label="разложу потом" onPress={onDismissTimelinePrompt} disabled={timelineSpreading} />
           </View>
         </View>
       ) : null}

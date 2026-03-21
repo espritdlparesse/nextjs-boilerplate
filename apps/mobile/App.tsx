@@ -160,6 +160,7 @@ export default function App() {
               sourceFilter={app.sourceFilter}
               undatedVisibleLibrary={app.undatedVisibleLibrary}
               timelineSpreading={app.timelineSpreading}
+              timelinePromptVisible={app.timelinePromptVisible}
               selectedItem={app.selectedItem}
               visibleLibrary={app.visibleLibrary}
               onTypeFilterChange={app.setTypeFilter}
@@ -169,6 +170,7 @@ export default function App() {
               onSpreadLastMonth={app.spreadIntoLastMonth}
               onSpreadLast3Months={app.spreadIntoLast3Months}
               onSpreadThisYear={app.spreadIntoThisYear}
+              onDismissTimelinePrompt={app.dismissTimelinePrompt}
               onEditItem={(id) => {
                 app.startEdit(id);
                 app.setTab("add");

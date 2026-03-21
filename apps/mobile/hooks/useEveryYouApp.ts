@@ -157,6 +157,7 @@ export function useEveryYouApp() {
   const [nameDraft, setNameDraft] = useState("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [timelineSpreading, setTimelineSpreading] = useState(false);
+  const [timelinePromptVisible, setTimelinePromptVisible] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -369,6 +370,7 @@ export function useEveryYouApp() {
       }
 
       setToastMessage(`разложили ${items.length} по времени`);
+      setTimelinePromptVisible(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : "не удалось разложить по времени";
       setSyncStatus("offline");
@@ -377,6 +379,12 @@ export function useEveryYouApp() {
     } finally {
       setTimelineSpreading(false);
     }
+  }
+
+  function promptTimelinePlacement() {
+    if (undatedVisibleLibrary.length === 0) return;
+    setTimelinePromptVisible(true);
+    setTab("library");
   }
 
   function resetForm() {
@@ -528,6 +536,7 @@ export function useEveryYouApp() {
     setLibrary((current) => [...fakeItems, ...current]);
     setIsImporting(false);
     setTab("library");
+    setTimelinePromptVisible(true);
   }
 
   async function importFromScreenshot() {
@@ -632,6 +641,7 @@ export function useEveryYouApp() {
       setPendingImageItems([]);
       setTab("library");
       setToastMessage(`добавили ${pendingImageItems.length} айтем(ов)`);
+      setTimelinePromptVisible(true);
     } finally {
       setConfirmingPendingImageImport(false);
     }
@@ -681,6 +691,7 @@ export function useEveryYouApp() {
       setSpotifyUrl("");
       setTab("library");
       setToastMessage(`импортировали ${importedItems.length} трек(ов)`);
+      setTimelinePromptVisible(true);
     } catch (error) {
       const message = error instanceof Error ? error.message : "не удалось импортировать из spotify";
       setSpotifyStatus(message);
@@ -740,6 +751,7 @@ export function useEveryYouApp() {
       }
 
       setTab("library");
+      setTimelinePromptVisible(true);
     } catch (error) {
       const message = error instanceof Error ? error.message : "file import failed";
       setFileImportStatus(message);
@@ -850,6 +862,7 @@ export function useEveryYouApp() {
       }
       setTab("library");
       setToastMessage(`добавили ${result.importedCount} трек(ов)`);
+      setTimelinePromptVisible(true);
     } catch (error) {
       const message = error instanceof Error ? error.message : "не удалось импортировать из spotify";
       setSpotifyStatus(message);
@@ -968,6 +981,7 @@ export function useEveryYouApp() {
     analysisResult,
     analysisHistory,
     timelineSpreading,
+    timelinePromptVisible,
     setNameDraft,
     saveProfileName,
     setType,
@@ -1017,6 +1031,8 @@ export function useEveryYouApp() {
     spreadIntoLastMonth: () => spreadVisibleUndatedItems("last_month"),
     spreadIntoLast3Months: () => spreadVisibleUndatedItems("last_3_months"),
     spreadIntoThisYear: () => spreadVisibleUndatedItems("this_year"),
+    dismissTimelinePrompt: () => setTimelinePromptVisible(false),
+    promptTimelinePlacement,
     openAnalysisResult: setAnalysisResult,
   };
 }
