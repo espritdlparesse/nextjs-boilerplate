@@ -709,8 +709,10 @@ export function useEveryYouApp() {
         setLibrary((current) => [...savedItems, ...current]);
         setSyncStatus("online");
         setSyncMessage("данные синхронизируются с сервером");
+        setSelectedId(savedItems[0]?.id ?? null);
       } else {
         setLibrary((current) => [...pendingImageItems, ...current]);
+        setSelectedId(pendingImageItems[0]?.id ?? null);
       }
 
       setScreenshotStatus(`добавили ${pendingImageItems.length} айтем(ов) из изображений`);
