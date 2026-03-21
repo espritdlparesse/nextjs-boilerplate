@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { formatFullDate, SOURCE_LABEL, TYPE_LABEL, type ContentType, type LibraryItem, type SourceType } from "../shared/everyyou/domain";
 import { PillButton } from "../components/PillButton";
@@ -5,6 +6,7 @@ import { appStyles } from "../styles/appStyles";
 
 type TypeFilter = ContentType | "all";
 type SourceFilter = SourceType | "all";
+type LibraryViewMode = "tiles" | "timeline";
 
 type LibraryScreenProps = {
   typeFilter: TypeFilter;
@@ -24,6 +26,16 @@ function typeTileStyle(type: LibraryItem["type"]) {
   return appStyles.tileYellow;
 }
 
+function monthLabel(createdAt?: number) {
+  if (!createdAt) return "без даты";
+  return new Date(createdAt)
+    .toLocaleString("ru-RU", {
+      month: "long",
+      year: "numeric",
+    })
+    .toLowerCase();
+}
+
 export function LibraryScreen({
   typeFilter,
   sourceFilter,
@@ -35,11 +47,31 @@ export function LibraryScreen({
   onEditItem,
   onDeleteItem,
 }: LibraryScreenProps) {
+  const [viewMode, setViewMode] = useState<LibraryViewMode>("tiles");
+  const timelineGroups = useMemo(() => {
+    const groups = new Map<string, LibraryItem[]>();
+
+    for (const item of visibleLibrary) {
+      const key = monthLabel(item.createdAt);
+      const bucket = groups.get(key) ?? [];
+      bucket.push(item);
+      groups.set(key, bucket);
+    }
+
+    return Array.from(groups.entries()).map(([label, items]) => ({ label, items }));
+  }, [visibleLibrary]);
+
   return (
     <View style={appStyles.screen}>
       <View style={[appStyles.card, appStyles.cardAccentPink]}>
         <Text style={appStyles.sectionTitle}>библиотека</Text>
         <Text style={appStyles.helper}>смотри все вместе или раскладывай по типам. в карточках видна дата, чтобы библиотека ощущалась как личная история, а не архив.</Text>
+
+        <Text style={appStyles.label}>режим</Text>
+        <View style={appStyles.row}>
+          <PillButton label="плитки" active={viewMode === "tiles"} onPress={() => setViewMode("tiles")} />
+          <PillButton label="таймлайн" active={viewMode === "timeline"} onPress={() => setViewMode("timeline")} />
+        </View>
 
         <Text style={appStyles.label}>тип контента</Text>
         <View style={appStyles.row}>
@@ -75,6 +107,31 @@ export function LibraryScreen({
       {visibleLibrary.length === 0 ? (
         <View style={appStyles.card}>
           <Text style={appStyles.helper}>пока пусто. попробуй импорт из spotify, импорт изображений или загрузку файла.</Text>
+        </View>
+      ) : viewMode === "timeline" ? (
+        <View style={appStyles.stack}>
+          {timelineGroups.map((group) => (
+            <View key={group.label} style={[appStyles.card, appStyles.timelineCard]}>
+              <Text style={appStyles.timelineMonth}>{group.label}</Text>
+              <View style={appStyles.stack}>
+                {group.items.map((item) => (
+                  <Pressable key={item.id} style={appStyles.timelineRow} onPress={() => onSelectItem(item.id)}>
+                    <View style={[appStyles.timelineDot, typeTileStyle(item.type)]} />
+                    <View style={appStyles.timelineContent}>
+                      <View style={appStyles.timelineHeader}>
+                        <Text style={appStyles.timelineType}>{TYPE_LABEL[item.type]}</Text>
+                        <Text style={appStyles.metaDate}>
+                          {item.createdAt ? formatFullDate(item.createdAt) : "без даты"}
+                        </Text>
+                      </View>
+                      <Text style={appStyles.itemMeta}>{item.authorOrArtist || TYPE_LABEL[item.type]}</Text>
+                      <Text style={appStyles.timelineTitle}>{item.title}</Text>
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ))}
         </View>
       ) : (
         <View style={appStyles.tileGrid}>
