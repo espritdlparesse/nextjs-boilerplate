@@ -83,25 +83,25 @@ export function HomeScreen({
       </View>
 
       <View style={appStyles.tileGrid}>
-        <Pressable style={[appStyles.tile, appStyles.libraryTile, appStyles.tilePink]} onPress={() => onOpenLibraryType("music")}>
+        <Pressable style={[appStyles.tile, appStyles.homeFeatureTile, appStyles.tilePink]} onPress={() => onOpenLibraryType("music")}>
           <Text style={appStyles.metaDate}>музыка</Text>
           <Text style={appStyles.itemTitle}>трек за треком</Text>
           <Text style={appStyles.metaText}>spotify, last.fm, скриншоты и ручной импорт.</Text>
         </Pressable>
 
-        <Pressable style={[appStyles.tile, appStyles.libraryTile, appStyles.tileGreen]} onPress={() => onOpenLibraryType("book")}>
+        <Pressable style={[appStyles.tile, appStyles.homeFeatureTile, appStyles.tileGreen]} onPress={() => onOpenLibraryType("book")}>
           <Text style={appStyles.metaDate}>книги</Text>
           <Text style={appStyles.itemTitle}>книжная полка</Text>
           <Text style={appStyles.metaText}>livelib и другие экспортные файлы можно загрузить прямо здесь.</Text>
         </Pressable>
 
-        <Pressable style={[appStyles.tile, appStyles.libraryTile, appStyles.tileBlue]} onPress={() => onOpenLibraryType("film")}>
+        <Pressable style={[appStyles.tile, appStyles.homeFeatureTile, appStyles.tileBlue]} onPress={() => onOpenLibraryType("film")}>
           <Text style={appStyles.metaDate}>фильмы</Text>
           <Text style={appStyles.itemTitle}>все просмотры</Text>
           <Text style={appStyles.metaText}>letterboxd, кинопоиск, mubi и любые странные списки через импорт изображений.</Text>
         </Pressable>
 
-        <Pressable style={[appStyles.tile, appStyles.libraryTile, appStyles.tileYellow]} onPress={onOpenVibeCheck}>
+        <Pressable style={[appStyles.tile, appStyles.homeFeatureTile, appStyles.tileYellow]} onPress={onOpenVibeCheck}>
           <Text style={appStyles.metaDate}>вайбчек</Text>
           <Text style={appStyles.itemTitle}>прожарка вкуса</Text>
           <Text style={appStyles.metaText}>когда контента накопится достаточно, можно получить уже не демо, а реальную читку.</Text>

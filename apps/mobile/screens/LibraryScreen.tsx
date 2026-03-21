@@ -1,15 +1,5 @@
-import { useMemo, useRef, useState } from "react";
-import {
-  Animated,
-  FlatList,
-  PanResponder,
-  Pressable,
-  Text,
-  View,
-  type GestureResponderEvent,
-  type LayoutChangeEvent,
-  type View as RNView,
-} from "react-native";
+import { useMemo, useState } from "react";
+import { FlatList, Pressable, Text, View } from "react-native";
 import {
   formatFullDate,
   getConsumptionDate,
@@ -24,7 +14,6 @@ import { appStyles } from "../styles/appStyles";
 type TypeFilter = ContentType | "all";
 type SourceFilter = SourceType | "all";
 type LibraryViewMode = "tiles" | "timeline";
-type TimelineDragPreset = "this_month" | "last_month" | "last_6_months" | "this_year" | "very_old";
 
 type LibraryScreenProps = {
   typeFilter: TypeFilter;
@@ -42,7 +31,7 @@ type LibraryScreenProps = {
   onSpreadLast6Months: () => void;
   onSpreadThisYear: () => void;
   onSpreadVeryOld: () => void;
-  onAssignItemTime: (id: string, preset: TimelineDragPreset) => void;
+  onAssignItemTime: (id: string, preset: "this_month" | "last_month" | "last_6_months" | "this_year" | "very_old") => void;
   onAssignSelectedThisMonth: () => void;
   onAssignSelectedLastMonth: () => void;
   onAssignSelectedLast6Months: () => void;
@@ -96,23 +85,6 @@ export function LibraryScreen({
   onDeleteItem,
 }: LibraryScreenProps) {
   const [viewMode, setViewMode] = useState<LibraryViewMode>("tiles");
-  const [draggingItem, setDraggingItem] = useState<LibraryItem | null>(null);
-  const [activeDropPreset, setActiveDropPreset] = useState<TimelineDragPreset | null>(null);
-  const dragPosition = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-  const dropZoneRefs = useRef<Record<TimelineDragPreset, RNView | null>>({
-    this_month: null,
-    last_month: null,
-    last_6_months: null,
-    this_year: null,
-    very_old: null,
-  });
-  const dropZones = useRef<Record<TimelineDragPreset, { x: number; y: number; width: number; height: number }>>({
-    this_month: { x: 0, y: 0, width: 0, height: 0 },
-    last_month: { x: 0, y: 0, width: 0, height: 0 },
-    last_6_months: { x: 0, y: 0, width: 0, height: 0 },
-    this_year: { x: 0, y: 0, width: 0, height: 0 },
-    very_old: { x: 0, y: 0, width: 0, height: 0 },
-  }).current;
 
   const timelineGroups = useMemo(() => {
     const groups = new Map<string, LibraryItem[]>();
@@ -125,116 +97,6 @@ export function LibraryScreen({
 
     return Array.from(groups.entries()).map(([label, items]) => ({ label, items }));
   }, [visibleLibrary]);
-
-  function measureDropZone(preset: TimelineDragPreset) {
-    dropZoneRefs.current[preset]?.measureInWindow((x, y, width, height) => {
-      dropZones[preset] = { x, y, width, height };
-    });
-  }
-
-  function beginDrag(item: LibraryItem, event: GestureResponderEvent) {
-    setDraggingItem(item);
-    setActiveDropPreset(null);
-    dragPosition.setValue({
-      x: event.nativeEvent.pageX - 88,
-      y: event.nativeEvent.pageY - 62,
-    });
-    requestAnimationFrame(() => {
-      (Object.keys(dropZoneRefs.current) as TimelineDragPreset[]).forEach((preset) => measureDropZone(preset));
-    });
-  }
-
-  function registerDropZone(preset: TimelineDragPreset, _event: LayoutChangeEvent) {
-    requestAnimationFrame(() => measureDropZone(preset));
-  }
-
-  function resolveDropPreset(pageX: number, pageY: number) {
-    const entries = Object.entries(dropZones) as Array<
-      [TimelineDragPreset, { x: number; y: number; width: number; height: number }]
-    >;
-    return (
-      entries.find(([, zone]) => {
-        return (
-          pageX >= zone.x &&
-          pageX <= zone.x + zone.width &&
-          pageY >= zone.y &&
-          pageY <= zone.y + zone.height
-        );
-      })?.[0] ?? null
-    );
-  }
-
-  const dragResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => false,
-        onMoveShouldSetPanResponder: () => Boolean(draggingItem),
-        onMoveShouldSetPanResponderCapture: () => Boolean(draggingItem),
-        onPanResponderMove: (event) => {
-          if (!draggingItem) return;
-          dragPosition.setValue({
-            x: event.nativeEvent.pageX - 88,
-            y: event.nativeEvent.pageY - 62,
-          });
-          setActiveDropPreset(resolveDropPreset(event.nativeEvent.pageX, event.nativeEvent.pageY));
-        },
-        onPanResponderRelease: (event) => {
-          if (draggingItem) {
-            const preset = resolveDropPreset(event.nativeEvent.pageX, event.nativeEvent.pageY);
-            if (preset) {
-              onAssignItemTime(draggingItem.id, preset);
-            }
-          }
-
-          Animated.spring(dragPosition, {
-            toValue: { x: 0, y: 0 },
-            damping: 16,
-            stiffness: 190,
-            useNativeDriver: true,
-          }).start(() => {
-            setDraggingItem(null);
-            setActiveDropPreset(null);
-          });
-        },
-        onPanResponderTerminate: () => {
-          Animated.spring(dragPosition, {
-            toValue: { x: 0, y: 0 },
-            damping: 16,
-            stiffness: 190,
-            useNativeDriver: true,
-          }).start(() => {
-            setDraggingItem(null);
-            setActiveDropPreset(null);
-          });
-        },
-      }),
-    [dragPosition, draggingItem, onAssignItemTime]
-  );
-
-  function renderDropTarget(
-    preset: TimelineDragPreset,
-    label: string,
-    hint: string,
-    onPress: () => void
-  ) {
-    return (
-      <View
-        ref={(node) => {
-          dropZoneRefs.current[preset] = node;
-        }}
-        onLayout={(event) => registerDropZone(preset, event)}
-        style={[
-          appStyles.timelineDropTarget,
-          activeDropPreset === preset && appStyles.timelineDropTargetActive,
-        ]}
-      >
-        <Pressable style={appStyles.timelineDropTargetPress} onPress={onPress} disabled={timelineSpreading}>
-          <Text style={appStyles.timelineDropTargetTitle}>{label}</Text>
-          <Text style={appStyles.timelineDropTargetHint}>{hint}</Text>
-        </Pressable>
-      </View>
-    );
-  }
 
   function renderTopCards() {
     return (
@@ -324,8 +186,6 @@ export function LibraryScreen({
       <Pressable
         style={[appStyles.tile, appStyles.libraryTile, typeTileStyle(item.type)]}
         onPress={() => onSelectItem(item.id)}
-        onLongPress={(event) => beginDrag(item, event)}
-        delayLongPress={180}
       >
         <View style={appStyles.tileTopRow}>
           <View style={appStyles.typeBadge}>
@@ -340,6 +200,14 @@ export function LibraryScreen({
           <Text style={appStyles.itemMeta}>{item.authorOrArtist || TYPE_LABEL[item.type]}</Text>
           <Text style={appStyles.itemTitle}>{item.title}</Text>
         </View>
+
+        {!getConsumptionDate(item) ? (
+          <View style={appStyles.row}>
+            <PillButton label="недавно" onPress={() => onAssignItemTime(item.id, "this_month")} disabled={timelineSpreading} />
+            <PillButton label="месяц" onPress={() => onAssignItemTime(item.id, "last_month")} disabled={timelineSpreading} />
+            <PillButton label="полгода" onPress={() => onAssignItemTime(item.id, "last_6_months")} disabled={timelineSpreading} />
+          </View>
+        ) : null}
       </Pressable>
     );
   }
@@ -351,13 +219,6 @@ export function LibraryScreen({
         <View style={appStyles.stack}>
           {group.items.map((item) => (
             <Pressable key={item.id} style={appStyles.timelineRow} onPress={() => onSelectItem(item.id)}>
-              <Pressable
-                style={appStyles.timelineDragHandle}
-                onLongPress={(event) => beginDrag(item, event)}
-                delayLongPress={180}
-              >
-                <Text style={appStyles.timelineDragHandleText}>↕</Text>
-              </Pressable>
               <View style={[appStyles.timelineDot, typeTileStyle(item.type)]} />
               <View style={appStyles.timelineContent}>
                 <View style={appStyles.timelineHeader}>
@@ -417,81 +278,6 @@ export function LibraryScreen({
           windowSize={7}
         />
       )}
-
-      {draggingItem ? (
-        <View pointerEvents="none" style={appStyles.timelineDragPanel}>
-          <View style={[appStyles.card, appStyles.cardAccentYellow]}>
-            <Text style={appStyles.sectionTitle}>перетащи по времени</Text>
-            <Text style={appStyles.helper}>зажми карточку и отпусти на нужном периоде. дата сразу обновится.</Text>
-            <View style={appStyles.timelineDropGrid}>
-              {renderDropTarget(
-                "this_month",
-                "недавно",
-                activeDropPreset === "this_month" ? "отпусти, и поставим этот месяц" : "этот месяц",
-                onAssignSelectedThisMonth
-              )}
-              {renderDropTarget(
-                "last_month",
-                "прошлый месяц",
-                activeDropPreset === "last_month" ? "отпусти, и поставим прошлый месяц" : "месяц назад",
-                onAssignSelectedLastMonth
-              )}
-              {renderDropTarget(
-                "last_6_months",
-                "полгода",
-                activeDropPreset === "last_6_months" ? "отпусти, и разложим за полгода" : "последние 6 месяцев",
-                onAssignSelectedLast6Months
-              )}
-              {renderDropTarget(
-                "this_year",
-                "этот год",
-                activeDropPreset === "this_year" ? "отпусти, и поставим этот год" : "внутри года",
-                onAssignSelectedThisYear
-              )}
-              {renderDropTarget(
-                "very_old",
-                "очень давно",
-                activeDropPreset === "very_old" ? "отпусти, и унесем далеко назад" : "пару лет назад",
-                onAssignSelectedVeryOld
-              )}
-            </View>
-          </View>
-        </View>
-      ) : null}
-
-      <View
-        style={appStyles.dragCaptureLayer}
-        pointerEvents={draggingItem ? "auto" : "box-none"}
-        {...dragResponder.panHandlers}
-      >
-        {draggingItem ? (
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              appStyles.timelineDragGhost,
-              {
-                transform: [{ translateX: dragPosition.x }, { translateY: dragPosition.y }],
-              },
-            ]}
-          >
-            <Text style={appStyles.timelineDragGhostType}>{TYPE_LABEL[draggingItem.type]}</Text>
-            <Text style={appStyles.timelineDragGhostTitle}>{draggingItem.title}</Text>
-            <Text style={appStyles.timelineDragGhostHint}>
-              {activeDropPreset === "this_month"
-                ? "отпускай: недавно"
-                : activeDropPreset === "last_month"
-                  ? "отпускай: прошлый месяц"
-                  : activeDropPreset === "last_6_months"
-                    ? "отпускай: полгода"
-                    : activeDropPreset === "this_year"
-                      ? "отпускай: этот год"
-                      : activeDropPreset === "very_old"
-                        ? "отпускай: очень давно"
-                        : "веди к нужному периоду"}
-            </Text>
-          </Animated.View>
-        ) : null}
-      </View>
     </View>
   );
 }
