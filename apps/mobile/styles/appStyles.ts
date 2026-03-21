@@ -204,9 +204,11 @@ export const appStyles = StyleSheet.create({
     textTransform: "lowercase",
   },
   metaDate: {
-    fontSize: 12,
-    color: colors.subtext,
+    fontSize: 11,
+    color: "#7D7D7D",
     textTransform: "lowercase",
+    maxWidth: 106,
+    textAlign: "right",
   },
   bottomBarWrap: {
     position: "absolute",
@@ -293,6 +295,8 @@ export const appStyles = StyleSheet.create({
     width: "48%",
     minHeight: 154,
     justifyContent: "space-between",
+    paddingTop: 14,
+    paddingBottom: 14,
   },
   tileTopRow: {
     flexDirection: "row",
