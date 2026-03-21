@@ -60,6 +60,7 @@ export default function App() {
               importedCount={app.importedCount}
               screenshotStatus={app.screenshotStatus}
               pendingImageItems={app.pendingImageItems}
+              confirmingPendingImageImport={app.confirmingPendingImageImport}
               spotifyUrl={app.spotifyUrl}
               spotifyStatus={app.spotifyStatus}
               spotifyConnected={app.spotifyConnected}

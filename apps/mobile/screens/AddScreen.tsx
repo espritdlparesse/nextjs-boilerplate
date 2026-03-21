@@ -26,6 +26,7 @@ type AddScreenProps = {
     authorOrArtist: string;
     createdAt?: number;
   }>;
+  confirmingPendingImageImport: boolean;
   spotifyUrl: string;
   spotifyStatus: string | null;
   spotifyConnected: boolean;
@@ -153,6 +154,7 @@ export function AddScreen({
   importedCount,
   screenshotStatus,
   pendingImageItems,
+  confirmingPendingImageImport,
   spotifyUrl,
   spotifyStatus,
   spotifyConnected,
@@ -231,17 +233,28 @@ export function AddScreen({
 
         {pendingImageItems.length > 0 ? (
           <View style={appStyles.stack}>
-            {pendingImageItems.map((item) => (
-              <View key={item.id} style={[appStyles.tile, appStyles.tileYellow]}>
-                <Text style={appStyles.metaText}>{TYPE_LABEL[item.type]}</Text>
-                <Text style={appStyles.itemTitle}>{item.title}</Text>
-                <Text style={appStyles.itemMeta}>{item.authorOrArtist}</Text>
-                <PillButton label="убрать" variant="danger" onPress={() => onRemovePendingImageItem(item.id)} />
-              </View>
-            ))}
+            <View style={appStyles.previewGrid}>
+              {pendingImageItems.map((item) => (
+                <View key={item.id} style={[appStyles.tile, appStyles.previewTile, appStyles.tileYellow]}>
+                  <Text style={appStyles.previewType}>{TYPE_LABEL[item.type]}</Text>
+                  <Text style={appStyles.previewTitle}>{item.title}</Text>
+                  <Text style={appStyles.previewMeta}>{item.authorOrArtist}</Text>
+                  <PillButton label="убрать" variant="danger" onPress={() => onRemovePendingImageItem(item.id)} />
+                </View>
+              ))}
+            </View>
             <View style={appStyles.row}>
-              <PillButton label="сохранить найденное" variant="primary" onPress={onConfirmPendingImageImport} />
-              <PillButton label="отмена" onPress={onCancelPendingImageImport} />
+              <PillButton
+                label={confirmingPendingImageImport ? "сохраняем..." : "сохранить найденное"}
+                variant="primary"
+                disabled={confirmingPendingImageImport}
+                onPress={onConfirmPendingImageImport}
+              />
+              <PillButton
+                label="отмена"
+                disabled={confirmingPendingImageImport}
+                onPress={onCancelPendingImageImport}
+              />
             </View>
           </View>
         ) : null}

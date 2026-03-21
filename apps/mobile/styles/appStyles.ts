@@ -341,6 +341,37 @@ export const appStyles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 12,
   },
+  previewGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  previewTile: {
+    width: "31%",
+    minHeight: 156,
+    justifyContent: "space-between",
+    padding: 12,
+    gap: 8,
+  },
+  previewType: {
+    fontSize: 11,
+    fontWeight: "900",
+    color: colors.subtext,
+    textTransform: "lowercase",
+  },
+  previewTitle: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: colors.black,
+    textTransform: "lowercase",
+    letterSpacing: -0.4,
+  },
+  previewMeta: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.text,
+    textTransform: "lowercase",
+  },
   libraryTile: {
     width: "48%",
     minHeight: 154,

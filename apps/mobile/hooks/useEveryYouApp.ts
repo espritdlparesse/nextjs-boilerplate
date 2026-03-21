@@ -134,6 +134,7 @@ export function useEveryYouApp() {
   const [importedCount, setImportedCount] = useState(0);
   const [screenshotStatus, setScreenshotStatus] = useState<string | null>(null);
   const [pendingImageItems, setPendingImageItems] = useState<PendingImageItem[]>([]);
+  const [confirmingPendingImageImport, setConfirmingPendingImageImport] = useState(false);
   const [spotifyUrl, setSpotifyUrl] = useState("");
   const [spotifyStatus, setSpotifyStatus] = useState<string | null>(null);
   const [spotifyConnected, setSpotifyConnected] = useState(false);
@@ -505,22 +506,29 @@ export function useEveryYouApp() {
       return;
     }
 
-    if (apiToken) {
-      const savedItems: LibraryItem[] = [];
-      for (const item of pendingImageItems) {
-        const saved = await createItem(apiToken, item);
-        savedItems.push(saved);
-      }
-      setLibrary((current) => [...savedItems, ...current]);
-      setSyncStatus("online");
-      setSyncMessage("данные синхронизируются с сервером");
-    } else {
-      setLibrary((current) => [...pendingImageItems, ...current]);
-    }
+    try {
+      setConfirmingPendingImageImport(true);
+      setScreenshotStatus("сохраняем выбранное...");
 
-    setScreenshotStatus(`добавили ${pendingImageItems.length} айтем(ов) из изображений`);
-    setPendingImageItems([]);
-    setTab("library");
+      if (apiToken) {
+        const savedItems: LibraryItem[] = [];
+        for (const item of pendingImageItems) {
+          const saved = await createItem(apiToken, item);
+          savedItems.push(saved);
+        }
+        setLibrary((current) => [...savedItems, ...current]);
+        setSyncStatus("online");
+        setSyncMessage("данные синхронизируются с сервером");
+      } else {
+        setLibrary((current) => [...pendingImageItems, ...current]);
+      }
+
+      setScreenshotStatus(`добавили ${pendingImageItems.length} айтем(ов) из изображений`);
+      setPendingImageItems([]);
+      setTab("library");
+    } finally {
+      setConfirmingPendingImageImport(false);
+    }
   }
 
   async function importSpotifyLink() {
@@ -819,6 +827,7 @@ export function useEveryYouApp() {
     importedCount,
     screenshotStatus,
     pendingImageItems,
+    confirmingPendingImageImport,
     spotifyUrl,
     spotifyStatus,
     spotifyConnected,
