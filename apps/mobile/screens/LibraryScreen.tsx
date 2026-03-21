@@ -460,7 +460,6 @@ export function LibraryScreen({
                         })
                         .replace(/^./, (char) => char.toUpperCase())}
                     </Text>
-                    <Text style={appStyles.metaText}>можно смотреть по дням и в разрезе недели.</Text>
                   </View>
                   <Pressable style={appStyles.dayModalClose} onPress={() => setDayModalVisible(false)}>
                     <Text style={appStyles.dayModalCloseText}>закрыть</Text>
