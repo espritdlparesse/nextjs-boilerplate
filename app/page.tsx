@@ -191,6 +191,13 @@ export default function Page() {
     movies: items.filter((i) => i.type === "movie").length,
   }), [items]);
 
+  const headerAvatar = useMemo(() => {
+    const raw = helloName.replace(/^привет,?\s*/i, "").trim();
+    if (!raw || raw === "привет!") return "◐";
+    const first = raw[0];
+    return first ? first.toUpperCase() : "◐";
+  }, [helloName]);
+
   // ===== Import =====
   const fileRef = useRef<HTMLInputElement | null>(null);
   const csvRef = useRef<HTMLInputElement | null>(null);
@@ -839,8 +846,8 @@ export default function Page() {
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-          background: #ffffff;
-          color: #000000;
+          background: #f7f5f1;
+          color: #111111;
           font-family: 'DM Sans', sans-serif;
           min-height: 100vh;
         }
@@ -848,107 +855,182 @@ export default function Page() {
         .app {
           max-width: 480px;
           margin: 0 auto;
-          padding: 32px 20px 100px;
+          padding: 20px 16px 124px;
         }
 
-        .header { margin-bottom: 36px; }
+        .header {
+          margin-bottom: 24px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+
+        .header-row {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+
+        .header-avatar {
+          width: 52px;
+          height: 52px;
+          border-radius: 999px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #ffffff;
+          border: 1px solid #e7e2d9;
+          font-size: 22px;
+          font-weight: 700;
+          flex-shrink: 0;
+        }
+
+        .header-copy {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          min-width: 0;
+        }
 
         .brand {
           font-family: 'DM Sans', sans-serif;
-          font-size: 22px;
-          font-weight: 700;
-          letter-spacing: -0.02em;
-          color: #000000;
+          font-size: 34px;
+          font-weight: 900;
+          letter-spacing: -0.06em;
+          color: #111111;
           line-height: 1;
+          text-transform: lowercase;
         }
 
         .greeting {
-          font-size: 12px;
-          font-weight: 300;
-          color: #999;
-          margin-top: 6px;
-          letter-spacing: 0.05em;
+          font-size: 18px;
+          font-weight: 400;
+          color: #111111;
+          letter-spacing: -0.02em;
+          text-transform: lowercase;
+        }
+
+        .sync-line {
+          font-size: 13px;
+          line-height: 1.45;
+          color: #6f6a63;
+          text-transform: lowercase;
         }
 
         .nav {
           position: fixed;
-          bottom: 0; left: 0; right: 0;
+          bottom: 16px; left: 16px; right: 16px;
           display: flex;
-          background: #000000;
+          background: rgba(255,255,255,0.92);
           z-index: 100;
           max-width: 480px;
           margin: 0 auto;
-          border-top: 1px solid #000;
+          border: 1px solid #e7e2d9;
+          border-radius: 28px;
+          backdrop-filter: blur(18px);
+          box-shadow: 0 8px 30px rgba(17,17,17,0.08);
+          padding: 10px 8px 12px;
+          align-items: flex-end;
+          gap: 2px;
         }
 
         .nav-btn {
           flex: 1;
-          padding: 14px 4px 18px;
+          min-width: 0;
+          padding: 6px 2px 0;
           border: none;
           background: transparent;
-          color: #555;
+          color: #6f6a63;
           font-family: 'DM Sans', sans-serif;
-          font-size: 10px;
-          font-weight: 400;
+          font-size: 11px;
+          font-weight: 700;
           cursor: pointer;
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 4px;
+          gap: 8px;
           transition: color 0.15s;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
+          letter-spacing: -0.02em;
+          text-transform: lowercase;
         }
 
-        .nav-btn.active { color: #ffffff; }
-        .nav-icon { font-size: 16px; line-height: 1; }
+        .nav-btn.active { color: #111111; }
+        .nav-icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 999px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 16px;
+          line-height: 1;
+          background: #f3f1ec;
+        }
+        .nav-btn.active .nav-icon {
+          background: #111111;
+          color: #ffffff;
+        }
+        .nav-btn.add-btn {
+          flex: 0 0 72px;
+          padding-top: 0;
+        }
+        .nav-btn.add-btn .nav-icon {
+          width: 56px;
+          height: 56px;
+          background: #111111;
+          color: #ffffff;
+          font-size: 32px;
+          box-shadow: 0 4px 18px rgba(17,17,17,0.18);
+        }
 
         .card {
           background: #ffffff;
-          border-radius: 0;
-          padding: 28px 0;
-          margin-bottom: 0;
-          border-bottom: 1px solid #e8e8e8;
-          box-shadow: none;
+          border-radius: 32px;
+          padding: 22px 18px;
+          margin-bottom: 16px;
+          border: 1px solid #e7e2d9;
+          box-shadow: 0 4px 20px rgba(17,17,17,0.04);
         }
 
         .card-title {
           font-family: 'DM Sans', sans-serif;
-          font-size: 18px;
-          font-weight: 700;
-          letter-spacing: -0.01em;
+          font-size: 22px;
+          font-weight: 900;
+          letter-spacing: -0.04em;
           margin-bottom: 12px;
+          text-transform: lowercase;
         }
 
         .card-text {
-          font-size: 13px;
-          font-weight: 300;
-          color: #666;
-          line-height: 1.7;
+          font-size: 16px;
+          font-weight: 400;
+          color: #3f3a35;
+          line-height: 1.55;
+          text-transform: lowercase;
         }
 
         .btn {
           width: 100%;
-          padding: 14px;
-          border-radius: 0;
-          border: 1px solid #000;
-          background: #000000;
+          padding: 16px 18px;
+          border-radius: 999px;
+          border: 1px solid #111111;
+          background: #111111;
           color: #ffffff;
           font-family: 'DM Sans', sans-serif;
-          font-size: 12px;
-          font-weight: 400;
+          font-size: 14px;
+          font-weight: 800;
           cursor: pointer;
           transition: opacity 0.15s, transform 0.1s;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
+          letter-spacing: -0.02em;
+          text-transform: lowercase;
         }
         .btn:disabled { opacity: 0.3; cursor: default; }
         .btn:active:not(:disabled) { transform: scale(0.99); }
 
         .btn-outline {
-          background: transparent;
-          border: 1px solid #000;
-          color: #000;
+          background: #ffffff;
+          border: 1px solid #e7e2d9;
+          color: #111111;
         }
 
         .btn-sm {
@@ -959,77 +1041,78 @@ export default function Page() {
 
         .stats {
           display: flex;
-          gap: 0;
+          gap: 10px;
           margin-bottom: 24px;
-          border: 1px solid #e8e8e8;
+          border: none;
+          flex-wrap: wrap;
         }
 
         .stat-pill {
-          flex: 1;
+          flex: 1 1 46%;
           background: #ffffff;
-          padding: 16px 8px;
+          padding: 16px 12px;
           text-align: center;
-          border-right: 1px solid #e8e8e8;
+          border: 1px solid #e7e2d9;
+          border-radius: 24px;
         }
-        .stat-pill:last-child { border-right: none; }
 
         .stat-num {
           font-family: 'DM Sans', sans-serif;
-          font-size: 24px;
-          font-weight: 700;
+          font-size: 26px;
+          font-weight: 900;
           line-height: 1;
         }
 
         .stat-label {
-          font-size: 10px;
-          color: #999;
-          margin-top: 4px;
-          font-weight: 400;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
+          font-size: 11px;
+          color: #6f6a63;
+          margin-top: 6px;
+          font-weight: 700;
+          letter-spacing: -0.01em;
+          text-transform: lowercase;
         }
 
         .actions { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
 
         .type-row {
           display: flex;
-          gap: 0;
+          gap: 10px;
+          flex-wrap: wrap;
           margin-bottom: 20px;
-          border: 1px solid #e8e8e8;
+          border: none;
         }
 
         .type-btn {
-          flex: 1;
-          padding: 11px 6px;
-          border: none;
-          border-right: 1px solid #e8e8e8;
+          flex: 1 1 30%;
+          padding: 12px 10px;
+          border: 1px solid #e7e2d9;
+          border-radius: 999px;
           background: #ffffff;
           font-family: 'DM Sans', sans-serif;
           font-size: 12px;
-          font-weight: 400;
+          font-weight: 800;
           cursor: pointer;
           text-align: center;
           transition: all 0.15s;
-          letter-spacing: 0.05em;
+          letter-spacing: -0.02em;
+          text-transform: lowercase;
         }
-        .type-btn:last-child { border-right: none; }
         .type-btn.active { background: #000000; color: #ffffff; }
 
         .input-group { margin-bottom: 14px; }
         .input-label {
-          font-size: 10px;
-          font-weight: 400;
-          color: #999;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
+          font-size: 12px;
+          font-weight: 800;
+          color: #6f6a63;
+          text-transform: lowercase;
           margin-bottom: 6px;
         }
 
         .input {
           width: 100%;
           padding: 13px 14px;
-          border: 1px solid #e8e8e8;
-          border-radius: 0;
+          border: 1px solid #e7e2d9;
+          border-radius: 20px;
           font-family: 'DM Sans', sans-serif;
           font-size: 14px;
           font-weight: 300;
@@ -1045,19 +1128,19 @@ export default function Page() {
         .items-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 10px;
+          gap: 12px;
         }
 
         .item-card {
-          background: #f9f9f9;
-          border-radius: 0;
-          padding: 14px;
+          background: #ffffff;
+          border-radius: 28px;
+          padding: 16px;
           display: flex;
           flex-direction: column;
           gap: 6px;
-          border: 1px solid #efefef;
+          border: 1px solid #e7e2d9;
           position: relative;
-          min-height: 88px;
+          min-height: 120px;
         }
 
         .item-icon { display: none; }
@@ -1086,13 +1169,14 @@ export default function Page() {
         .item-meta { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
 
         .tag {
-          padding: 2px 6px;
-          font-size: 9px;
-          font-weight: 500;
-          background: #ebebeb;
-          color: #888;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
+          padding: 6px 10px;
+          font-size: 10px;
+          font-weight: 800;
+          background: #ffffff;
+          color: #111111;
+          border-radius: 999px;
+          border: 1px solid #e7e2d9;
+          text-transform: lowercase;
         }
 
         .delete-btn {
@@ -1111,7 +1195,8 @@ export default function Page() {
         .delete-btn:hover { color: #000; }
 
         .import-item {
-          border: 1px solid #e8e8e8;
+          border: 1px solid #e7e2d9;
+          border-radius: 20px;
           padding: 14px;
           margin-bottom: 8px;
           display: flex;
@@ -1131,17 +1216,18 @@ export default function Page() {
 
         .filter-btn {
           flex-shrink: 0;
-          padding: 6px 14px;
-          border: 1px solid #e0e0e0;
+          padding: 9px 14px;
+          border: 1px solid #e7e2d9;
+          border-radius: 999px;
           background: white;
           font-family: 'DM Sans', sans-serif;
-          font-size: 11px;
-          font-weight: 400;
+          font-size: 12px;
+          font-weight: 800;
           cursor: pointer;
           transition: all 0.15s;
           white-space: nowrap;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
+          letter-spacing: -0.02em;
+          text-transform: lowercase;
         }
 
         .filter-btn.active {
@@ -1157,7 +1243,8 @@ export default function Page() {
           margin-top: 20px;
           padding: 24px;
           background: #fafafa;
-          border: 1px solid #e8e8e8;
+          border: 1px solid #e7e2d9;
+          border-radius: 24px;
           font-family: 'DM Sans', sans-serif;
           font-size: 14px;
           font-weight: 300;
@@ -1173,11 +1260,10 @@ export default function Page() {
         }
 
         .section-label {
-          font-size: 10px;
-          font-weight: 400;
-          color: #bbb;
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
+          font-size: 12px;
+          font-weight: 800;
+          color: #8d867d;
+          text-transform: lowercase;
           margin-bottom: 14px;
         }
 
@@ -1187,15 +1273,76 @@ export default function Page() {
           color: #ccc;
           font-size: 13px;
           font-weight: 300;
-          letter-spacing: 0.05em;
+          letter-spacing: 0;
+        }
+
+        .home-tiles {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+
+        .home-tile {
+          border-radius: 28px;
+          padding: 18px;
+          min-height: 208px;
+          border: 1px solid rgba(17,17,17,0.08);
+          cursor: pointer;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          gap: 16px;
+          text-align: left;
+        }
+
+        .home-tile-label {
+          font-size: 12px;
+          font-weight: 700;
+          color: rgba(17,17,17,0.5);
+          text-transform: lowercase;
+        }
+
+        .home-tile-title {
+          font-size: 20px;
+          line-height: 1.02;
+          font-weight: 900;
+          color: #111111;
+          letter-spacing: -0.05em;
+          text-transform: lowercase;
+        }
+
+        .home-tile-copy {
+          font-size: 15px;
+          line-height: 1.5;
+          color: rgba(17,17,17,0.68);
+          text-transform: lowercase;
+        }
+
+        .tile-pink { background: #FF79D5; }
+        .tile-green { background: #49DE4E; }
+        .tile-blue { background: #38C0FF; }
+        .tile-yellow { background: #FFC804; }
+
+        @media (max-width: 420px) {
+          .app { padding-left: 14px; padding-right: 14px; }
+          .brand { font-size: 30px; }
+          .home-tiles { grid-template-columns: 1fr; }
+          .home-tile { min-height: 180px; }
+          .items-grid { grid-template-columns: 1fr; }
         }
 
       `}</style>
 
       <div className="app">
         <div className="header">
-          <div className="brand">everyyou</div>
-          <div className="greeting">{helloName}</div>
+          <div className="header-row">
+            <div className="header-avatar">{headerAvatar}</div>
+            <div className="header-copy">
+              <div className="brand">everyyou</div>
+              <div className="greeting">{helloName}</div>
+            </div>
+          </div>
+          <div className="sync-line">mini app в telegram · аккуратно переводим на новый shell</div>
         </div>
 
         {/* HOME */}
@@ -1245,6 +1392,32 @@ export default function Page() {
                   ↗ поделиться
                 </button>
               </div>
+            </div>
+
+            <div className="home-tiles">
+              <button className="home-tile tile-pink" onClick={() => setTab("add")}>
+                <div className="home-tile-label">музыка</div>
+                <div className="home-tile-title">всё, что ты слушаешь</div>
+                <div className="home-tile-copy">подключи spotify, импортируй из last.fm, загрузи по скриншоту или впиши вручную</div>
+              </button>
+
+              <button className="home-tile tile-green" onClick={() => setTab("add")}>
+                <div className="home-tile-label">книги</div>
+                <div className="home-tile-title">книжная полка</div>
+                <div className="home-tile-copy">скинь фотку книги или книжной полки, загрузи статистику из livelib, goodreads или другого сервиса</div>
+              </button>
+
+              <button className="home-tile tile-blue" onClick={() => setTab("add")}>
+                <div className="home-tile-label">фильмы</div>
+                <div className="home-tile-title">все просмотры</div>
+                <div className="home-tile-copy">импортируй контент из letterboxd, кинопоиска, mubi и других подключенных источников</div>
+              </button>
+
+              <button className="home-tile tile-yellow" onClick={() => setTab("vibe")}>
+                <div className="home-tile-label">вайбчек</div>
+                <div className="home-tile-title">узнай себя получше</div>
+                <div className="home-tile-copy">когда будешь готов — нажми «вайбчек» и сам все поймешь</div>
+              </button>
             </div>
           </>
         )}
@@ -1826,7 +1999,6 @@ export default function Page() {
       <nav className="nav">
         {([
           ["home", "◎", "главная"],
-          ["add", "+", "добавить"],
           ["library", "▦", "библиотека"],
         ] as [Tab, string, string][]).map(([t, icon, label]) => (
           <button
@@ -1838,6 +2010,12 @@ export default function Page() {
             {label}
           </button>
         ))}
+        <button
+          className={`nav-btn add-btn${tab === "add" ? " active" : ""}`}
+          onClick={() => setTab("add")}
+        >
+          <span className="nav-icon">+</span>
+        </button>
         <button
           className={`nav-btn${tab === "vibe" ? " active" : ""}`}
           onClick={() => setTab("vibe")}
