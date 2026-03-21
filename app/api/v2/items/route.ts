@@ -11,6 +11,7 @@ type ItemBody = {
   title?: string;
   creator?: string | null;
   consumedAt?: number | null;
+  timeOrigin?: "exact" | "imported" | "estimated" | null;
 };
 
 function badRequest(message: string) {
@@ -64,13 +65,14 @@ async function updateLegacyTelegramItem(
         typeof body.consumedAt === "number" && Number.isFinite(body.consumedAt)
           ? new Date(body.consumedAt).toISOString()
           : null,
+      time_origin: body.timeOrigin ?? null,
     })
     .eq("id", body.id)
     .eq("tg_user_id", auth.legacyTgUserId)
     .select("*")
     .single();
 
-  if (error && isMissingConsumedAtColumn(error)) {
+  if (error && (isMissingConsumedAtColumn(error) || isMissingTimeOriginColumn(error))) {
     const retry = await sb
       .from("items")
       .update({
@@ -102,6 +104,11 @@ function isMissingOwnerColumns(error: { message?: string | null } | null) {
 function isMissingConsumedAtColumn(error: { message?: string | null } | null) {
   const message = error?.message?.toLowerCase() ?? "";
   return message.includes("consumed_at");
+}
+
+function isMissingTimeOriginColumn(error: { message?: string | null } | null) {
+  const message = error?.message?.toLowerCase() ?? "";
+  return message.includes("time_origin");
 }
 
 async function selectItemsForOwner(
@@ -182,6 +189,7 @@ export async function POST(req: NextRequest) {
       typeof body.consumedAt === "number" && Number.isFinite(body.consumedAt)
         ? new Date(body.consumedAt).toISOString()
         : null,
+    time_origin: body.timeOrigin ?? null,
   };
 
   if (auth.authType === "telegram") {
@@ -193,8 +201,8 @@ export async function POST(req: NextRequest) {
 
   let { data, error } = await sb.from("items").insert(insertPayload).select("*").single();
 
-  if (error && isMissingConsumedAtColumn(error)) {
-    const { consumed_at, ...legacyPayload } = insertPayload;
+  if (error && (isMissingConsumedAtColumn(error) || isMissingTimeOriginColumn(error))) {
+    const { consumed_at, time_origin, ...legacyPayload } = insertPayload;
     const retry = await sb.from("items").insert(legacyPayload).select("*").single();
     data = retry.data;
     error = retry.error;
@@ -235,13 +243,14 @@ export async function PATCH(req: NextRequest) {
         typeof body.consumedAt === "number" && Number.isFinite(body.consumedAt)
           ? new Date(body.consumedAt).toISOString()
           : null,
+      time_origin: body.timeOrigin ?? null,
     })
     .eq("id", body.id)
     .eq("owner_key", auth.ownerKey)
     .select("*")
     .single();
 
-  if (error && isMissingConsumedAtColumn(error)) {
+  if (error && (isMissingConsumedAtColumn(error) || isMissingTimeOriginColumn(error))) {
     const retry = await sb
       .from("items")
       .update({

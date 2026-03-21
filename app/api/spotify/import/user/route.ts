@@ -31,7 +31,8 @@ function legacyNativeTgUserId(ownerKey: string) {
 
 function trackToItem(
   track: SpotifyTrackShape | null | undefined,
-  consumedAt?: string | null
+  consumedAt?: string | null,
+  timeOrigin: "exact" | "imported" = "exact"
 ) {
   const title = track?.name?.trim().toLowerCase() ?? "";
   const authorOrArtist = (track?.artists ?? [])
@@ -49,13 +50,14 @@ function trackToItem(
       consumedAt && Number.isFinite(Date.parse(consumedAt))
         ? new Date(consumedAt).toISOString()
         : null,
+    timeOrigin,
   };
 }
 
-function dedupeItems<T extends { title: string; authorOrArtist: string; consumedAt?: string | null }>(items: T[]) {
+function dedupeItems<T extends { title: string; authorOrArtist: string; consumedAt?: string | null; timeOrigin?: string | null }>(items: T[]) {
   const seen = new Set<string>();
   return items.filter((item) => {
-    const key = `${item.title}::${item.authorOrArtist}::${item.consumedAt ?? "undated"}`;
+    const key = `${item.title}::${item.authorOrArtist}::${item.consumedAt ?? "undated"}::${item.timeOrigin ?? "none"}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -85,6 +87,7 @@ async function loadSpotifyItems(
     title: string;
     authorOrArtist: string;
     consumedAt: string | null;
+    timeOrigin: "exact" | "imported";
   }> = [];
 
   if (mode === "liked") {
@@ -92,7 +95,7 @@ async function loadSpotifyItems(
     while (nextUrl) {
       const page: SpotifyTrackPage = await fetchSpotify<SpotifyTrackPage>(nextUrl, accessToken);
       for (const item of page.items ?? []) {
-        const mapped = trackToItem(item.track, item.added_at ?? null);
+        const mapped = trackToItem(item.track, item.added_at ?? null, "imported");
         if (mapped) items.push(mapped);
       }
       nextUrl = page.next ?? null;
@@ -106,7 +109,7 @@ async function loadSpotifyItems(
       accessToken
     );
     for (const item of page.items ?? []) {
-      const mapped = trackToItem(item.track, item.played_at ?? null);
+      const mapped = trackToItem(item.track, item.played_at ?? null, "exact");
       if (mapped) items.push(mapped);
     }
     return dedupeItems(items);
@@ -118,7 +121,7 @@ async function loadSpotifyItems(
   while (nextUrl) {
     const page: SpotifyTrackPage = await fetchSpotify<SpotifyTrackPage>(nextUrl, accessToken);
     for (const item of page.items ?? []) {
-      const mapped = trackToItem(item.track, null);
+      const mapped = trackToItem(item.track, null, "imported");
       if (mapped) items.push(mapped);
     }
     nextUrl = page.next ?? null;
@@ -149,7 +152,7 @@ export async function POST(req: NextRequest) {
     const sb = supabaseAdmin();
     const { data: existingItems, error: existingError } = await sb
       .from("items")
-      .select("title, creator, consumed_at")
+      .select("title, creator, consumed_at, time_origin")
       .eq("owner_key", auth.ownerKey)
       .eq("source", "import_spotify");
 
@@ -166,7 +169,9 @@ export async function POST(req: NextRequest) {
     const payload = spotifyItems
       .filter(
         (item) =>
-          !existingKeys.has(`${item.title}::${item.authorOrArtist}::${item.consumedAt ?? "undated"}`)
+          !existingKeys.has(
+            `${item.title}::${item.authorOrArtist}::${item.consumedAt ?? "undated"}::${item.timeOrigin ?? "none"}`
+          )
       )
       .map((item) => ({
       owner_key: auth.ownerKey,
@@ -177,6 +182,7 @@ export async function POST(req: NextRequest) {
       title: item.title,
       creator: item.authorOrArtist,
       consumed_at: item.consumedAt,
+      time_origin: item.timeOrigin,
     }));
 
     if (payload.length === 0) {

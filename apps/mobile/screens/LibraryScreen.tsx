@@ -3,6 +3,7 @@ import { FlatList, Modal, Pressable, ScrollView, Text, View } from "react-native
 import {
   formatFullDate,
   getConsumptionDate,
+  getTimeOriginLabel,
   TYPE_LABEL,
   type ContentType,
   type LibraryItem,
@@ -160,6 +161,9 @@ const DayDetailCard = memo(function DayDetailCard({
       </View>
       <Text style={appStyles.itemTitle}>{item.title}</Text>
       <Text style={appStyles.itemMeta}>{item.authorOrArtist || "без автора"}</Text>
+      {getTimeOriginLabel(item.timeOrigin) ? (
+        <Text style={appStyles.metaText}>{getTimeOriginLabel(item.timeOrigin)}</Text>
+      ) : null}
     </Pressable>
   );
 });
@@ -322,6 +326,9 @@ export function LibraryScreen({
             </View>
             <Text style={appStyles.itemTitle}>{selectedItem.title}</Text>
             <Text style={appStyles.itemMeta}>{selectedItem.authorOrArtist || "без автора"}</Text>
+            {getTimeOriginLabel(selectedItem.timeOrigin) ? (
+              <Text style={appStyles.metaText}>{getTimeOriginLabel(selectedItem.timeOrigin)}</Text>
+            ) : null}
             {!getConsumptionDate(selectedItem) ? (
               <View style={appStyles.stack}>
                 <Text style={appStyles.metaText}>когда это было примерно?</Text>
@@ -361,6 +368,9 @@ export function LibraryScreen({
           <Text style={appStyles.itemMeta}>{item.authorOrArtist || TYPE_LABEL[item.type]}</Text>
           <Text style={appStyles.itemTitle}>{item.title}</Text>
         </View>
+        {getTimeOriginLabel(item.timeOrigin) ? (
+          <Text style={appStyles.metaText}>{getTimeOriginLabel(item.timeOrigin)}</Text>
+        ) : null}
 
         {!getConsumptionDate(item) ? (
           <View style={appStyles.row}>

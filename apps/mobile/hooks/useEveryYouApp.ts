@@ -51,7 +51,7 @@ type SpotifyPlaylist = {
 };
 type PendingImageItem = Pick<
   LibraryItem,
-  "id" | "type" | "source" | "title" | "authorOrArtist" | "createdAt" | "consumedAt"
+  "id" | "type" | "source" | "title" | "authorOrArtist" | "createdAt" | "consumedAt" | "timeOrigin"
 >;
 
 const NAME_PLACEHOLDERS = [
@@ -359,6 +359,7 @@ export function useEveryYouApp() {
             title: item.title,
             authorOrArtist: item.authorOrArtist,
             consumedAt: dates[index],
+            timeOrigin: "estimated",
           });
           updatedItems.push(updated);
         }
@@ -373,7 +374,7 @@ export function useEveryYouApp() {
           current.map((item) => {
             const index = items.findIndex((candidate) => candidate.id === item.id);
             if (index === -1) return item;
-            return { ...item, consumedAt: dates[index] };
+            return { ...item, consumedAt: dates[index], timeOrigin: "estimated" };
           })
         );
       }
@@ -406,13 +407,16 @@ export function useEveryYouApp() {
           title: item.title,
           authorOrArtist: item.authorOrArtist,
           consumedAt: date,
+          timeOrigin: "estimated",
         });
         setLibrary((current) => current.map((entry) => (entry.id === item.id ? updated : entry)));
         setSyncStatus("online");
         setSyncMessage("данные синхронизируются с сервером");
       } else {
         setLibrary((current) =>
-          current.map((entry) => (entry.id === item.id ? { ...entry, consumedAt: date } : entry))
+          current.map((entry) =>
+            entry.id === item.id ? { ...entry, consumedAt: date, timeOrigin: "estimated" } : entry
+          )
         );
       }
 
@@ -435,7 +439,7 @@ export function useEveryYouApp() {
 
   function updatePendingImageItem(
     id: string,
-    patch: Partial<Pick<PendingImageItem, "type" | "title" | "authorOrArtist" | "consumedAt">>
+    patch: Partial<Pick<PendingImageItem, "type" | "title" | "authorOrArtist" | "consumedAt" | "timeOrigin">>
   ) {
     setPendingImageItems((current) =>
       current.map((item) =>
@@ -456,7 +460,7 @@ export function useEveryYouApp() {
 
   function assignPendingImageItemTime(id: string, preset: TimelineSpreadPreset) {
     const [date] = buildSpreadDates(1, preset);
-    updatePendingImageItem(id, { consumedAt: date });
+    updatePendingImageItem(id, { consumedAt: date, timeOrigin: "estimated" });
   }
 
   function resetForm() {
@@ -477,6 +481,7 @@ export function useEveryYouApp() {
       authorOrArtist: clampText(authorOrArtist).toLowerCase(),
       createdAt: Date.now(),
       consumedAt: Date.now(),
+      timeOrigin: "exact",
     };
 
     if (apiToken) {
@@ -530,6 +535,9 @@ export function useEveryYouApp() {
       consumedAt:
         library.find((item) => item.id === editingId)?.consumedAt ??
         ((source || "manual") === "manual" ? Date.now() : undefined),
+      timeOrigin:
+        library.find((item) => item.id === editingId)?.timeOrigin ??
+        ((source || "manual") === "manual" ? "exact" : undefined),
     };
 
     if (apiToken) {
@@ -666,6 +674,7 @@ export function useEveryYouApp() {
         authorOrArtist: item.authorOrArtist,
         createdAt: Date.now(),
         consumedAt: undefined,
+        timeOrigin: undefined,
       }));
       setPendingImageItems(importedItems);
       setScreenshotStatus(`нашли ${importedItems.length} айтем(ов), проверь перед сохранением`);
@@ -751,6 +760,7 @@ export function useEveryYouApp() {
         authorOrArtist: item.authorOrArtist,
         createdAt: Date.now(),
         consumedAt: undefined,
+        timeOrigin: undefined,
       }));
 
       if (apiToken) {
@@ -823,6 +833,7 @@ export function useEveryYouApp() {
             ...item,
             createdAt: Date.now(),
             consumedAt: undefined,
+            timeOrigin: undefined,
           })),
           ...current,
         ]);

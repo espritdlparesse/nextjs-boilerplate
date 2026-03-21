@@ -25,6 +25,8 @@ type ItemsResponse = {
     createdAt?: number | null;
     consumed_at?: string | null;
     consumedAt?: number | null;
+    time_origin?: LibraryItem["timeOrigin"] | null;
+    timeOrigin?: LibraryItem["timeOrigin"] | null;
   }>;
 };
 
@@ -39,6 +41,8 @@ type ItemResponse = {
     createdAt?: number | null;
     consumed_at?: string | null;
     consumedAt?: number | null;
+    time_origin?: LibraryItem["timeOrigin"] | null;
+    timeOrigin?: LibraryItem["timeOrigin"] | null;
   };
 };
 
@@ -136,6 +140,7 @@ function mapServerItem(item: ItemsResponse["items"][number]): LibraryItem {
     authorOrArtist: item.creator ?? "",
     createdAt: Number.isFinite(createdAt) ? createdAt : undefined,
     consumedAt: Number.isFinite(consumedAt) ? consumedAt : undefined,
+    timeOrigin: item.timeOrigin ?? item.time_origin ?? undefined,
   };
 }
 
@@ -210,7 +215,7 @@ export async function fetchItems(token: string) {
 
 export async function createItem(
   token: string,
-  input: Pick<LibraryItem, "type" | "source" | "title" | "authorOrArtist" | "consumedAt">
+  input: Pick<LibraryItem, "type" | "source" | "title" | "authorOrArtist" | "consumedAt" | "timeOrigin">
 ) {
   const data = await fetchJson<ItemResponse>("/api/v2/items", {
     method: "POST",
@@ -221,6 +226,7 @@ export async function createItem(
       title: input.title,
       creator: input.authorOrArtist,
       consumedAt: input.consumedAt ?? null,
+      timeOrigin: input.timeOrigin ?? null,
     }),
   });
 
@@ -229,7 +235,7 @@ export async function createItem(
 
 export async function updateItem(
   token: string,
-  input: Pick<LibraryItem, "id" | "type" | "source" | "title" | "authorOrArtist" | "consumedAt">
+  input: Pick<LibraryItem, "id" | "type" | "source" | "title" | "authorOrArtist" | "consumedAt" | "timeOrigin">
 ) {
   const data = await fetchJson<ItemResponse>("/api/v2/items", {
     method: "PATCH",
@@ -241,6 +247,7 @@ export async function updateItem(
       title: input.title,
       creator: input.authorOrArtist,
       consumedAt: input.consumedAt ?? null,
+      timeOrigin: input.timeOrigin ?? null,
     }),
   });
 

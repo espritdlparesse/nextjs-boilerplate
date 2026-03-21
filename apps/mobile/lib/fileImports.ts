@@ -2,7 +2,10 @@ import { clampText, type ContentType, type LibraryItem } from "../shared/everyyo
 
 type ImportPlatform = "livelib" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi";
 
-type DraftItem = Pick<LibraryItem, "type" | "source" | "title" | "authorOrArtist" | "consumedAt">;
+type DraftItem = Pick<
+  LibraryItem,
+  "type" | "source" | "title" | "authorOrArtist" | "consumedAt" | "timeOrigin"
+>;
 
 function parseCsvLine(line: string) {
   const result: string[] = [];
@@ -83,6 +86,7 @@ function rowToDraft(
     title: normalizedTitle,
     authorOrArtist: normalizedAuthor,
     consumedAt,
+    timeOrigin: typeof consumedAt === "number" ? "exact" : undefined,
   };
 }
 

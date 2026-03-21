@@ -7,6 +7,7 @@ export type TgUser = {
 
 export type ContentType = "music" | "book" | "film";
 export type SourceType = "manual" | "import_spotify";
+export type TimeOrigin = "exact" | "imported" | "estimated";
 
 export type LibraryItem = {
   id: string;
@@ -16,6 +17,7 @@ export type LibraryItem = {
   authorOrArtist: string;
   createdAt?: number;
   consumedAt?: number;
+  timeOrigin?: TimeOrigin;
 };
 
 export type Tab = "home" | "add" | "library" | "analysis";
@@ -132,8 +134,12 @@ export function normalizeLibrary(raw: unknown[]): LibraryItem[] {
       typeof item.createdAt === "number" && Number.isFinite(item.createdAt) ? item.createdAt : undefined;
     const consumedAt =
       typeof item.consumedAt === "number" && Number.isFinite(item.consumedAt) ? item.consumedAt : undefined;
+    const timeOrigin =
+      item.timeOrigin === "exact" || item.timeOrigin === "imported" || item.timeOrigin === "estimated"
+        ? item.timeOrigin
+        : undefined;
 
-    out.push({ id, type, source, title, authorOrArtist, createdAt, consumedAt });
+    out.push({ id, type, source, title, authorOrArtist, createdAt, consumedAt, timeOrigin });
   }
 
   return out;
@@ -143,6 +149,13 @@ export function getConsumptionDate(item: Pick<LibraryItem, "consumedAt">) {
   return typeof item.consumedAt === "number" && Number.isFinite(item.consumedAt)
     ? item.consumedAt
     : undefined;
+}
+
+export function getTimeOriginLabel(origin?: TimeOrigin) {
+  if (origin === "exact") return "точная дата";
+  if (origin === "imported") return "дата из импорта";
+  if (origin === "estimated") return "примерно";
+  return null;
 }
 
 export function getDisplayName(user: TgUser | null) {
