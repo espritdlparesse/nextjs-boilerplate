@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { Linking } from "react-native";
 import { useEffect, useMemo, useState } from "react";
@@ -35,6 +36,7 @@ import {
   runVibeCheck,
   updateItem,
 } from "../lib/api";
+import { parseImportedFile } from "../lib/fileImports";
 
 type TypeFilter = ContentType | "all";
 type SourceFilter = SourceType | "all";
@@ -114,6 +116,7 @@ export function useEveryYouApp() {
   const [spotifyPlaylists, setSpotifyPlaylists] = useState<SpotifyPlaylist[]>([]);
   const [spotifyOAuthLoading, setSpotifyOAuthLoading] = useState(false);
   const [spotifyPlaylistLoading, setSpotifyPlaylistLoading] = useState(false);
+  const [fileImportStatus, setFileImportStatus] = useState<string | null>(null);
   const [analysisRunning, setAnalysisRunning] = useState(false);
   const [analysisHistory, setAnalysisHistory] = useState<AnalysisRun[]>([]);
   const [analysisResult, setAnalysisResult] = useState<AnalysisRun | null>(null);
@@ -502,6 +505,59 @@ export function useEveryYouApp() {
     }
   }
 
+  async function importPlatformFile(platform: "livelib" | "letterboxd" | "lastfm") {
+    try {
+      setFileImportStatus("открываем файлы...");
+      const result = await DocumentPicker.getDocumentAsync({
+        multiple: false,
+        copyToCacheDirectory: true,
+        type: ["text/csv", "text/plain", "application/vnd.ms-excel"],
+      });
+
+      if (result.canceled || !result.assets[0]?.uri) {
+        setFileImportStatus("импорт отменен");
+        return;
+      }
+
+      setFileImportStatus("читаем файл...");
+      const fileText = await fetch(result.assets[0].uri).then((response) => response.text());
+      const parsedItems = parseImportedFile(platform, fileText);
+
+      if (parsedItems.length === 0) {
+        setFileImportStatus("ничего не удалось импортировать");
+        return;
+      }
+
+      if (apiToken) {
+        let created = 0;
+        for (const item of parsedItems) {
+          await createItem(apiToken, item);
+          created += 1;
+        }
+        const remoteLibrary = await fetchItems(apiToken);
+        setLibrary(remoteLibrary);
+        setSyncStatus("online");
+        setSyncMessage("данные синхронизируются с сервером");
+        setFileImportStatus(`добавили ${created} айтем(ов) из файла`);
+      } else {
+        setLibrary((current) => [
+          ...parsedItems.map((item) => ({
+            id: uid(),
+            ...item,
+            createdAt: Date.now(),
+          })),
+          ...current,
+        ]);
+        setFileImportStatus(`добавили ${parsedItems.length} айтем(ов) локально`);
+      }
+
+      setTab("library");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "file import failed";
+      setFileImportStatus(message);
+    }
+  }
+
   async function refreshSpotifyConnection(showSuccessMessage = false) {
     if (!apiToken) {
       setSpotifyStatus("backend token missing");
@@ -689,6 +745,7 @@ export function useEveryYouApp() {
     spotifyPlaylists,
     spotifyOAuthLoading,
     spotifyPlaylistLoading,
+    fileImportStatus,
     type,
     source,
     title,
@@ -723,6 +780,9 @@ export function useEveryYouApp() {
       importSpotifyAccountSource({ mode: "recently_played" }, "recently played"),
     importSpotifyPlaylist: (playlistId: string, playlistName: string) =>
       importSpotifyAccountSource({ mode: "playlist", playlistId }, `playlist ${playlistName}`),
+    importLivelibFile: () => importPlatformFile("livelib"),
+    importLetterboxdFile: () => importPlatformFile("letterboxd"),
+    importLastfmFile: () => importPlatformFile("lastfm"),
     cancelEdit: () => {
       setEditingId(null);
       resetForm();

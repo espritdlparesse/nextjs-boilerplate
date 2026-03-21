@@ -68,17 +68,17 @@ export async function POST(req: NextRequest) {
 
   const response = await client.chat.completions.create({
     model,
-    temperature: 0.8,
+    temperature: 0.9,
     max_tokens: 900,
     messages: [
       {
         role: "system",
         content:
-          "Ты делаешь короткий, умный и теплый вайбчек культурного вкуса. Верни только JSON без markdown с полями summary:string и highlights:string[]. Highlights должно быть 4-6 коротких пунктов на русском.",
+          "Ты пишешь короткую, злую, умную прожарку культурного вкуса. Верни только JSON без markdown с полями summary:string и highlights:string[]. summary — 2-4 предложения плотной прожарки по-русски, с конкретными наблюдениями про вкус. highlights — 4-6 коротких пунктов: паттерны, противоречия, рекомендации, красные флаги вкуса. Тон: остро, смешно, наблюдательно, но не хамски и не токсично.",
       },
       {
         role: "user",
-        content: `Проанализируй этот список контента и верни JSON.\n\n${lines.join("\n")}`,
+        content: `Сделай прожарку по этому списку контента и верни JSON.\n\n${lines.join("\n")}`,
       },
     ],
   });

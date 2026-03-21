@@ -50,6 +50,7 @@ export default function App() {
             spotifyPlaylists={app.spotifyPlaylists}
             spotifyOAuthLoading={app.spotifyOAuthLoading}
             spotifyPlaylistLoading={app.spotifyPlaylistLoading}
+            fileImportStatus={app.fileImportStatus}
             type={app.type}
             source={app.source}
             title={app.title}
@@ -66,6 +67,9 @@ export default function App() {
             onSpotifyLikedSongsPress={app.importSpotifyLikedSongs}
             onSpotifyRecentlyPlayedPress={app.importSpotifyRecentlyPlayed}
             onSpotifyPlaylistImportPress={app.importSpotifyPlaylist}
+            onLivelibImportPress={app.importLivelibFile}
+            onLetterboxdImportPress={app.importLetterboxdFile}
+            onLastfmImportPress={app.importLastfmFile}
             onTypeChange={app.setType}
             onSourceChange={app.setSource}
             onTitleChange={app.setTitle}

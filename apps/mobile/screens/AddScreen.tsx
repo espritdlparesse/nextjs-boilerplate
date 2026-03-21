@@ -22,6 +22,7 @@ type AddScreenProps = {
   spotifyPlaylists: SpotifyPlaylist[];
   spotifyOAuthLoading: boolean;
   spotifyPlaylistLoading: boolean;
+  fileImportStatus: string | null;
   type: ContentType | "";
   source: SourceType | "";
   title: string;
@@ -38,6 +39,9 @@ type AddScreenProps = {
   onSpotifyLikedSongsPress: () => void;
   onSpotifyRecentlyPlayedPress: () => void;
   onSpotifyPlaylistImportPress: (playlistId: string, playlistName: string) => void;
+  onLivelibImportPress: () => void;
+  onLetterboxdImportPress: () => void;
+  onLastfmImportPress: () => void;
   onTypeChange: (value: ContentType) => void;
   onSourceChange: (value: SourceType) => void;
   onTitleChange: (value: string) => void;
@@ -60,6 +64,7 @@ export function AddScreen({
   spotifyPlaylists,
   spotifyOAuthLoading,
   spotifyPlaylistLoading,
+  fileImportStatus,
   type,
   source,
   title,
@@ -76,6 +81,9 @@ export function AddScreen({
   onSpotifyLikedSongsPress,
   onSpotifyRecentlyPlayedPress,
   onSpotifyPlaylistImportPress,
+  onLivelibImportPress,
+  onLetterboxdImportPress,
+  onLastfmImportPress,
   onTypeChange,
   onSourceChange,
   onTitleChange,
@@ -102,6 +110,11 @@ export function AddScreen({
       />
       <Text style={appStyles.metaText}>импортировано: {importedCount} треков</Text>
       {screenshotStatus ? <Text style={appStyles.metaText}>{screenshotStatus}</Text> : null}
+      <Text style={appStyles.label}>file import</Text>
+      <PillButton label="импорт из livelib (csv)" onPress={onLivelibImportPress} />
+      <PillButton label="импорт из letterboxd (csv)" onPress={onLetterboxdImportPress} />
+      <PillButton label="импорт из last.fm (csv)" onPress={onLastfmImportPress} />
+      {fileImportStatus ? <Text style={appStyles.metaText}>{fileImportStatus}</Text> : null}
       <Text style={appStyles.label}>spotify account</Text>
       <PillButton
         label={spotifyOAuthLoading ? "открываем spotify..." : spotifyConnected ? "переподключить spotify" : "подключить spotify"}
