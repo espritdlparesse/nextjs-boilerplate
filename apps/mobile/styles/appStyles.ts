@@ -372,6 +372,11 @@ export const appStyles = StyleSheet.create({
     padding: 12,
     gap: 8,
   },
+  previewTileActive: {
+    borderColor: colors.black,
+    borderWidth: 2,
+    transform: [{ translateY: -2 }],
+  },
   previewType: {
     fontSize: 11,
     fontWeight: "900",

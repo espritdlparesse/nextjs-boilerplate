@@ -43,7 +43,7 @@ import { parseImportedFile } from "../lib/fileImports";
 type TypeFilter = ContentType | "all";
 type SourceFilter = SourceType | "all";
 type SyncStatus = "idle" | "syncing" | "online" | "offline";
-type TimelineSpreadPreset = "this_month" | "last_month" | "last_3_months" | "this_year";
+type TimelineSpreadPreset = "this_month" | "last_month" | "last_6_months" | "this_year" | "very_old";
 type SpotifyPlaylist = {
   id: string;
   name: string;
@@ -138,6 +138,7 @@ export function useEveryYouApp() {
   const [importedCount, setImportedCount] = useState(0);
   const [screenshotStatus, setScreenshotStatus] = useState<string | null>(null);
   const [pendingImageItems, setPendingImageItems] = useState<PendingImageItem[]>([]);
+  const [selectedPendingImageId, setSelectedPendingImageId] = useState<string | null>(null);
   const [confirmingPendingImageImport, setConfirmingPendingImageImport] = useState(false);
   const [spotifyUrl, setSpotifyUrl] = useState("");
   const [spotifyStatus, setSpotifyStatus] = useState<string | null>(null);
@@ -302,6 +303,10 @@ export function useEveryYouApp() {
     () => visibleLibrary.filter((item) => item.source !== "manual" && item.consumedAt == null),
     [visibleLibrary]
   );
+  const selectedPendingImageItem = useMemo(
+    () => pendingImageItems.find((item) => item.id === selectedPendingImageId) ?? null,
+    [pendingImageItems, selectedPendingImageId]
+  );
 
   function buildSpreadDates(count: number, preset: TimelineSpreadPreset) {
     const now = new Date();
@@ -311,9 +316,13 @@ export function useEveryYouApp() {
       monthAnchors.push(new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0, 0));
     } else if (preset === "last_month") {
       monthAnchors.push(new Date(now.getFullYear(), now.getMonth() - 1, 1, 12, 0, 0, 0));
-    } else if (preset === "last_3_months") {
-      for (let offset = 0; offset < 3; offset += 1) {
+    } else if (preset === "last_6_months") {
+      for (let offset = 0; offset < 6; offset += 1) {
         monthAnchors.push(new Date(now.getFullYear(), now.getMonth() - offset, 1, 12, 0, 0, 0));
+      }
+    } else if (preset === "very_old") {
+      for (let yearOffset = 2; yearOffset <= 5; yearOffset += 1) {
+        monthAnchors.push(new Date(now.getFullYear() - yearOffset, now.getMonth(), 1, 12, 0, 0, 0));
       }
     } else {
       for (let month = now.getMonth(); month >= 0; month -= 1) {
@@ -422,6 +431,32 @@ export function useEveryYouApp() {
     if (undatedVisibleLibrary.length === 0) return;
     setTimelinePromptVisible(true);
     setTab("library");
+  }
+
+  function updatePendingImageItem(
+    id: string,
+    patch: Partial<Pick<PendingImageItem, "type" | "title" | "authorOrArtist" | "consumedAt">>
+  ) {
+    setPendingImageItems((current) =>
+      current.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              ...patch,
+              title: patch.title != null ? clampText(patch.title).toLowerCase() : item.title,
+              authorOrArtist:
+                patch.authorOrArtist != null
+                  ? clampText(patch.authorOrArtist).toLowerCase()
+                  : item.authorOrArtist,
+            }
+          : item
+      )
+    );
+  }
+
+  function assignPendingImageItemTime(id: string, preset: TimelineSpreadPreset) {
+    const [date] = buildSpreadDates(1, preset);
+    updatePendingImageItem(id, { consumedAt: date });
   }
 
   function resetForm() {
@@ -644,10 +679,14 @@ export function useEveryYouApp() {
 
   function removePendingImageItem(id: string) {
     setPendingImageItems((current) => current.filter((item) => item.id !== id));
+    if (selectedPendingImageId === id) {
+      setSelectedPendingImageId(null);
+    }
   }
 
   function cancelPendingImageImport() {
     setPendingImageItems([]);
+    setSelectedPendingImageId(null);
     setScreenshotStatus("импорт изображений отменен");
   }
 
@@ -676,6 +715,7 @@ export function useEveryYouApp() {
 
       setScreenshotStatus(`добавили ${pendingImageItems.length} айтем(ов) из изображений`);
       setPendingImageItems([]);
+      setSelectedPendingImageId(null);
       setTab("library");
       setToastMessage(`добавили ${pendingImageItems.length} айтем(ов)`);
       setTimelinePromptVisible(true);
@@ -993,6 +1033,7 @@ export function useEveryYouApp() {
     importedCount,
     screenshotStatus,
     pendingImageItems,
+    selectedPendingImageItem,
     confirmingPendingImageImport,
     spotifyUrl,
     spotifyStatus,
@@ -1034,6 +1075,13 @@ export function useEveryYouApp() {
     confirmPendingImageImport,
     cancelPendingImageImport,
     removePendingImageItem,
+    selectPendingImageItem: setSelectedPendingImageId,
+    updatePendingImageItem,
+    assignPendingImageItemThisMonth: (id: string) => assignPendingImageItemTime(id, "this_month"),
+    assignPendingImageItemLastMonth: (id: string) => assignPendingImageItemTime(id, "last_month"),
+    assignPendingImageItemLast6Months: (id: string) => assignPendingImageItemTime(id, "last_6_months"),
+    assignPendingImageItemThisYear: (id: string) => assignPendingImageItemTime(id, "this_year"),
+    assignPendingImageItemVeryOld: (id: string) => assignPendingImageItemTime(id, "very_old"),
     setSpotifyUrl,
     importSpotifyLink,
     connectSpotifyAccount,
@@ -1066,12 +1114,14 @@ export function useEveryYouApp() {
     runFakeAnalysis,
     spreadIntoThisMonth: () => spreadVisibleUndatedItems("this_month"),
     spreadIntoLastMonth: () => spreadVisibleUndatedItems("last_month"),
-    spreadIntoLast3Months: () => spreadVisibleUndatedItems("last_3_months"),
+    spreadIntoLast6Months: () => spreadVisibleUndatedItems("last_6_months"),
     spreadIntoThisYear: () => spreadVisibleUndatedItems("this_year"),
+    spreadIntoVeryOld: () => spreadVisibleUndatedItems("very_old"),
     assignSelectedToThisMonth: () => selectedId && assignTimelineToItem(selectedId, "this_month"),
     assignSelectedToLastMonth: () => selectedId && assignTimelineToItem(selectedId, "last_month"),
-    assignSelectedToLast3Months: () => selectedId && assignTimelineToItem(selectedId, "last_3_months"),
+    assignSelectedToLast6Months: () => selectedId && assignTimelineToItem(selectedId, "last_6_months"),
     assignSelectedToThisYear: () => selectedId && assignTimelineToItem(selectedId, "this_year"),
+    assignSelectedToVeryOld: () => selectedId && assignTimelineToItem(selectedId, "very_old"),
     dismissTimelinePrompt: () => setTimelinePromptVisible(false),
     promptTimelinePlacement,
     openAnalysisResult: setAnalysisResult,

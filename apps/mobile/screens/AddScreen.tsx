@@ -25,7 +25,17 @@ type AddScreenProps = {
     title: string;
     authorOrArtist: string;
     createdAt?: number;
+    consumedAt?: number;
   }>;
+  selectedPendingImageItem: {
+    id: string;
+    type: ContentType;
+    source: SourceType;
+    title: string;
+    authorOrArtist: string;
+    createdAt?: number;
+    consumedAt?: number;
+  } | null;
   confirmingPendingImageImport: boolean;
   spotifyUrl: string;
   spotifyStatus: string | null;
@@ -44,6 +54,21 @@ type AddScreenProps = {
   onConfirmPendingImageImport: () => void;
   onCancelPendingImageImport: () => void;
   onRemovePendingImageItem: (id: string) => void;
+  onSelectPendingImageItem: (id: string | null) => void;
+  onUpdatePendingImageItem: (
+    id: string,
+    patch: Partial<{
+      type: ContentType;
+      title: string;
+      authorOrArtist: string;
+      consumedAt?: number;
+    }>
+  ) => void;
+  onAssignPendingImageItemThisMonth: (id: string) => void;
+  onAssignPendingImageItemLastMonth: (id: string) => void;
+  onAssignPendingImageItemLast6Months: (id: string) => void;
+  onAssignPendingImageItemThisYear: (id: string) => void;
+  onAssignPendingImageItemVeryOld: (id: string) => void;
   onSpotifyUrlChange: (value: string) => void;
   onSpotifyImportPress: () => void;
   onSpotifyConnectPress: () => void;
@@ -154,6 +179,7 @@ export function AddScreen({
   importedCount,
   screenshotStatus,
   pendingImageItems,
+  selectedPendingImageItem,
   confirmingPendingImageImport,
   spotifyUrl,
   spotifyStatus,
@@ -172,6 +198,13 @@ export function AddScreen({
   onConfirmPendingImageImport,
   onCancelPendingImageImport,
   onRemovePendingImageItem,
+  onSelectPendingImageItem,
+  onUpdatePendingImageItem,
+  onAssignPendingImageItemThisMonth,
+  onAssignPendingImageItemLastMonth,
+  onAssignPendingImageItemLast6Months,
+  onAssignPendingImageItemThisYear,
+  onAssignPendingImageItemVeryOld,
   onSpotifyUrlChange,
   onSpotifyImportPress,
   onSpotifyConnectPress,
@@ -235,14 +268,68 @@ export function AddScreen({
           <View style={appStyles.stack}>
             <View style={appStyles.previewGrid}>
               {pendingImageItems.map((item) => (
-                <View key={item.id} style={[appStyles.tile, appStyles.previewTile, appStyles.tileYellow]}>
+                <Pressable
+                  key={item.id}
+                  style={[
+                    appStyles.tile,
+                    appStyles.previewTile,
+                    appStyles.tileYellow,
+                    selectedPendingImageItem?.id === item.id && appStyles.previewTileActive,
+                  ]}
+                  onPress={() => onSelectPendingImageItem(item.id)}
+                >
                   <Text style={appStyles.previewType}>{TYPE_LABEL[item.type]}</Text>
                   <Text style={appStyles.previewTitle}>{item.title}</Text>
                   <Text style={appStyles.previewMeta}>{item.authorOrArtist}</Text>
                   <PillButton label="убрать" variant="danger" onPress={() => onRemovePendingImageItem(item.id)} />
-                </View>
+                </Pressable>
               ))}
             </View>
+            {selectedPendingImageItem ? (
+              <View style={appStyles.instructionCard}>
+                <Text style={appStyles.itemTitle}>поправить карточку</Text>
+                <View style={appStyles.row}>
+                  {(["music", "book", "film"] as ContentType[]).map((value) => (
+                    <PillButton
+                      key={value}
+                      label={TYPE_LABEL[value]}
+                      active={selectedPendingImageItem.type === value}
+                      onPress={() =>
+                        onUpdatePendingImageItem(selectedPendingImageItem.id, { type: value })
+                      }
+                    />
+                  ))}
+                </View>
+                <TextInput
+                  style={appStyles.input}
+                  placeholder="название"
+                  value={selectedPendingImageItem.title}
+                  onChangeText={(value) =>
+                    onUpdatePendingImageItem(selectedPendingImageItem.id, { title: value })
+                  }
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TextInput
+                  style={appStyles.input}
+                  placeholder="автор, артист или режиссер"
+                  value={selectedPendingImageItem.authorOrArtist}
+                  onChangeText={(value) =>
+                    onUpdatePendingImageItem(selectedPendingImageItem.id, { authorOrArtist: value })
+                  }
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <Text style={appStyles.metaText}>когда это было примерно?</Text>
+                <View style={appStyles.row}>
+                  <PillButton label="недавно" onPress={() => onAssignPendingImageItemThisMonth(selectedPendingImageItem.id)} />
+                  <PillButton label="прошлый месяц" onPress={() => onAssignPendingImageItemLastMonth(selectedPendingImageItem.id)} />
+                  <PillButton label="полгода" onPress={() => onAssignPendingImageItemLast6Months(selectedPendingImageItem.id)} />
+                  <PillButton label="этот год" onPress={() => onAssignPendingImageItemThisYear(selectedPendingImageItem.id)} />
+                  <PillButton label="очень давно" onPress={() => onAssignPendingImageItemVeryOld(selectedPendingImageItem.id)} />
+                </View>
+              </View>
+            ) : null}
             <View style={appStyles.row}>
               <PillButton
                 label={confirmingPendingImageImport ? "сохраняем..." : "сохранить найденное"}

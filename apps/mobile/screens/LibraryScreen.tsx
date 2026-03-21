@@ -28,12 +28,14 @@ type LibraryScreenProps = {
   onSelectItem: (id: string) => void;
   onSpreadThisMonth: () => void;
   onSpreadLastMonth: () => void;
-  onSpreadLast3Months: () => void;
+  onSpreadLast6Months: () => void;
   onSpreadThisYear: () => void;
+  onSpreadVeryOld: () => void;
   onAssignSelectedThisMonth: () => void;
   onAssignSelectedLastMonth: () => void;
-  onAssignSelectedLast3Months: () => void;
+  onAssignSelectedLast6Months: () => void;
   onAssignSelectedThisYear: () => void;
+  onAssignSelectedVeryOld: () => void;
   onDismissTimelinePrompt: () => void;
   onEditItem: (id: string) => void;
   onDeleteItem: (id: string) => void;
@@ -68,12 +70,14 @@ export function LibraryScreen({
   onSelectItem,
   onSpreadThisMonth,
   onSpreadLastMonth,
-  onSpreadLast3Months,
+  onSpreadLast6Months,
   onSpreadThisYear,
+  onSpreadVeryOld,
   onAssignSelectedThisMonth,
   onAssignSelectedLastMonth,
-  onAssignSelectedLast3Months,
+  onAssignSelectedLast6Months,
   onAssignSelectedThisYear,
+  onAssignSelectedVeryOld,
   onDismissTimelinePrompt,
   onEditItem,
   onDeleteItem,
@@ -130,8 +134,9 @@ export function LibraryScreen({
               disabled={timelineSpreading}
             />
             <PillButton label="это было в прошлом месяце" onPress={onSpreadLastMonth} disabled={timelineSpreading} />
-            <PillButton label="это было за 3 месяца" onPress={onSpreadLast3Months} disabled={timelineSpreading} />
+            <PillButton label="это было за последние полгода" onPress={onSpreadLast6Months} disabled={timelineSpreading} />
             <PillButton label="это было в этом году" onPress={onSpreadThisYear} disabled={timelineSpreading} />
+            <PillButton label="это было очень давно" onPress={onSpreadVeryOld} disabled={timelineSpreading} />
             <PillButton label="разложу потом" onPress={onDismissTimelinePrompt} disabled={timelineSpreading} />
           </View>
         </View>
@@ -157,8 +162,9 @@ export function LibraryScreen({
               <View style={appStyles.row}>
                 <PillButton label="недавно" onPress={onAssignSelectedThisMonth} disabled={timelineSpreading} />
                 <PillButton label="прошлый месяц" onPress={onAssignSelectedLastMonth} disabled={timelineSpreading} />
-                <PillButton label="3 месяца" onPress={onAssignSelectedLast3Months} disabled={timelineSpreading} />
+                <PillButton label="полгода" onPress={onAssignSelectedLast6Months} disabled={timelineSpreading} />
                 <PillButton label="этот год" onPress={onAssignSelectedThisYear} disabled={timelineSpreading} />
+                <PillButton label="очень давно" onPress={onAssignSelectedVeryOld} disabled={timelineSpreading} />
               </View>
             </View>
           ) : null}

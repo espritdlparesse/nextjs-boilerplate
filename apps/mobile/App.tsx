@@ -113,6 +113,7 @@ export default function App() {
               importedCount={app.importedCount}
               screenshotStatus={app.screenshotStatus}
               pendingImageItems={app.pendingImageItems}
+              selectedPendingImageItem={app.selectedPendingImageItem}
               confirmingPendingImageImport={app.confirmingPendingImageImport}
               spotifyUrl={app.spotifyUrl}
               spotifyStatus={app.spotifyStatus}
@@ -131,6 +132,13 @@ export default function App() {
               onConfirmPendingImageImport={app.confirmPendingImageImport}
               onCancelPendingImageImport={app.cancelPendingImageImport}
               onRemovePendingImageItem={app.removePendingImageItem}
+              onSelectPendingImageItem={app.selectPendingImageItem}
+              onUpdatePendingImageItem={app.updatePendingImageItem}
+              onAssignPendingImageItemThisMonth={app.assignPendingImageItemThisMonth}
+              onAssignPendingImageItemLastMonth={app.assignPendingImageItemLastMonth}
+              onAssignPendingImageItemLast6Months={app.assignPendingImageItemLast6Months}
+              onAssignPendingImageItemThisYear={app.assignPendingImageItemThisYear}
+              onAssignPendingImageItemVeryOld={app.assignPendingImageItemVeryOld}
               onSpotifyUrlChange={app.setSpotifyUrl}
               onSpotifyImportPress={app.importSpotifyLink}
               onSpotifyConnectPress={app.connectSpotifyAccount}
@@ -168,12 +176,14 @@ export default function App() {
               onSelectItem={app.setSelectedId}
               onSpreadThisMonth={app.spreadIntoThisMonth}
               onSpreadLastMonth={app.spreadIntoLastMonth}
-              onSpreadLast3Months={app.spreadIntoLast3Months}
+              onSpreadLast6Months={app.spreadIntoLast6Months}
               onSpreadThisYear={app.spreadIntoThisYear}
+              onSpreadVeryOld={app.spreadIntoVeryOld}
               onAssignSelectedThisMonth={app.assignSelectedToThisMonth}
               onAssignSelectedLastMonth={app.assignSelectedToLastMonth}
-              onAssignSelectedLast3Months={app.assignSelectedToLast3Months}
+              onAssignSelectedLast6Months={app.assignSelectedToLast6Months}
               onAssignSelectedThisYear={app.assignSelectedToThisYear}
+              onAssignSelectedVeryOld={app.assignSelectedToVeryOld}
               onDismissTimelinePrompt={app.dismissTimelinePrompt}
               onEditItem={(id) => {
                 app.startEdit(id);
