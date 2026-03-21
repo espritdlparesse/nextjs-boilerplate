@@ -251,7 +251,11 @@ export function AddScreen({
     <View style={appStyles.screen}>
       <View style={[appStyles.card, appStyles.cardAccentPink]}>
         <Text style={appStyles.sectionTitle}>{editingId ? "редактировать" : "добавить"}</Text>
-        <Text style={appStyles.helper}>импортируй из сервисов, кидай скриншот или добавляй вручную. все должно ощущаться как один культурный таймлайн, а не куча отдельных списков.</Text>
+        <Text style={appStyles.helper}>
+          {pendingImageItems.length > 0
+            ? "ткни на карточку, если хочешь поправить ее до сохранения."
+            : "импортируй из сервисов, кидай скриншот или добавляй вручную. все должно ощущаться как один культурный таймлайн, а не куча отдельных списков."}
+        </Text>
 
         <PillButton
           label={isScreenshotImporting ? "анализируем изображения..." : "загрузить изображения"}
@@ -281,13 +285,15 @@ export function AddScreen({
                   <Text style={appStyles.previewType}>{TYPE_LABEL[item.type]}</Text>
                   <Text style={appStyles.previewTitle}>{item.title}</Text>
                   <Text style={appStyles.previewMeta}>{item.authorOrArtist}</Text>
-                  <PillButton label="убрать" variant="danger" onPress={() => onRemovePendingImageItem(item.id)} />
+                  <Pressable style={appStyles.previewRemoveChip} onPress={() => onRemovePendingImageItem(item.id)}>
+                    <Text style={appStyles.previewRemoveChipText}>убрать</Text>
+                  </Pressable>
                 </Pressable>
               ))}
             </View>
             {selectedPendingImageItem ? (
-              <View style={appStyles.instructionCard}>
-                <Text style={appStyles.itemTitle}>поправить карточку</Text>
+              <View style={[appStyles.instructionCard, appStyles.compactEditorCard]}>
+                <Text style={appStyles.editorTitle}>поправить карточку</Text>
                 <View style={appStyles.row}>
                   {(["music", "book", "film"] as ContentType[]).map((value) => (
                     <PillButton
@@ -301,7 +307,7 @@ export function AddScreen({
                   ))}
                 </View>
                 <TextInput
-                  style={appStyles.input}
+                  style={[appStyles.input, appStyles.compactInput]}
                   placeholder="название"
                   value={selectedPendingImageItem.title}
                   onChangeText={(value) =>
@@ -311,7 +317,7 @@ export function AddScreen({
                   autoCorrect={false}
                 />
                 <TextInput
-                  style={appStyles.input}
+                  style={[appStyles.input, appStyles.compactInput]}
                   placeholder="автор, артист или режиссер"
                   value={selectedPendingImageItem.authorOrArtist}
                   onChangeText={(value) =>
@@ -332,7 +338,7 @@ export function AddScreen({
             ) : null}
             <View style={appStyles.row}>
               <PillButton
-                label={confirmingPendingImageImport ? "сохраняем..." : "сохранить найденное"}
+                label={confirmingPendingImageImport ? "сохраняем..." : `сохранить ${pendingImageItems.length}`}
                 variant="primary"
                 disabled={confirmingPendingImageImport}
                 onPress={onConfirmPendingImageImport}
