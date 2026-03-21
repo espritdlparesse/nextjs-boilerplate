@@ -43,6 +43,7 @@ import { parseImportedFile } from "../lib/fileImports";
 type TypeFilter = ContentType | "all";
 type SourceFilter = SourceType | "all";
 type SyncStatus = "idle" | "syncing" | "online" | "offline";
+type TimelineSpreadPreset = "this_month" | "last_month" | "last_3_months" | "this_year";
 type SpotifyPlaylist = {
   id: string;
   name: string;
@@ -155,6 +156,7 @@ export function useEveryYouApp() {
   const [syncMessage, setSyncMessage] = useState("локальная библиотека");
   const [nameDraft, setNameDraft] = useState("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [timelineSpreading, setTimelineSpreading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -295,6 +297,87 @@ export function useEveryYouApp() {
     });
     return { byType, total: library.length };
   }, [library]);
+  const undatedVisibleLibrary = useMemo(
+    () => visibleLibrary.filter((item) => item.source !== "manual" && item.consumedAt == null),
+    [visibleLibrary]
+  );
+
+  function buildSpreadDates(count: number, preset: TimelineSpreadPreset) {
+    const now = new Date();
+    const monthAnchors: Date[] = [];
+
+    if (preset === "this_month") {
+      monthAnchors.push(new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0, 0));
+    } else if (preset === "last_month") {
+      monthAnchors.push(new Date(now.getFullYear(), now.getMonth() - 1, 1, 12, 0, 0, 0));
+    } else if (preset === "last_3_months") {
+      for (let offset = 0; offset < 3; offset += 1) {
+        monthAnchors.push(new Date(now.getFullYear(), now.getMonth() - offset, 1, 12, 0, 0, 0));
+      }
+    } else {
+      for (let month = now.getMonth(); month >= 0; month -= 1) {
+        monthAnchors.push(new Date(now.getFullYear(), month, 1, 12, 0, 0, 0));
+      }
+    }
+
+    const dates: number[] = [];
+    for (let index = 0; index < count; index += 1) {
+      const anchor = monthAnchors[index % monthAnchors.length];
+      const day = 1 + (index % 24);
+      const hour = 11 + (index % 8);
+      dates.push(new Date(anchor.getFullYear(), anchor.getMonth(), day, hour, 0, 0, 0).getTime());
+    }
+
+    return dates.sort((a, b) => b - a);
+  }
+
+  async function spreadVisibleUndatedItems(preset: TimelineSpreadPreset) {
+    const items = undatedVisibleLibrary;
+    if (items.length === 0 || timelineSpreading) return;
+
+    const dates = buildSpreadDates(items.length, preset);
+    setTimelineSpreading(true);
+
+    try {
+      if (apiToken) {
+        const updatedItems: LibraryItem[] = [];
+        for (const [index, item] of items.entries()) {
+          const updated = await updateItem(apiToken, {
+            id: item.id,
+            type: item.type,
+            source: item.source,
+            title: item.title,
+            authorOrArtist: item.authorOrArtist,
+            consumedAt: dates[index],
+          });
+          updatedItems.push(updated);
+        }
+
+        setLibrary((current) =>
+          current.map((item) => updatedItems.find((updated) => updated.id === item.id) ?? item)
+        );
+        setSyncStatus("online");
+        setSyncMessage("данные синхронизируются с сервером");
+      } else {
+        setLibrary((current) =>
+          current.map((item) => {
+            const index = items.findIndex((candidate) => candidate.id === item.id);
+            if (index === -1) return item;
+            return { ...item, consumedAt: dates[index] };
+          })
+        );
+      }
+
+      setToastMessage(`разложили ${items.length} по времени`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "не удалось разложить по времени";
+      setSyncStatus("offline");
+      setSyncMessage(message);
+      setToastMessage("не удалось разложить");
+    } finally {
+      setTimelineSpreading(false);
+    }
+  }
 
   function resetForm() {
     setType("");
@@ -877,12 +960,14 @@ export function useEveryYouApp() {
     canSave,
     typeFilter,
     sourceFilter,
+    undatedVisibleLibrary,
     selectedItem,
     visibleLibrary,
     counters,
     analysisRunning,
     analysisResult,
     analysisHistory,
+    timelineSpreading,
     setNameDraft,
     saveProfileName,
     setType,
@@ -928,6 +1013,10 @@ export function useEveryYouApp() {
     },
     setSelectedId,
     runFakeAnalysis,
+    spreadIntoThisMonth: () => spreadVisibleUndatedItems("this_month"),
+    spreadIntoLastMonth: () => spreadVisibleUndatedItems("last_month"),
+    spreadIntoLast3Months: () => spreadVisibleUndatedItems("last_3_months"),
+    spreadIntoThisYear: () => spreadVisibleUndatedItems("this_year"),
     openAnalysisResult: setAnalysisResult,
   };
 }

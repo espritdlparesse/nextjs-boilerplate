@@ -158,11 +158,17 @@ export default function App() {
             <LibraryScreen
               typeFilter={app.typeFilter}
               sourceFilter={app.sourceFilter}
+              undatedVisibleLibrary={app.undatedVisibleLibrary}
+              timelineSpreading={app.timelineSpreading}
               selectedItem={app.selectedItem}
               visibleLibrary={app.visibleLibrary}
               onTypeFilterChange={app.setTypeFilter}
               onSourceFilterChange={app.setSourceFilter}
               onSelectItem={app.setSelectedId}
+              onSpreadThisMonth={app.spreadIntoThisMonth}
+              onSpreadLastMonth={app.spreadIntoLastMonth}
+              onSpreadLast3Months={app.spreadIntoLast3Months}
+              onSpreadThisYear={app.spreadIntoThisYear}
               onEditItem={(id) => {
                 app.startEdit(id);
                 app.setTab("add");

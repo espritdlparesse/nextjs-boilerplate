@@ -19,11 +19,17 @@ type LibraryViewMode = "tiles" | "timeline";
 type LibraryScreenProps = {
   typeFilter: TypeFilter;
   sourceFilter: SourceFilter;
+  undatedVisibleLibrary: LibraryItem[];
+  timelineSpreading: boolean;
   selectedItem: LibraryItem | null;
   visibleLibrary: LibraryItem[];
   onTypeFilterChange: (value: TypeFilter) => void;
   onSourceFilterChange: (value: SourceFilter) => void;
   onSelectItem: (id: string) => void;
+  onSpreadThisMonth: () => void;
+  onSpreadLastMonth: () => void;
+  onSpreadLast3Months: () => void;
+  onSpreadThisYear: () => void;
   onEditItem: (id: string) => void;
   onDeleteItem: (id: string) => void;
 };
@@ -47,11 +53,17 @@ function monthLabel(consumedAt?: number) {
 export function LibraryScreen({
   typeFilter,
   sourceFilter,
+  undatedVisibleLibrary,
+  timelineSpreading,
   selectedItem,
   visibleLibrary,
   onTypeFilterChange,
   onSourceFilterChange,
   onSelectItem,
+  onSpreadThisMonth,
+  onSpreadLastMonth,
+  onSpreadLast3Months,
+  onSpreadThisYear,
   onEditItem,
   onDeleteItem,
 }: LibraryScreenProps) {
@@ -93,6 +105,25 @@ export function LibraryScreen({
           ))}
         </View>
       </View>
+
+      {undatedVisibleLibrary.length > 0 ? (
+        <View style={[appStyles.card, appStyles.cardAccentGreen]}>
+          <Text style={appStyles.sectionTitle}>разложить по времени</Text>
+          <Text style={appStyles.helper}>
+            в текущем фильтре {undatedVisibleLibrary.length} импортированн{undatedVisibleLibrary.length === 1 ? "ая карточка" : "ых карточек"} без даты потребления. можно быстро раскидать их по периоду, а потом уже точечно поправить.
+          </Text>
+          <View style={appStyles.row}>
+            <PillButton
+              label={timelineSpreading ? "раскладываем..." : "этот месяц"}
+              onPress={onSpreadThisMonth}
+              disabled={timelineSpreading}
+            />
+            <PillButton label="прошлый месяц" onPress={onSpreadLastMonth} disabled={timelineSpreading} />
+            <PillButton label="3 месяца" onPress={onSpreadLast3Months} disabled={timelineSpreading} />
+            <PillButton label="этот год" onPress={onSpreadThisYear} disabled={timelineSpreading} />
+          </View>
+        </View>
+      ) : null}
 
       {selectedItem ? (
         <View style={[appStyles.tile, typeTileStyle(selectedItem.type)]}>
