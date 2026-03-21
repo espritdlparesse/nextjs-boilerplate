@@ -37,7 +37,7 @@ export function HomeScreen({
 
   return (
     <View style={appStyles.screen}>
-      {editingName ? (
+      {!hasCustomName || editingName ? (
         <View style={[appStyles.card, appStyles.cardAccentYellow]}>
           <Text style={appStyles.label}>как тебя зовут?</Text>
           <TextInput
@@ -58,17 +58,7 @@ export function HomeScreen({
             }}
           />
         </View>
-      ) : (
-        <View style={[appStyles.card, appStyles.compactNameCard]}>
-          <View style={appStyles.compactNameRow}>
-            <View style={appStyles.compactNameTextWrap}>
-              <Text style={appStyles.label}>обращение</Text>
-              <Text style={appStyles.helper}>можно поменять имя в любой момент</Text>
-            </View>
-            <PillButton label="изменить имя" onPress={() => setEditingName(true)} />
-          </View>
-        </View>
-      )}
+      ) : null}
 
       <View style={[appStyles.sectionHero, appStyles.sectionHeroAlt]}>
         <Text style={appStyles.sectionTitle}>что это</Text>

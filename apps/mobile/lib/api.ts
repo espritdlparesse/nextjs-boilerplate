@@ -4,6 +4,7 @@ import { uid, type LibraryItem } from "../shared/everyyou/domain";
 const STORAGE_KEY_DEVICE_ID = "everyyou.mobile.deviceId";
 const STORAGE_KEY_TOKEN = "everyyou.mobile.token";
 const STORAGE_KEY_USER_NAME = "everyyou.mobile.userName";
+const STORAGE_KEY_AVATAR_URI = "everyyou.mobile.avatarUri";
 
 type GuestAuthResponse = {
   token: string;
@@ -95,6 +96,11 @@ type SpotifyUserImportResponse = {
   importedCount: number;
   skippedCount?: number;
   dateSummary?: string;
+  dateCoverage?: {
+    exact: number;
+    imported: number;
+    undated: number;
+  };
 };
 
 type VibeCheckResponse = {
@@ -191,6 +197,18 @@ export async function getStoredGuestName(fallback = "ios friend") {
 
 export async function setStoredGuestName(name: string) {
   await AsyncStorage.setItem(STORAGE_KEY_USER_NAME, name);
+}
+
+export async function getStoredAvatarUri() {
+  return AsyncStorage.getItem(STORAGE_KEY_AVATAR_URI);
+}
+
+export async function setStoredAvatarUri(uri: string) {
+  await AsyncStorage.setItem(STORAGE_KEY_AVATAR_URI, uri);
+}
+
+export async function clearStoredAvatarUri() {
+  await AsyncStorage.removeItem(STORAGE_KEY_AVATAR_URI);
 }
 
 export async function fetchBackendHealth() {

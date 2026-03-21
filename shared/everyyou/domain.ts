@@ -20,7 +20,7 @@ export type LibraryItem = {
   timeOrigin?: TimeOrigin;
 };
 
-export type Tab = "home" | "add" | "library" | "analysis";
+export type Tab = "home" | "add" | "library" | "analysis" | "profile";
 
 export type AnalysisRun = {
   id: string;

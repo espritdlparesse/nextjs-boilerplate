@@ -75,6 +75,14 @@ function buildDateSummary<T extends { consumedAt?: string | null; timeOrigin?: s
   return parts.join(" · ");
 }
 
+function buildDateCoverage<T extends { consumedAt?: string | null; timeOrigin?: string | null }>(items: T[]) {
+  return {
+    exact: items.filter((item) => item.timeOrigin === "exact" && item.consumedAt).length,
+    imported: items.filter((item) => item.timeOrigin === "imported" && item.consumedAt).length,
+    undated: items.filter((item) => !item.consumedAt).length,
+  };
+}
+
 async function fetchSpotify<T>(url: string, accessToken: string) {
   const response = await fetch(url, {
     headers: {
@@ -157,7 +165,13 @@ export async function POST(req: NextRequest) {
     const spotifyItems = await loadSpotifyItems(accessToken, mode, body?.playlistId);
 
     if (spotifyItems.length === 0) {
-      return NextResponse.json({ importedCount: 0, skippedCount: 0, items: [], dateSummary: "" });
+      return NextResponse.json({
+        importedCount: 0,
+        skippedCount: 0,
+        items: [],
+        dateSummary: "",
+        dateCoverage: { exact: 0, imported: 0, undated: 0 },
+      });
     }
 
     const sb = supabaseAdmin();
@@ -202,6 +216,7 @@ export async function POST(req: NextRequest) {
         skippedCount: spotifyItems.length,
         items: [],
         dateSummary: buildDateSummary(spotifyItems),
+        dateCoverage: buildDateCoverage(spotifyItems),
       });
     }
 
@@ -213,6 +228,7 @@ export async function POST(req: NextRequest) {
       skippedCount: spotifyItems.length - payload.length,
       items: data ?? [],
       dateSummary: buildDateSummary(spotifyItems),
+      dateCoverage: buildDateCoverage(spotifyItems),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "spotify import failed";

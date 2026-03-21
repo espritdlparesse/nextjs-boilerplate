@@ -24,6 +24,7 @@ import {
 } from "../shared/everyyou/domain";
 import {
   analyzeScreenshot,
+  clearStoredAvatarUri,
   createItem,
   deleteItem,
   ensureGuestSession,
@@ -31,11 +32,13 @@ import {
   fetchItems,
   fetchSpotifyConnectionStatus,
   fetchSpotifyPlaylists,
+  getStoredAvatarUri,
   getStoredGuestName,
   getSpotifyOAuthUrl,
   importFromSpotifyUser,
   importFromSpotifyUrl,
   runVibeCheck,
+  setStoredAvatarUri,
   setStoredGuestName,
   updateItem,
 } from "../lib/api";
@@ -55,6 +58,11 @@ type PendingImageItem = Pick<
   LibraryItem,
   "id" | "type" | "source" | "title" | "authorOrArtist" | "createdAt" | "consumedAt" | "timeOrigin"
 >;
+type DateInsight = {
+  title: string;
+  body: string;
+  meta?: string;
+};
 
 const NAME_PLACEHOLDERS = [
   "лил пип",
@@ -159,9 +167,13 @@ export function useEveryYouApp() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [syncMessage, setSyncMessage] = useState("локальная библиотека");
   const [nameDraft, setNameDraft] = useState("");
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [timelineSpreading, setTimelineSpreading] = useState(false);
   const [timelinePromptVisible, setTimelinePromptVisible] = useState(false);
+  const [screenshotDateInsight, setScreenshotDateInsight] = useState<DateInsight | null>(null);
+  const [spotifyDateInsight, setSpotifyDateInsight] = useState<DateInsight | null>(null);
+  const [fileImportDateInsight, setFileImportDateInsight] = useState<DateInsight | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -183,6 +195,7 @@ export function useEveryYouApp() {
       let nextSyncStatus: SyncStatus = "offline";
       let nextSyncMessage = "локальная библиотека";
       const storedGuestName = await getStoredGuestName("ios friend");
+      const storedAvatarUri = await getStoredAvatarUri();
 
       try {
         if (mounted) {
@@ -215,6 +228,7 @@ export function useEveryYouApp() {
       setAnalysisHistory(storedAnalysis);
       setUser(nextUser);
       setNameDraft(hasValidCustomName(nextUser) ? getDisplayName(nextUser) : "");
+      setAvatarUri(storedAvatarUri);
       setApiToken(nextToken);
       setSyncStatus(nextSyncStatus);
       setSyncMessage(nextSyncMessage);
@@ -308,6 +322,15 @@ export function useEveryYouApp() {
     });
     return { byType, total: library.length };
   }, [library]);
+  const timeStats = useMemo(
+    () => ({
+      exact: library.filter((item) => item.timeOrigin === "exact").length,
+      imported: library.filter((item) => item.timeOrigin === "imported").length,
+      estimated: library.filter((item) => item.timeOrigin === "estimated").length,
+      undated: library.filter((item) => item.consumedAt == null).length,
+    }),
+    [library]
+  );
   const undatedVisibleLibrary = useMemo(
     () => visibleLibrary.filter((item) => item.source !== "manual" && item.consumedAt == null),
     [visibleLibrary]
@@ -328,6 +351,50 @@ export function useEveryYouApp() {
     if (estimated > 0) parts.push(`примерно: ${estimated}`);
     if (undated > 0) parts.push(`без даты: ${undated}`);
     return parts.join(" · ");
+  }
+
+  function buildDateInsight(items: Array<Pick<LibraryItem, "consumedAt" | "timeOrigin">>): DateInsight | null {
+    const exact = items.filter((item) => item.timeOrigin === "exact" && item.consumedAt != null).length;
+    const imported = items.filter((item) => item.timeOrigin === "imported" && item.consumedAt != null).length;
+    const estimated = items.filter((item) => item.timeOrigin === "estimated" && item.consumedAt != null).length;
+    const dated = exact + imported;
+    const undated = items.filter((item) => item.consumedAt == null).length;
+
+    if (dated === 0 && estimated === 0 && undated === 0) return null;
+
+    if (dated > 0 && undated > 0) {
+      return {
+        title: `нашли реальные даты у ${dated} айтем(ов)`,
+        body: "остальное нужно разложить вручную",
+        meta: [exact > 0 ? `точные: ${exact}` : null, imported > 0 ? `из импорта: ${imported}` : null]
+          .filter(Boolean)
+          .join(" · "),
+      };
+    }
+
+    if (dated > 0 && undated === 0) {
+      return {
+        title: "у найденного контента уже есть даты",
+        body: "можно сразу смотреть его в календаре",
+        meta: [exact > 0 ? `точные: ${exact}` : null, imported > 0 ? `из импорта: ${imported}` : null]
+          .filter(Boolean)
+          .join(" · "),
+      };
+    }
+
+    if (estimated > 0 && undated === 0) {
+      return {
+        title: "время уже разложено примерно",
+        body: "если захочешь, потом можно поправить отдельные карточки",
+        meta: `примерно: ${estimated}`,
+      };
+    }
+
+    return {
+      title: "у этого импорта нет реальных дат",
+      body: "после сохранения можно разложить контент вручную",
+      meta: undated > 0 ? `без даты: ${undated}` : undefined,
+    };
   }
 
   function buildSpreadDates(count: number, preset: TimelineSpreadPreset) {
@@ -647,6 +714,7 @@ export function useEveryYouApp() {
     try {
       setIsScreenshotImporting(true);
       setScreenshotStatus("открываем галерею...");
+      setScreenshotDateInsight(null);
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
@@ -700,6 +768,7 @@ export function useEveryYouApp() {
       }));
       setPendingImageItems(importedItems);
       const coverage = describeDateCoverage(importedItems);
+      setScreenshotDateInsight(buildDateInsight(importedItems));
       setScreenshotStatus(
         `нашли ${importedItems.length} айтем(ов), проверь перед сохранением${coverage ? ` · ${coverage}` : ""}`
       );
@@ -722,6 +791,7 @@ export function useEveryYouApp() {
     setPendingImageItems([]);
     setSelectedPendingImageId(null);
     setScreenshotStatus("импорт изображений отменен");
+    setScreenshotDateInsight(null);
   }
 
   async function confirmPendingImageImport() {
@@ -753,6 +823,7 @@ export function useEveryYouApp() {
       const hasUndatedItems = pendingImageItems.some((item) => item.consumedAt == null);
       setPendingImageItems([]);
       setSelectedPendingImageId(null);
+      setScreenshotDateInsight(null);
       setTab("library");
       setToastMessage(`добавили ${pendingImageItems.length} айтем(ов)`);
       setTimelinePromptVisible(hasUndatedItems);
@@ -770,6 +841,7 @@ export function useEveryYouApp() {
 
     try {
       setSpotifyStatus("тянем данные из spotify...");
+      setSpotifyDateInsight(null);
       const parsedItems = await importFromSpotifyUrl(normalizedUrl);
 
       if (parsedItems.length === 0) {
@@ -803,6 +875,7 @@ export function useEveryYouApp() {
 
       setImportedCount((current) => current + importedItems.length);
       const coverage = describeDateCoverage(importedItems);
+      setSpotifyDateInsight(buildDateInsight(importedItems));
       setSpotifyStatus(
         `добавили ${importedItems.length} трек(ов) из spotify${coverage ? ` · ${coverage}` : ""}`
       );
@@ -822,6 +895,7 @@ export function useEveryYouApp() {
   ) {
     try {
       setFileImportStatus("открываем файлы...");
+      setFileImportDateInsight(null);
       const result = await DocumentPicker.getDocumentAsync({
         multiple: false,
         copyToCacheDirectory: true,
@@ -853,6 +927,7 @@ export function useEveryYouApp() {
         setSyncStatus("online");
         setSyncMessage("данные синхронизируются с сервером");
         const coverage = describeDateCoverage(parsedItems);
+        setFileImportDateInsight(buildDateInsight(parsedItems));
         setFileImportStatus(`добавили ${created} айтем(ов) из файла${coverage ? ` · ${coverage}` : ""}`);
         setToastMessage(`загрузили ${created} айтем(ов)`);
       } else {
@@ -867,6 +942,7 @@ export function useEveryYouApp() {
           ...current,
         ]);
         const coverage = describeDateCoverage(parsedItems);
+        setFileImportDateInsight(buildDateInsight(parsedItems));
         setFileImportStatus(
           `добавили ${parsedItems.length} айтем(ов) локально${coverage ? ` · ${coverage}` : ""}`
         );
@@ -969,6 +1045,7 @@ export function useEveryYouApp() {
       if (!statusOk) return;
 
       setSpotifyStatus(`тянем ${successLabel} из spotify...`);
+      setSpotifyDateInsight(null);
       const result = await importFromSpotifyUser(apiToken, input);
       setImportedCount((current) => current + result.importedCount);
 
@@ -976,6 +1053,13 @@ export function useEveryYouApp() {
       setLibrary(remoteLibrary);
       setSyncStatus("online");
       setSyncMessage("данные синхронизируются с сервером");
+      setSpotifyDateInsight(
+        buildDateInsight([
+          ...Array.from({ length: result.dateCoverage?.exact ?? 0 }, () => ({ consumedAt: 1, timeOrigin: "exact" as const })),
+          ...Array.from({ length: result.dateCoverage?.imported ?? 0 }, () => ({ consumedAt: 1, timeOrigin: "imported" as const })),
+          ...Array.from({ length: result.dateCoverage?.undated ?? 0 }, () => ({ consumedAt: undefined, timeOrigin: undefined })),
+        ])
+      );
       if ((result.skippedCount ?? 0) > 0) {
         setSpotifyStatus(
           `добавили ${result.importedCount} трек(ов) из ${successLabel}, пропустили ${result.skippedCount} дублей${result.dateSummary ? ` · ${result.dateSummary}` : ""}`
@@ -1065,12 +1149,33 @@ export function useEveryYouApp() {
     setNameDraft(normalized);
   }
 
+  async function pickAvatar() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets[0]?.uri) return;
+    await setStoredAvatarUri(result.assets[0].uri);
+    setAvatarUri(result.assets[0].uri);
+    setToastMessage("аватар обновили");
+  }
+
+  async function clearAvatar() {
+    await clearStoredAvatarUri();
+    setAvatarUri(null);
+    setToastMessage("аватар убрали");
+  }
+
   return {
     tab,
     setTab,
     displayName,
     hasCustomName,
     nameDraft,
+    avatarUri,
     namePlaceholder,
     syncStatus,
     syncMessage,
@@ -1080,17 +1185,20 @@ export function useEveryYouApp() {
     isScreenshotImporting,
     importedCount,
     screenshotStatus,
+    screenshotDateInsight,
     pendingImageItems,
     selectedPendingImageItem,
     confirmingPendingImageImport,
     spotifyUrl,
     spotifyStatus,
+    spotifyDateInsight,
     spotifyConnected,
     spotifyProfileName,
     spotifyPlaylists,
     spotifyOAuthLoading,
     spotifyPlaylistLoading,
     fileImportStatus,
+    fileImportDateInsight,
     type,
     source,
     title,
@@ -1104,6 +1212,7 @@ export function useEveryYouApp() {
     selectedItem,
     visibleLibrary,
     counters,
+    timeStats,
     analysisRunning,
     analysisResult,
     analysisHistory,
@@ -1111,6 +1220,8 @@ export function useEveryYouApp() {
     timelinePromptVisible,
     setNameDraft,
     saveProfileName,
+    pickAvatar,
+    clearAvatar,
     setType,
     setSource,
     setTitle,

@@ -16,6 +16,7 @@ import { AnalysisScreen } from "./screens/AnalysisScreen";
 import { AddScreen } from "./screens/AddScreen";
 import { HomeScreen } from "./screens/HomeScreen";
 import { LibraryScreen } from "./screens/LibraryScreen";
+import { ProfileScreen } from "./screens/ProfileScreen";
 import { appStyles } from "./styles/appStyles";
 
 type NavItem = {
@@ -28,6 +29,7 @@ const navItems: NavItem[] = [
   { key: "home", label: "главная", icon: "◉" },
   { key: "library", label: "библиотека", icon: "▦" },
   { key: "analysis", label: "вайбчек", icon: "✦" },
+  { key: "profile", label: "профиль", icon: "☺" },
 ];
 
 export default function App() {
@@ -141,17 +143,20 @@ export default function App() {
                   isScreenshotImporting={app.isScreenshotImporting}
                   importedCount={app.importedCount}
                   screenshotStatus={app.screenshotStatus}
+                  screenshotDateInsight={app.screenshotDateInsight}
                   pendingImageItems={app.pendingImageItems}
                   selectedPendingImageItem={app.selectedPendingImageItem}
                   confirmingPendingImageImport={app.confirmingPendingImageImport}
                   spotifyUrl={app.spotifyUrl}
                   spotifyStatus={app.spotifyStatus}
+                  spotifyDateInsight={app.spotifyDateInsight}
                   spotifyConnected={app.spotifyConnected}
                   spotifyProfileName={app.spotifyProfileName}
                   spotifyPlaylists={app.spotifyPlaylists}
                   spotifyOAuthLoading={app.spotifyOAuthLoading}
                   spotifyPlaylistLoading={app.spotifyPlaylistLoading}
                   fileImportStatus={app.fileImportStatus}
+                  fileImportDateInsight={app.fileImportDateInsight}
                   type={app.type}
                   title={app.title}
                   authorOrArtist={app.authorOrArtist}
@@ -199,6 +204,26 @@ export default function App() {
                   analysisHistory={app.analysisHistory}
                   onRunPress={app.runFakeAnalysis}
                   onOpenResult={app.openAnalysisResult}
+                />
+              )}
+
+              {app.tab === "profile" && (
+                <ProfileScreen
+                  displayName={app.displayName}
+                  nameDraft={app.nameDraft}
+                  avatarUri={app.avatarUri}
+                  totalItems={app.counters.total}
+                  musicCount={app.counters.byType.music}
+                  bookCount={app.counters.byType.book}
+                  filmCount={app.counters.byType.film}
+                  exactCount={app.timeStats.exact}
+                  importedCount={app.timeStats.imported}
+                  estimatedCount={app.timeStats.estimated}
+                  undatedCount={app.timeStats.undated}
+                  onNameDraftChange={app.setNameDraft}
+                  onSaveNamePress={app.saveProfileName}
+                  onPickAvatarPress={app.pickAvatar}
+                  onClearAvatarPress={app.clearAvatar}
                 />
               )}
             </ScrollView>

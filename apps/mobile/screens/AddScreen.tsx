@@ -18,6 +18,7 @@ type AddScreenProps = {
   isScreenshotImporting: boolean;
   importedCount: number;
   screenshotStatus: string | null;
+  screenshotDateInsight: { title: string; body: string; meta?: string } | null;
   pendingImageItems: Array<{
     id: string;
     type: ContentType;
@@ -39,12 +40,14 @@ type AddScreenProps = {
   confirmingPendingImageImport: boolean;
   spotifyUrl: string;
   spotifyStatus: string | null;
+  spotifyDateInsight: { title: string; body: string; meta?: string } | null;
   spotifyConnected: boolean;
   spotifyProfileName: string | null;
   spotifyPlaylists: SpotifyPlaylist[];
   spotifyOAuthLoading: boolean;
   spotifyPlaylistLoading: boolean;
   fileImportStatus: string | null;
+  fileImportDateInsight: { title: string; body: string; meta?: string } | null;
   type: ContentType | "";
   title: string;
   authorOrArtist: string;
@@ -173,22 +176,35 @@ function StatusChip({ text }: { text: string }) {
   );
 }
 
+function DateInsightBlock({ insight }: { insight: { title: string; body: string; meta?: string } }) {
+  return (
+    <View style={appStyles.dateInsightCard}>
+      <Text style={appStyles.dateInsightTitle}>{insight.title}</Text>
+      <Text style={appStyles.dateInsightBody}>{insight.body}</Text>
+      {insight.meta ? <Text style={appStyles.metaText}>{insight.meta}</Text> : null}
+    </View>
+  );
+}
+
 export function AddScreen({
   editingId,
   isScreenshotImporting,
   importedCount,
   screenshotStatus,
+  screenshotDateInsight,
   pendingImageItems,
   selectedPendingImageItem,
   confirmingPendingImageImport,
   spotifyUrl,
   spotifyStatus,
+  spotifyDateInsight,
   spotifyConnected,
   spotifyProfileName,
   spotifyPlaylists,
   spotifyOAuthLoading,
   spotifyPlaylistLoading,
   fileImportStatus,
+  fileImportDateInsight,
   type,
   title,
   authorOrArtist,
@@ -267,6 +283,7 @@ export function AddScreen({
           <StatusChip text={`импортировано: ${importedCount} треков`} />
           {screenshotStatus ? <StatusChip text={screenshotStatus} /> : null}
         </View>
+        {screenshotDateInsight ? <DateInsightBlock insight={screenshotDateInsight} /> : null}
 
         {pendingImageItems.length > 0 ? (
           <View style={appStyles.stack}>
@@ -387,6 +404,8 @@ export function AddScreen({
           {fileImportStatus ? <StatusChip text={fileImportStatus} /> : null}
           {spotifyStatus ? <StatusChip text={spotifyStatus} /> : null}
         </View>
+        {fileImportDateInsight ? <DateInsightBlock insight={fileImportDateInsight} /> : null}
+        {spotifyDateInsight ? <DateInsightBlock insight={spotifyDateInsight} /> : null}
       </View>
 
       <View style={[appStyles.card, appStyles.cardAccentBlue]}>
