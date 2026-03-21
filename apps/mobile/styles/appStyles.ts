@@ -573,8 +573,28 @@ export const appStyles = StyleSheet.create({
   },
   homeFeatureTile: {
     width: "48%",
-    minHeight: 206,
+    minHeight: 228,
     justifyContent: "space-between",
+    gap: 12,
+  },
+  homeTileEyebrow: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "lowercase",
+    letterSpacing: -0.2,
+  },
+  homeTileTitle: {
+    fontSize: 22,
+    lineHeight: 25,
+    fontWeight: "900",
+    color: colors.black,
+    textTransform: "lowercase",
+    letterSpacing: -0.7,
+  },
+  homeTileBody: {
+    fontSize: 14,
+    lineHeight: 21,
+    textTransform: "lowercase",
   },
   timelineCard: {
     gap: 14,

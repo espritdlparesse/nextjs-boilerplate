@@ -93,33 +93,33 @@ export function HomeScreen({
 
       <View style={appStyles.tileGrid}>
         <Pressable style={[appStyles.tile, appStyles.homeFeatureTile, appStyles.tilePink]} onPress={() => onOpenLibraryType("music")}>
-          <Text style={[appStyles.metaDate, { color: theme.accentMutedText }]}>музыка</Text>
-          <Text style={appStyles.itemTitle}>всё, что ты слушаешь</Text>
-          <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
+          <Text style={[appStyles.homeTileEyebrow, { color: theme.accentMutedText }]}>музыка</Text>
+          <Text style={appStyles.homeTileTitle}>всё, что ты слушаешь</Text>
+          <Text style={[appStyles.homeTileBody, { color: theme.accentMutedText }]}>
             подключи спотифай, импортируй из last.fm, загрузи по скриншоту или впиши вручную.
           </Text>
         </Pressable>
 
         <Pressable style={[appStyles.tile, appStyles.homeFeatureTile, appStyles.tileGreen]} onPress={() => onOpenLibraryType("book")}>
-          <Text style={[appStyles.metaDate, { color: theme.accentMutedText }]}>книги</Text>
-          <Text style={appStyles.itemTitle}>книжная полка</Text>
-          <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
+          <Text style={[appStyles.homeTileEyebrow, { color: theme.accentMutedText }]}>книги</Text>
+          <Text style={appStyles.homeTileTitle}>книжная полка</Text>
+          <Text style={[appStyles.homeTileBody, { color: theme.accentMutedText }]}>
             скинь фотку книги или книжной полки, загрузи статистику из livelib или другого сервиса и посмотри, что будет.
           </Text>
         </Pressable>
 
         <Pressable style={[appStyles.tile, appStyles.homeFeatureTile, appStyles.tileBlue]} onPress={() => onOpenLibraryType("film")}>
-          <Text style={[appStyles.metaDate, { color: theme.accentMutedText }]}>фильмы</Text>
-          <Text style={appStyles.itemTitle}>все просмотры</Text>
-          <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
+          <Text style={[appStyles.homeTileEyebrow, { color: theme.accentMutedText }]}>фильмы</Text>
+          <Text style={appStyles.homeTileTitle}>все просмотры</Text>
+          <Text style={[appStyles.homeTileBody, { color: theme.accentMutedText }]}>
             импортируй контент из letterboxd, кинопоиска, mubi и других уже подключенных площадок.
           </Text>
         </Pressable>
 
         <Pressable style={[appStyles.tile, appStyles.homeFeatureTile, appStyles.tileYellow]} onPress={onOpenVibeCheck}>
-          <Text style={[appStyles.metaDate, { color: theme.accentMutedText }]}>вайбчек</Text>
-          <Text style={appStyles.itemTitle}>узнай себя получше</Text>
-          <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
+          <Text style={[appStyles.homeTileEyebrow, { color: theme.accentMutedText }]}>вайбчек</Text>
+          <Text style={appStyles.homeTileTitle}>узнай себя получше</Text>
+          <Text style={[appStyles.homeTileBody, { color: theme.accentMutedText }]}>
             когда будешь готов — нажми кнопку «вайбчек» и сам всё поймешь.
           </Text>
         </Pressable>
