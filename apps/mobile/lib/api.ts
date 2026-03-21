@@ -85,6 +85,13 @@ type SpotifyPlaylistListResponse = {
 
 type SpotifyUserImportResponse = {
   importedCount: number;
+  skippedCount?: number;
+};
+
+type VibeCheckResponse = {
+  itemCount: number;
+  summary: string;
+  highlights: string[];
 };
 
 function getApiBaseUrl() {
@@ -274,5 +281,12 @@ export async function importFromSpotifyUser(
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify(input),
+  });
+}
+
+export async function runVibeCheck(token: string) {
+  return fetchJson<VibeCheckResponse>("/api/v2/analysis", {
+    method: "POST",
+    headers: authHeaders(token),
   });
 }

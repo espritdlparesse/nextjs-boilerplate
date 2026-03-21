@@ -32,6 +32,7 @@ import {
   getSpotifyOAuthUrl,
   importFromSpotifyUser,
   importFromSpotifyUrl,
+  runVibeCheck,
   updateItem,
 } from "../lib/api";
 
@@ -595,7 +596,13 @@ export function useEveryYouApp() {
       setLibrary(remoteLibrary);
       setSyncStatus("online");
       setSyncMessage("данные синхронизируются с сервером");
-      setSpotifyStatus(`добавили ${result.importedCount} трек(ов) из ${successLabel}`);
+      if ((result.skippedCount ?? 0) > 0) {
+        setSpotifyStatus(
+          `добавили ${result.importedCount} трек(ов) из ${successLabel}, пропустили ${result.skippedCount} дублей`
+        );
+      } else {
+        setSpotifyStatus(`добавили ${result.importedCount} трек(ов) из ${successLabel}`);
+      }
       setTab("library");
     } catch (error) {
       const message = error instanceof Error ? error.message : "spotify import failed";
@@ -606,32 +613,62 @@ export function useEveryYouApp() {
   async function runFakeAnalysis() {
     if (analysisRunning) return;
     setAnalysisRunning(true);
-    await new Promise((resolve) => setTimeout(resolve, 900));
 
-    const total = counters.total;
-    const byType = counters.byType;
+    try {
+      if (apiToken) {
+        const data = await runVibeCheck(apiToken);
+        const result: AnalysisRun = {
+          id: uid(),
+          createdAt: Date.now(),
+          itemCount: data.itemCount,
+          summary: data.summary,
+          highlights: data.highlights,
+        };
 
-    const result: AnalysisRun = {
-      id: uid(),
-      createdAt: Date.now(),
-      itemCount: total,
-      summary:
-        total === 0
-          ? "пока пусто. добавьте пару айтемов и мы начнем собирать ваш паттерн вкуса."
-          : `в библиотеке ${total} айтемов. музыка: ${byType.music}, книги: ${byType.book}, фильмы: ${byType.film}.`,
-      highlights:
-        total === 0
-          ? ["можно начать с импорта spotify", "или добавить что-то вручную"]
-          : [
-              "это мобильный демо-вайбчек, логика пока такая же как в telegram mini app",
-              "следующий шаг это реальный backend и авторизация вне Telegram",
-              "после этого сюда можно подключить настоящий анализ и рекомендации",
-            ],
-    };
+        setAnalysisResult(result);
+        setAnalysisHistory((current) => [result, ...current].slice(0, 30));
+        return;
+      }
 
-    setAnalysisResult(result);
-    setAnalysisHistory((current) => [result, ...current].slice(0, 30));
-    setAnalysisRunning(false);
+      await new Promise((resolve) => setTimeout(resolve, 900));
+
+      const total = counters.total;
+      const byType = counters.byType;
+
+      const result: AnalysisRun = {
+        id: uid(),
+        createdAt: Date.now(),
+        itemCount: total,
+        summary:
+          total === 0
+            ? "пока пусто. добавьте пару айтемов и мы начнем собирать ваш паттерн вкуса."
+            : `в библиотеке ${total} айтемов. музыка: ${byType.music}, книги: ${byType.book}, фильмы: ${byType.film}.`,
+        highlights:
+          total === 0
+            ? ["можно начать с импорта spotify", "или добавить что-то вручную"]
+            : [
+                "это мобильный демо-вайбчек, логика пока такая же как в telegram mini app",
+                "следующий шаг это реальный backend и авторизация вне Telegram",
+                "после этого сюда можно подключить настоящий анализ и рекомендации",
+              ],
+      };
+
+      setAnalysisResult(result);
+      setAnalysisHistory((current) => [result, ...current].slice(0, 30));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "vibe check failed";
+      const fallback: AnalysisRun = {
+        id: uid(),
+        createdAt: Date.now(),
+        itemCount: counters.total,
+        summary: `не удалось провести серверный вайбчек: ${message}`,
+        highlights: ["проверь OPENAI_API_KEY на backend", "и повтори попытку"],
+      };
+      setAnalysisResult(fallback);
+      setAnalysisHistory((current) => [fallback, ...current].slice(0, 30));
+    } finally {
+      setAnalysisRunning(false);
+    }
   }
 
   return {

@@ -121,6 +121,22 @@ export async function POST(req: NextRequest) {
   }
 
   const sb = supabaseAdmin();
+  if (source === "import_spotify") {
+    const { data: existing } = await sb
+      .from("items")
+      .select("*")
+      .eq("owner_key", auth.ownerKey)
+      .eq("source", "import_spotify")
+      .eq("title", title)
+      .eq("creator", creator ?? null)
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      return NextResponse.json({ item: existing, deduped: true });
+    }
+  }
+
   const insertPayload: Record<string, string | number | null> = {
     owner_key: auth.ownerKey,
     owner_kind: auth.ownerKind,

@@ -135,11 +135,27 @@ export async function POST(req: NextRequest) {
     const spotifyItems = await loadSpotifyItems(accessToken, mode, body?.playlistId);
 
     if (spotifyItems.length === 0) {
-      return NextResponse.json({ importedCount: 0, items: [] });
+      return NextResponse.json({ importedCount: 0, skippedCount: 0, items: [] });
     }
 
     const sb = supabaseAdmin();
-    const payload = spotifyItems.map((item) => ({
+    const { data: existingItems, error: existingError } = await sb
+      .from("items")
+      .select("title, creator")
+      .eq("owner_key", auth.ownerKey)
+      .eq("source", "import_spotify");
+
+    if (existingError) {
+      return NextResponse.json({ error: existingError.message }, { status: 500 });
+    }
+
+    const existingKeys = new Set(
+      (existingItems ?? []).map((item) => `${item.title}::${item.creator ?? ""}`)
+    );
+
+    const payload = spotifyItems
+      .filter((item) => !existingKeys.has(`${item.title}::${item.authorOrArtist}`))
+      .map((item) => ({
       owner_key: auth.ownerKey,
       owner_kind: auth.ownerKind,
       tg_user_id: auth.authType === "telegram" ? auth.legacyTgUserId : legacyNativeTgUserId(auth.ownerKey),
@@ -149,11 +165,20 @@ export async function POST(req: NextRequest) {
       creator: item.authorOrArtist,
     }));
 
+    if (payload.length === 0) {
+      return NextResponse.json({
+        importedCount: 0,
+        skippedCount: spotifyItems.length,
+        items: [],
+      });
+    }
+
     const { data, error } = await sb.from("items").insert(payload).select("*");
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     return NextResponse.json({
       importedCount: payload.length,
+      skippedCount: spotifyItems.length - payload.length,
       items: data ?? [],
     });
   } catch (error) {
