@@ -4,6 +4,11 @@ import { getSpotifyAccessTokenForOwner } from "@/lib/spotifyConnection";
 
 export const runtime = "nodejs";
 
+type SpotifyPlaylistsPage = {
+  items?: Array<{ id: string; name: string; tracks?: { total?: number } }>;
+  next?: string | null;
+};
+
 async function fetchSpotify<T>(url: string, accessToken: string) {
   const response = await fetch(url, {
     headers: {
@@ -26,10 +31,10 @@ export async function GET(req: NextRequest) {
 
     let nextUrl: string | null = "https://api.spotify.com/v1/me/playlists?limit=50";
     while (nextUrl) {
-      const page = await fetchSpotify<{
-        items?: Array<{ id: string; name: string; tracks?: { total?: number } }>;
-        next?: string | null;
-      }>(nextUrl, accessToken);
+      const page: SpotifyPlaylistsPage = await fetchSpotify<SpotifyPlaylistsPage>(
+        nextUrl,
+        accessToken
+      );
 
       playlists.push(...(page.items ?? []));
       nextUrl = page.next ?? null;
