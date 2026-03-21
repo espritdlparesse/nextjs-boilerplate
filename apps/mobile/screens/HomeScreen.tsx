@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
+import { type ContentType } from "../shared/everyyou/domain";
 import { PillButton } from "../components/PillButton";
 import { appStyles } from "../styles/appStyles";
 
@@ -8,6 +9,8 @@ type HomeScreenProps = {
   nameDraft: string;
   namePlaceholder: string;
   onAddPress: () => void;
+  onOpenLibraryType: (type: ContentType) => void;
+  onOpenVibeCheck: () => void;
   onNameDraftChange: (value: string) => void;
   onSaveNamePress: () => void;
 };
@@ -17,6 +20,8 @@ export function HomeScreen({
   nameDraft,
   namePlaceholder,
   onAddPress,
+  onOpenLibraryType,
+  onOpenVibeCheck,
   onNameDraftChange,
   onSaveNamePress,
 }: HomeScreenProps) {
@@ -78,29 +83,29 @@ export function HomeScreen({
       </View>
 
       <View style={appStyles.tileGrid}>
-        <View style={[appStyles.tile, appStyles.libraryTile, appStyles.tilePink]}>
+        <Pressable style={[appStyles.tile, appStyles.libraryTile, appStyles.tilePink]} onPress={() => onOpenLibraryType("music")}>
           <Text style={appStyles.metaDate}>музыка</Text>
           <Text style={appStyles.itemTitle}>трек за треком</Text>
           <Text style={appStyles.metaText}>spotify, last.fm, скриншоты и ручной импорт.</Text>
-        </View>
+        </Pressable>
 
-        <View style={[appStyles.tile, appStyles.libraryTile, appStyles.tileGreen]}>
+        <Pressable style={[appStyles.tile, appStyles.libraryTile, appStyles.tileGreen]} onPress={() => onOpenLibraryType("book")}>
           <Text style={appStyles.metaDate}>книги</Text>
           <Text style={appStyles.itemTitle}>книжная полка</Text>
           <Text style={appStyles.metaText}>livelib и другие экспортные файлы можно загрузить прямо здесь.</Text>
-        </View>
+        </Pressable>
 
-        <View style={[appStyles.tile, appStyles.libraryTile, appStyles.tileBlue]}>
+        <Pressable style={[appStyles.tile, appStyles.libraryTile, appStyles.tileBlue]} onPress={() => onOpenLibraryType("film")}>
           <Text style={appStyles.metaDate}>фильмы</Text>
           <Text style={appStyles.itemTitle}>все просмотры</Text>
           <Text style={appStyles.metaText}>letterboxd, кинопоиск, mubi и любые странные списки через импорт изображений.</Text>
-        </View>
+        </Pressable>
 
-        <View style={[appStyles.tile, appStyles.libraryTile, appStyles.tileYellow]}>
+        <Pressable style={[appStyles.tile, appStyles.libraryTile, appStyles.tileYellow]} onPress={onOpenVibeCheck}>
           <Text style={appStyles.metaDate}>вайбчек</Text>
           <Text style={appStyles.itemTitle}>прожарка вкуса</Text>
           <Text style={appStyles.metaText}>когда контента накопится достаточно, можно получить уже не демо, а реальную читку.</Text>
-        </View>
+        </Pressable>
       </View>
     </View>
   );

@@ -43,6 +43,11 @@ export default function App() {
               nameDraft={app.nameDraft}
               namePlaceholder={app.namePlaceholder}
               onAddPress={() => app.setTab("add")}
+              onOpenLibraryType={(type) => {
+                app.setTypeFilter(type);
+                app.setTab("library");
+              }}
+              onOpenVibeCheck={() => app.setTab("analysis")}
               onNameDraftChange={app.setNameDraft}
               onSaveNamePress={app.saveProfileName}
             />
