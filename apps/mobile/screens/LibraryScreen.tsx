@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { FlatList, Pressable, Text, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { FlatList, Pressable, ScrollView, Text, View } from "react-native";
 import {
   formatFullDate,
   getConsumptionDate,
@@ -13,7 +13,7 @@ import { appStyles } from "../styles/appStyles";
 
 type TypeFilter = ContentType | "all";
 type SourceFilter = SourceType | "all";
-type LibraryViewMode = "tiles" | "timeline";
+type LibraryViewMode = "tiles" | "calendar";
 
 type LibraryScreenProps = {
   typeFilter: TypeFilter;
@@ -58,6 +58,21 @@ function monthLabel(consumedAt?: number) {
     .toLowerCase();
 }
 
+function dayKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1, 12, 0, 0, 0);
+}
+
+function addDays(date: Date, days: number) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days, 12, 0, 0, 0);
+}
+
 export function LibraryScreen({
   typeFilter,
   sourceFilter,
@@ -85,18 +100,67 @@ export function LibraryScreen({
   onDeleteItem,
 }: LibraryScreenProps) {
   const [viewMode, setViewMode] = useState<LibraryViewMode>("tiles");
+  const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
 
-  const timelineGroups = useMemo(() => {
-    const groups = new Map<string, LibraryItem[]>();
+  const itemsByDay = useMemo(() => {
+    const grouped = new Map<string, LibraryItem[]>();
     for (const item of visibleLibrary) {
-      const key = monthLabel(getConsumptionDate(item));
-      const bucket = groups.get(key) ?? [];
+      const consumedAt = getConsumptionDate(item);
+      if (!consumedAt) continue;
+      const key = dayKey(new Date(consumedAt));
+      const bucket = grouped.get(key) ?? [];
       bucket.push(item);
-      groups.set(key, bucket);
+      grouped.set(key, bucket);
     }
-
-    return Array.from(groups.entries()).map(([label, items]) => ({ label, items }));
+    return grouped;
   }, [visibleLibrary]);
+
+  const calendarDays = useMemo(() => {
+    const monthStart = startOfMonth(calendarMonth);
+    const startWeekday = (monthStart.getDay() + 6) % 7;
+    const gridStart = addDays(monthStart, -startWeekday);
+
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = addDays(gridStart, index);
+      const key = dayKey(date);
+      return {
+        key,
+        date,
+        inMonth: date.getMonth() === calendarMonth.getMonth(),
+        isToday: key === dayKey(new Date()),
+        items: itemsByDay.get(key) ?? [],
+      };
+    });
+  }, [calendarMonth, itemsByDay]);
+
+  const selectedDay = useMemo(() => {
+    if (selectedDayKey) {
+      return calendarDays.find((entry) => entry.key === selectedDayKey) ?? null;
+    }
+    const firstWithItemsInMonth = calendarDays.find((entry) => entry.inMonth && entry.items.length > 0);
+    return firstWithItemsInMonth ?? calendarDays.find((entry) => entry.inMonth) ?? null;
+  }, [calendarDays, selectedDayKey]);
+
+  const selectedWeek = useMemo(() => {
+    if (!selectedDay) return [];
+    const weekStart = addDays(selectedDay.date, -((selectedDay.date.getDay() + 6) % 7));
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = addDays(weekStart, index);
+      const key = dayKey(date);
+      return {
+        key,
+        date,
+        items: itemsByDay.get(key) ?? [],
+      };
+    });
+  }, [itemsByDay, selectedDay]);
+
+  useEffect(() => {
+    if (selectedDay) {
+      setSelectedDayKey(selectedDay.key);
+    }
+  }, [selectedDay?.key]);
 
   function renderTopCards() {
     return (
@@ -110,7 +174,7 @@ export function LibraryScreen({
           <Text style={appStyles.label}>режим</Text>
           <View style={appStyles.row}>
             <PillButton label="плитки" active={viewMode === "tiles"} onPress={() => setViewMode("tiles")} />
-            <PillButton label="таймлайн" active={viewMode === "timeline"} onPress={() => setViewMode("timeline")} />
+            <PillButton label="календарь" active={viewMode === "calendar"} onPress={() => setViewMode("calendar")} />
           </View>
 
           <Text style={appStyles.label}>тип контента</Text>
@@ -212,51 +276,132 @@ export function LibraryScreen({
     );
   }
 
-  function renderTimelineGroup({ item: group }: { item: { label: string; items: LibraryItem[] } }) {
+  function renderCalendarView() {
     return (
-      <View style={[appStyles.card, appStyles.timelineCard]}>
-        <Text style={appStyles.timelineMonth}>{group.label}</Text>
-        <View style={appStyles.stack}>
-          {group.items.map((item) => (
-            <Pressable key={item.id} style={appStyles.timelineRow} onPress={() => onSelectItem(item.id)}>
-              <View style={[appStyles.timelineDot, typeTileStyle(item.type)]} />
-              <View style={appStyles.timelineContent}>
-                <View style={appStyles.timelineHeader}>
-                  <Text style={appStyles.timelineType}>{TYPE_LABEL[item.type]}</Text>
-                  <Text style={appStyles.metaDate}>
-                    {getConsumptionDate(item) ? formatFullDate(getConsumptionDate(item) as number) : "без времени"}
-                  </Text>
-                </View>
-                <Text style={appStyles.itemMeta}>{item.authorOrArtist || TYPE_LABEL[item.type]}</Text>
-                <Text style={appStyles.timelineTitle}>{item.title}</Text>
-              </View>
+      <ScrollView style={appStyles.scroll} contentContainerStyle={appStyles.libraryListContent} showsVerticalScrollIndicator={false}>
+        {renderTopCards()}
+
+        <View style={[appStyles.card, appStyles.calendarCard]}>
+          <View style={appStyles.calendarTopRow}>
+            <Pressable style={appStyles.calendarArrow} onPress={() => setCalendarMonth((current) => startOfMonth(new Date(current.getFullYear(), current.getMonth() - 1, 1)))}>
+              <Text style={appStyles.calendarArrowText}>‹</Text>
             </Pressable>
-          ))}
+            <Text style={appStyles.calendarTitle}>
+              {calendarMonth
+                .toLocaleString("ru-RU", { month: "long", year: "numeric" })
+                .replace(/\sг\.$/, "")
+                .replace(/^./, (char) => char.toUpperCase())}
+            </Text>
+            <Pressable style={appStyles.calendarArrow} onPress={() => setCalendarMonth((current) => startOfMonth(new Date(current.getFullYear(), current.getMonth() + 1, 1)))}>
+              <Text style={appStyles.calendarArrowText}>›</Text>
+            </Pressable>
+          </View>
+
+          <View style={appStyles.calendarWeekdays}>
+            {["пн", "вт", "ср", "чт", "пт", "сб", "вс"].map((label) => (
+              <Text key={label} style={appStyles.calendarWeekday}>
+                {label}
+              </Text>
+            ))}
+          </View>
+
+          <View style={appStyles.calendarGrid}>
+            {calendarDays.map((day) => (
+              <Pressable
+                key={day.key}
+                style={[
+                  appStyles.calendarDay,
+                  !day.inMonth && appStyles.calendarDayMuted,
+                  day.key === selectedDay?.key && appStyles.calendarDayActive,
+                ]}
+                onPress={() => setSelectedDayKey(day.key)}
+              >
+                <View style={appStyles.calendarDayHead}>
+                  <Text style={[appStyles.calendarDayNumber, !day.inMonth && appStyles.calendarDayNumberMuted]}>
+                    {day.date.getDate()}
+                  </Text>
+                  {day.items.length > 0 ? <Text style={appStyles.calendarDayCount}>{day.items.length}</Text> : null}
+                </View>
+
+                {day.items.slice(0, 2).map((item) => (
+                  <View key={item.id} style={[appStyles.calendarItemChip, typeTileStyle(item.type)]}>
+                    <Text style={appStyles.calendarItemChipText} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                  </View>
+                ))}
+
+                {day.items.length > 2 ? (
+                  <Text style={appStyles.calendarMore}>+ еще {day.items.length - 2}</Text>
+                ) : null}
+              </Pressable>
+            ))}
+          </View>
         </View>
-      </View>
+
+        {selectedDay ? (
+          <View style={[appStyles.card, appStyles.cardAccentBlue]}>
+            <Text style={appStyles.sectionTitle}>
+              {selectedDay.date
+                .toLocaleString("ru-RU", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })
+                .replace(/^./, (char) => char.toUpperCase())}
+            </Text>
+            <Text style={appStyles.metaText}>можно смотреть по дням и в разрезе недели.</Text>
+
+            <View style={appStyles.weekStrip}>
+              {selectedWeek.map((day) => (
+                <Pressable
+                  key={day.key}
+                  style={[
+                    appStyles.weekDayChip,
+                    day.key === selectedDay.key && appStyles.weekDayChipActive,
+                  ]}
+                  onPress={() => setSelectedDayKey(day.key)}
+                >
+                  <Text style={[appStyles.weekDayName, day.key === selectedDay.key && appStyles.weekDayNameActive]}>
+                    {day.date.toLocaleString("ru-RU", { weekday: "short" })}
+                  </Text>
+                  <Text style={[appStyles.weekDayNumber, day.key === selectedDay.key && appStyles.weekDayNumberActive]}>
+                    {day.date.getDate()}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={appStyles.stack}>
+              {selectedDay.items.length > 0 ? (
+                selectedDay.items.map((item) => (
+                  <Pressable key={item.id} style={[appStyles.tile, typeTileStyle(item.type)]} onPress={() => onSelectItem(item.id)}>
+                    <View style={appStyles.tileTopRow}>
+                      <View style={appStyles.typeBadge}>
+                        <Text style={appStyles.typeBadgeText}>{TYPE_LABEL[item.type]}</Text>
+                      </View>
+                      <Text style={appStyles.metaDate}>{formatFullDate(getConsumptionDate(item) as number)}</Text>
+                    </View>
+                    <Text style={appStyles.itemTitle}>{item.title}</Text>
+                    <Text style={appStyles.itemMeta}>{item.authorOrArtist || "без автора"}</Text>
+                  </Pressable>
+                ))
+              ) : (
+                <View style={appStyles.card}>
+                  <Text style={appStyles.helper}>в этот день пока пусто.</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        ) : null}
+      </ScrollView>
     );
   }
 
   return (
     <View style={appStyles.libraryScreen}>
-      {viewMode === "timeline" ? (
-        <FlatList
-          data={timelineGroups}
-          keyExtractor={(item) => item.label}
-          renderItem={renderTimelineGroup}
-          ListHeaderComponent={renderTopCards}
-          ListEmptyComponent={
-            <View style={appStyles.card}>
-              <Text style={appStyles.helper}>пока пусто. попробуй импорт из spotify, импорт изображений или загрузку файла.</Text>
-            </View>
-          }
-          contentContainerStyle={appStyles.libraryListContent}
-          ItemSeparatorComponent={() => <View style={appStyles.libraryListSpacer} />}
-          showsVerticalScrollIndicator={false}
-          initialNumToRender={6}
-          maxToRenderPerBatch={8}
-          windowSize={7}
-        />
+      {viewMode === "calendar" ? (
+        renderCalendarView()
       ) : (
         <FlatList
           data={visibleLibrary}
