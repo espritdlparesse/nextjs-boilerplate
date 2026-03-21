@@ -566,7 +566,7 @@ export function useEveryYouApp() {
       setSpotifyUrl("");
       setTab("library");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "spotify import failed";
+      const message = error instanceof Error ? error.message : "не удалось импортировать из spotify";
       setSpotifyStatus(message);
     }
   }
@@ -688,7 +688,7 @@ export function useEveryYouApp() {
       setSpotifyPlaylists(data.playlists);
       setSpotifyStatus(
         data.playlists.length > 0
-          ? `нашли ${data.playlists.length} spotify playlist(s)`
+          ? `нашли ${data.playlists.length} плейлист(ов) spotify`
           : "плейлисты не нашлись"
       );
     } catch (error) {
@@ -729,7 +729,7 @@ export function useEveryYouApp() {
       }
       setTab("library");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "spotify import failed";
+      const message = error instanceof Error ? error.message : "не удалось импортировать из spotify";
       setSpotifyStatus(message);
     }
   }

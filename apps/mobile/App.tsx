@@ -15,9 +15,9 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { key: "home", label: "home", icon: "◉" },
-  { key: "library", label: "library", icon: "▦" },
-  { key: "analysis", label: "analysis", icon: "✦" },
+  { key: "home", label: "главная", icon: "◉" },
+  { key: "library", label: "библиотека", icon: "▦" },
+  { key: "analysis", label: "вайбчек", icon: "✦" },
 ];
 
 export default function App() {
@@ -33,7 +33,7 @@ export default function App() {
             <Text style={appStyles.subtitle}>привет, {app.displayName.toLowerCase()}</Text>
           ) : null}
           <Text style={appStyles.syncText}>
-            sync: {app.syncStatus === "online" ? "online" : app.syncStatus === "syncing" ? "syncing" : "offline"} ·{" "}
+            синхронизация: {app.syncStatus === "online" ? "онлайн" : app.syncStatus === "syncing" ? "обновляем" : "офлайн"} ·{" "}
             {app.syncMessage}
           </Text>
 

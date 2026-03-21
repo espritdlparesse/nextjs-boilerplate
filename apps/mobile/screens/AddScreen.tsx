@@ -71,7 +71,7 @@ const guides: Record<Exclude<GuideKey, null>, { logo: string; steps: string[]; a
     steps: [
       "нажми подключить spotify и пройди логин в браузере",
       "вернись сюда и нажми обновить spotify",
-      "после этого можно тянуть liked songs, recently played и свои плейлисты",
+      "после этого можно тянуть любимые треки, недавние прослушивания и свои плейлисты",
     ],
     actionLabel: "подключить / обновить spotify",
   },
@@ -97,7 +97,7 @@ const guides: Record<Exclude<GuideKey, null>, { logo: string; steps: string[]; a
     logo: "last.fm",
     steps: [
       "подготовь csv со столбцами трека и исполнителя",
-      "если это экспорт скробблов, мы сами уберем дубли по track + artist",
+      "если это экспорт скробблов, мы сами уберем дубли по треку и исполнителю",
       "потом просто выбери файл в файловом менеджере",
     ],
     actionLabel: "ок, импортировать last.fm",
@@ -363,13 +363,13 @@ export function AddScreen({
             }}
             disabled={spotifyPlaylistLoading}
           />
-          <PillButton label="liked songs" onPress={onSpotifyLikedSongsPress} />
-          <PillButton label="recently played" onPress={onSpotifyRecentlyPlayedPress} />
+          <PillButton label="любимые треки" onPress={onSpotifyLikedSongsPress} />
+          <PillButton label="недавнее" onPress={onSpotifyRecentlyPlayedPress} />
         </View>
 
         <TextInput
           style={appStyles.input}
-          placeholder="spotify track, album или playlist link"
+          placeholder="ссылка на трек, альбом или плейлист"
           value={spotifyUrl}
           onChangeText={onSpotifyUrlChange}
           autoCapitalize="none"

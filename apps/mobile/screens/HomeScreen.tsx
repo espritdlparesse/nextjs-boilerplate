@@ -66,7 +66,7 @@ export function HomeScreen({
       )}
 
       <View style={[appStyles.sectionHero, appStyles.sectionHeroAlt]}>
-        <Text style={appStyles.sectionTitle}>what is this</Text>
+        <Text style={appStyles.sectionTitle}>что это</Text>
         <Text style={appStyles.helper}>
           здесь живут музыка, книги и фильмы, которые ты реально слушала, читала и смотрела. не список на потом, а след того,
           что с тобой происходило.
@@ -93,7 +93,7 @@ export function HomeScreen({
         <View style={[appStyles.tile, appStyles.libraryTile, appStyles.tileBlue]}>
           <Text style={appStyles.metaDate}>фильмы</Text>
           <Text style={appStyles.itemTitle}>все просмотры</Text>
-          <Text style={appStyles.metaText}>letterboxd, кинопоиск, mubi и любые странные списки через screenshot import.</Text>
+          <Text style={appStyles.metaText}>letterboxd, кинопоиск, mubi и любые странные списки через импорт изображений.</Text>
         </View>
 
         <View style={[appStyles.tile, appStyles.libraryTile, appStyles.tileYellow]}>

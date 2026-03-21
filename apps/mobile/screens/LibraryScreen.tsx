@@ -38,7 +38,7 @@ export function LibraryScreen({
   return (
     <View style={appStyles.screen}>
       <View style={[appStyles.card, appStyles.cardAccentPink]}>
-        <Text style={appStyles.sectionTitle}>library</Text>
+        <Text style={appStyles.sectionTitle}>библиотека</Text>
         <Text style={appStyles.helper}>смотри все вместе или раскладывай по типам. в карточках видна дата, чтобы библиотека ощущалась как личная история, а не архив.</Text>
 
         <Text style={appStyles.label}>тип контента</Text>
@@ -74,7 +74,7 @@ export function LibraryScreen({
 
       {visibleLibrary.length === 0 ? (
         <View style={appStyles.card}>
-          <Text style={appStyles.helper}>пока пусто. попробуй spotify import, screenshot import или загрузку файла.</Text>
+          <Text style={appStyles.helper}>пока пусто. попробуй импорт из spotify, импорт изображений или загрузку файла.</Text>
         </View>
       ) : (
         <View style={appStyles.tileGrid}>
