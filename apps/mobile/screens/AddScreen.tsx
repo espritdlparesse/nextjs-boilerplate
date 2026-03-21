@@ -42,6 +42,8 @@ type AddScreenProps = {
   onLivelibImportPress: () => void;
   onLetterboxdImportPress: () => void;
   onLastfmImportPress: () => void;
+  onKinopoiskImportPress: () => void;
+  onMubiImportPress: () => void;
   onTypeChange: (value: ContentType) => void;
   onSourceChange: (value: SourceType) => void;
   onTitleChange: (value: string) => void;
@@ -84,6 +86,8 @@ export function AddScreen({
   onLivelibImportPress,
   onLetterboxdImportPress,
   onLastfmImportPress,
+  onKinopoiskImportPress,
+  onMubiImportPress,
   onTypeChange,
   onSourceChange,
   onTitleChange,
@@ -114,6 +118,8 @@ export function AddScreen({
       <PillButton label="импорт из livelib (csv)" onPress={onLivelibImportPress} />
       <PillButton label="импорт из letterboxd (csv)" onPress={onLetterboxdImportPress} />
       <PillButton label="импорт из last.fm (csv)" onPress={onLastfmImportPress} />
+      <PillButton label="импорт из кинопоиска (csv)" onPress={onKinopoiskImportPress} />
+      <PillButton label="импорт из mubi (csv)" onPress={onMubiImportPress} />
       {fileImportStatus ? <Text style={appStyles.metaText}>{fileImportStatus}</Text> : null}
       <Text style={appStyles.label}>spotify account</Text>
       <PillButton

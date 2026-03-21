@@ -505,7 +505,9 @@ export function useEveryYouApp() {
     }
   }
 
-  async function importPlatformFile(platform: "livelib" | "letterboxd" | "lastfm") {
+  async function importPlatformFile(
+    platform: "livelib" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi"
+  ) {
     try {
       setFileImportStatus("открываем файлы...");
       const result = await DocumentPicker.getDocumentAsync({
@@ -783,6 +785,8 @@ export function useEveryYouApp() {
     importLivelibFile: () => importPlatformFile("livelib"),
     importLetterboxdFile: () => importPlatformFile("letterboxd"),
     importLastfmFile: () => importPlatformFile("lastfm"),
+    importKinopoiskFile: () => importPlatformFile("kinopoisk"),
+    importMubiFile: () => importPlatformFile("mubi"),
     cancelEdit: () => {
       setEditingId(null);
       resetForm();

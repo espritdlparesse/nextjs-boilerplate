@@ -1,6 +1,6 @@
 import { clampText, type ContentType, type LibraryItem } from "../shared/everyyou/domain";
 
-type ImportPlatform = "livelib" | "letterboxd" | "lastfm";
+type ImportPlatform = "livelib" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi";
 
 type DraftItem = Pick<LibraryItem, "type" | "source" | "title" | "authorOrArtist">;
 
@@ -139,8 +139,74 @@ function parseLastfm(text: string) {
   return dedupeDrafts(items);
 }
 
+function parseKinopoisk(text: string) {
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  if (lines.length < 2) throw new Error("файл пустой");
+
+  const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase());
+  const nameCol = findColumn(headers, ["name", "название"]);
+  const originalNameCol = findColumn(headers, ["originalname", "original name", "english title"]);
+  const yearCol = findColumn(headers, ["year", "год"]);
+  const watchedCol = findColumn(headers, ["iswatched", "watched", "просмотрено"]);
+
+  if (nameCol === -1 && originalNameCol === -1) {
+    throw new Error("не распознан формат Kinopoisk export");
+  }
+
+  const items: DraftItem[] = [];
+  for (let i = 1; i < lines.length; i += 1) {
+    const row = parseCsvLine(lines[i]);
+    const watchedValue = watchedCol !== -1 ? (row[watchedCol] ?? "").toLowerCase() : "true";
+    if (watchedCol !== -1 && !["true", "1", "yes", "да"].includes(watchedValue)) continue;
+
+    const baseTitle = row[nameCol] ?? row[originalNameCol] ?? "";
+    const year = yearCol !== -1 ? row[yearCol] ?? "" : "";
+    const title = year ? `${baseTitle} (${year})` : baseTitle;
+    const item = rowToDraft("film", title);
+    if (item) items.push(item);
+  }
+
+  if (items.length === 0) throw new Error("фильмы не найдены в файле Kinopoisk");
+  return dedupeDrafts(items);
+}
+
+function parseMubi(text: string) {
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  if (lines.length < 2) throw new Error("файл пустой");
+
+  const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase());
+  const titleCol = findColumn(headers, ["title", "name", "film", "movie"]);
+  const yearCol = findColumn(headers, ["year"]);
+  const directorCol = findColumn(headers, ["director", "creator"]);
+
+  if (titleCol === -1) {
+    throw new Error("не распознан формат MUBI CSV");
+  }
+
+  const items: DraftItem[] = [];
+  for (let i = 1; i < lines.length; i += 1) {
+    const row = parseCsvLine(lines[i]);
+    const titleBase = row[titleCol] ?? "";
+    const year = yearCol !== -1 ? row[yearCol] ?? "" : "";
+    const director = directorCol !== -1 ? row[directorCol] ?? "" : "";
+    const title = year ? `${titleBase} (${year})` : titleBase;
+    const item = rowToDraft("film", title, director);
+    if (item) {
+      items.push({
+        ...item,
+        authorOrArtist: director ? item.authorOrArtist : "",
+      });
+    }
+  }
+
+  if (items.length === 0) throw new Error("фильмы не найдены в файле MUBI");
+  return dedupeDrafts(items);
+}
+
 export function parseImportedFile(platform: ImportPlatform, text: string) {
   if (platform === "livelib") return parseLivelib(text);
   if (platform === "letterboxd") return parseLetterboxd(text);
-  return parseLastfm(text);
+  if (platform === "lastfm") return parseLastfm(text);
+  if (platform === "kinopoisk") return parseKinopoisk(text);
+  return parseMubi(text);
 }

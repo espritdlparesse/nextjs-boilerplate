@@ -70,6 +70,8 @@ export default function App() {
             onLivelibImportPress={app.importLivelibFile}
             onLetterboxdImportPress={app.importLetterboxdFile}
             onLastfmImportPress={app.importLastfmFile}
+            onKinopoiskImportPress={app.importKinopoiskFile}
+            onMubiImportPress={app.importMubiFile}
             onTypeChange={app.setType}
             onSourceChange={app.setSource}
             onTitleChange={app.setTitle}
