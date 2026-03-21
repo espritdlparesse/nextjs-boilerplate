@@ -8,15 +8,18 @@ import {
   type ContentType,
   type LibraryItem,
   type SourceType,
+  type ThemeMode,
 } from "../shared/everyyou/domain";
 import { PillButton } from "../components/PillButton";
 import { appStyles } from "../styles/appStyles";
+import { getTheme } from "../styles/theme";
 
 type TypeFilter = ContentType | "all";
 type SourceFilter = SourceType | "all";
 type LibraryViewMode = "tiles" | "calendar";
 
 type LibraryScreenProps = {
+  themeMode: ThemeMode;
   typeFilter: TypeFilter;
   sourceFilter: SourceFilter;
   timeQualityFilter: "all" | "exact" | "imported" | "estimated" | "undated";
@@ -79,6 +82,7 @@ function addDays(date: Date, days: number) {
 const CalendarDayCell = memo(function CalendarDayCell({
   day,
   selected,
+  themeMode,
   onPress,
 }: {
   day: {
@@ -88,22 +92,31 @@ const CalendarDayCell = memo(function CalendarDayCell({
     items: LibraryItem[];
   };
   selected: boolean;
+  themeMode: ThemeMode;
   onPress: () => void;
 }) {
+  const theme = getTheme(themeMode);
   return (
     <Pressable
       style={[
         appStyles.calendarDay,
+        themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
         !day.inMonth && appStyles.calendarDayMuted,
-        selected && appStyles.calendarDayActive,
+        selected && [appStyles.calendarDayActive, themeMode === "dark" && { borderColor: theme.text, backgroundColor: "#22303A" }],
       ]}
       onPress={onPress}
     >
       <View style={appStyles.calendarDayHead}>
-        <Text style={[appStyles.calendarDayNumber, !day.inMonth && appStyles.calendarDayNumberMuted]}>
+        <Text
+          style={[
+            appStyles.calendarDayNumber,
+            { color: day.inMonth ? theme.text : theme.quietText },
+            !day.inMonth && appStyles.calendarDayNumberMuted,
+          ]}
+        >
           {day.date.getDate()}
         </Text>
-        {day.items.length > 0 ? <Text style={appStyles.calendarDayCount}>{day.items.length}</Text> : null}
+        {day.items.length > 0 ? <Text style={[appStyles.calendarDayCount, { color: theme.mutedText }]}>{day.items.length}</Text> : null}
       </View>
 
       {day.items.slice(0, 2).map((item) => (
@@ -114,7 +127,7 @@ const CalendarDayCell = memo(function CalendarDayCell({
         </View>
       ))}
 
-      {day.items.length > 2 ? <Text style={appStyles.calendarMore}>+ еще {day.items.length - 2}</Text> : null}
+      {day.items.length > 2 ? <Text style={[appStyles.calendarMore, { color: theme.mutedText }]}>+ еще {day.items.length - 2}</Text> : null}
     </Pressable>
   );
 });
@@ -122,6 +135,7 @@ const CalendarDayCell = memo(function CalendarDayCell({
 const WeekDayPill = memo(function WeekDayPill({
   day,
   active,
+  themeMode,
   onPress,
 }: {
   day: {
@@ -129,17 +143,23 @@ const WeekDayPill = memo(function WeekDayPill({
     date: Date;
   };
   active: boolean;
+  themeMode: ThemeMode;
   onPress: () => void;
 }) {
+  const theme = getTheme(themeMode);
   return (
     <Pressable
-      style={[appStyles.weekDayChip, active && appStyles.weekDayChipActive]}
+      style={[
+        appStyles.weekDayChip,
+        themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+        active && [appStyles.weekDayChipActive, themeMode === "dark" && { backgroundColor: theme.buttonPrimaryBg, borderColor: theme.buttonPrimaryBg }],
+      ]}
       onPress={onPress}
     >
-      <Text style={[appStyles.weekDayName, active && appStyles.weekDayNameActive]}>
+      <Text style={[appStyles.weekDayName, active && appStyles.weekDayNameActive, { color: active ? theme.buttonPrimaryText : theme.mutedText }]}>
         {day.date.toLocaleString("ru-RU", { weekday: "short" })}
       </Text>
-      <Text style={[appStyles.weekDayNumber, active && appStyles.weekDayNumberActive]}>
+      <Text style={[appStyles.weekDayNumber, active && appStyles.weekDayNumberActive, { color: active ? theme.buttonPrimaryText : theme.text }]}>
         {day.date.getDate()}
       </Text>
     </Pressable>
@@ -148,11 +168,14 @@ const WeekDayPill = memo(function WeekDayPill({
 
 const DayDetailCard = memo(function DayDetailCard({
   item,
+  themeMode,
   onPress,
 }: {
   item: LibraryItem;
+  themeMode: ThemeMode;
   onPress: () => void;
 }) {
+  const theme = getTheme(themeMode);
   return (
     <Pressable style={[appStyles.tile, typeTileStyle(item.type)]} onPress={onPress}>
       <View style={appStyles.tileTopRow}>
@@ -164,13 +187,14 @@ const DayDetailCard = memo(function DayDetailCard({
       <Text style={appStyles.itemTitle}>{item.title}</Text>
       <Text style={appStyles.itemMeta}>{item.authorOrArtist || "без автора"}</Text>
       {getTimeOriginLabel(item.timeOrigin) ? (
-        <Text style={appStyles.metaText}>{getTimeOriginLabel(item.timeOrigin)}</Text>
+        <Text style={[appStyles.metaText, { color: theme.mutedText }]}>{getTimeOriginLabel(item.timeOrigin)}</Text>
       ) : null}
     </Pressable>
   );
 });
 
 export function LibraryScreen({
+  themeMode,
   typeFilter,
   sourceFilter,
   timeQualityFilter,
@@ -198,6 +222,7 @@ export function LibraryScreen({
   onEditItem,
   onDeleteItem,
 }: LibraryScreenProps) {
+  const theme = getTheme(themeMode);
   const [viewMode, setViewMode] = useState<LibraryViewMode>("tiles");
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
@@ -272,21 +297,22 @@ export function LibraryScreen({
       <View style={appStyles.libraryListTop}>
         <View style={[appStyles.card, appStyles.cardAccentPink]}>
           <Text style={appStyles.sectionTitle}>библиотека</Text>
-          <Text style={appStyles.helper}>
+          <Text style={[appStyles.helper, { color: theme.text }]}>
             смотри все вместе или раскладывай по типам. в карточках видна дата, чтобы библиотека ощущалась как личная история, а не архив.
           </Text>
 
-          <Text style={appStyles.label}>режим</Text>
+          <Text style={[appStyles.label, { color: themeMode === "dark" ? theme.mutedText : undefined }]}>режим</Text>
           <View style={appStyles.row}>
-            <PillButton label="плитки" active={viewMode === "tiles"} onPress={() => setViewMode("tiles")} />
-            <PillButton label="календарь" active={viewMode === "calendar"} onPress={() => setViewMode("calendar")} />
+            <PillButton themeMode={themeMode} label="плитки" active={viewMode === "tiles"} onPress={() => setViewMode("tiles")} />
+            <PillButton themeMode={themeMode} label="календарь" active={viewMode === "calendar"} onPress={() => setViewMode("calendar")} />
           </View>
 
-          <Text style={appStyles.label}>тип контента</Text>
+          <Text style={[appStyles.label, { color: themeMode === "dark" ? theme.mutedText : undefined }]}>тип контента</Text>
           <View style={appStyles.row}>
             {(["all", "music", "book", "film"] as TypeFilter[]).map((value) => (
               <PillButton
                 key={value}
+                themeMode={themeMode}
                 label={value === "all" ? "все" : TYPE_LABEL[value]}
                 active={typeFilter === value}
                 onPress={() => onTypeFilterChange(value)}
@@ -294,7 +320,7 @@ export function LibraryScreen({
             ))}
           </View>
 
-          <Text style={appStyles.label}>дата</Text>
+          <Text style={[appStyles.label, { color: themeMode === "dark" ? theme.mutedText : undefined }]}>дата</Text>
           <View style={appStyles.row}>
             {(
               [
@@ -307,6 +333,7 @@ export function LibraryScreen({
             ).map(([value, label]) => (
               <PillButton
                 key={value}
+                themeMode={themeMode}
                 label={label}
                 active={timeQualityFilter === value}
                 onPress={() => onTimeQualityFilterChange(value)}
@@ -316,22 +343,23 @@ export function LibraryScreen({
         </View>
 
         {timelinePromptVisible && undatedVisibleLibrary.length > 0 ? (
-          <View style={[appStyles.card, appStyles.cardAccentGreen]}>
+          <View style={[appStyles.card, themeMode === "dark" ? { backgroundColor: theme.accentGreen, borderColor: theme.border } : appStyles.cardAccentGreen]}>
             <Text style={appStyles.sectionTitle}>когда это было?</Text>
-            <Text style={appStyles.helper}>
+            <Text style={[appStyles.helper, { color: theme.text }]}>
               мы добавили {undatedVisibleLibrary.length} импортированн{undatedVisibleLibrary.length === 1 ? "ую карточку" : "ых карточек"} без времени. выбери, как это примерно разложить по твоей линии времени.
             </Text>
             <View style={appStyles.row}>
               <PillButton
                 label={timelineSpreading ? "раскладываем..." : "это было недавно"}
+                themeMode={themeMode}
                 onPress={onSpreadThisMonth}
                 disabled={timelineSpreading}
               />
-              <PillButton label="это было в прошлом месяце" onPress={onSpreadLastMonth} disabled={timelineSpreading} />
-              <PillButton label="это было за последние полгода" onPress={onSpreadLast6Months} disabled={timelineSpreading} />
-              <PillButton label="это было в этом году" onPress={onSpreadThisYear} disabled={timelineSpreading} />
-              <PillButton label="это было очень давно" onPress={onSpreadVeryOld} disabled={timelineSpreading} />
-              <PillButton label="разложу потом" onPress={onDismissTimelinePrompt} disabled={timelineSpreading} />
+              <PillButton themeMode={themeMode} label="это было в прошлом месяце" onPress={onSpreadLastMonth} disabled={timelineSpreading} />
+              <PillButton themeMode={themeMode} label="это было за последние полгода" onPress={onSpreadLast6Months} disabled={timelineSpreading} />
+              <PillButton themeMode={themeMode} label="это было в этом году" onPress={onSpreadThisYear} disabled={timelineSpreading} />
+              <PillButton themeMode={themeMode} label="это было очень давно" onPress={onSpreadVeryOld} disabled={timelineSpreading} />
+              <PillButton themeMode={themeMode} label="разложу потом" onPress={onDismissTimelinePrompt} disabled={timelineSpreading} />
             </View>
           </View>
         ) : null}
@@ -355,18 +383,18 @@ export function LibraryScreen({
             ) : null}
             {!getConsumptionDate(selectedItem) ? (
               <View style={appStyles.stack}>
-                <Text style={appStyles.metaText}>когда это было примерно?</Text>
+                <Text style={[appStyles.metaText, { color: theme.mutedText }]}>когда это было примерно?</Text>
                 <View style={appStyles.row}>
-                  <PillButton label="недавно" onPress={onAssignSelectedThisMonth} disabled={timelineSpreading} />
-                  <PillButton label="прошлый месяц" onPress={onAssignSelectedLastMonth} disabled={timelineSpreading} />
-                  <PillButton label="полгода" onPress={onAssignSelectedLast6Months} disabled={timelineSpreading} />
-                  <PillButton label="этот год" onPress={onAssignSelectedThisYear} disabled={timelineSpreading} />
-                  <PillButton label="очень давно" onPress={onAssignSelectedVeryOld} disabled={timelineSpreading} />
+                  <PillButton themeMode={themeMode} label="недавно" onPress={onAssignSelectedThisMonth} disabled={timelineSpreading} />
+                  <PillButton themeMode={themeMode} label="прошлый месяц" onPress={onAssignSelectedLastMonth} disabled={timelineSpreading} />
+                  <PillButton themeMode={themeMode} label="полгода" onPress={onAssignSelectedLast6Months} disabled={timelineSpreading} />
+                  <PillButton themeMode={themeMode} label="этот год" onPress={onAssignSelectedThisYear} disabled={timelineSpreading} />
+                  <PillButton themeMode={themeMode} label="очень давно" onPress={onAssignSelectedVeryOld} disabled={timelineSpreading} />
                 </View>
               </View>
             ) : null}
-            <PillButton label="редактировать" onPress={() => onEditItem(selectedItem.id)} />
-            <PillButton label="удалить" variant="danger" onPress={() => onDeleteItem(selectedItem.id)} />
+            <PillButton themeMode={themeMode} label="редактировать" onPress={() => onEditItem(selectedItem.id)} />
+            <PillButton themeMode={themeMode} label="удалить" variant="danger" onPress={() => onDeleteItem(selectedItem.id)} />
           </View>
         ) : null}
       </View>
@@ -398,9 +426,9 @@ export function LibraryScreen({
 
         {!getConsumptionDate(item) ? (
           <View style={appStyles.row}>
-            <PillButton label="недавно" onPress={() => onAssignItemTime(item.id, "this_month")} disabled={timelineSpreading} />
-            <PillButton label="месяц" onPress={() => onAssignItemTime(item.id, "last_month")} disabled={timelineSpreading} />
-            <PillButton label="полгода" onPress={() => onAssignItemTime(item.id, "last_6_months")} disabled={timelineSpreading} />
+            <PillButton themeMode={themeMode} label="недавно" onPress={() => onAssignItemTime(item.id, "this_month")} disabled={timelineSpreading} />
+            <PillButton themeMode={themeMode} label="месяц" onPress={() => onAssignItemTime(item.id, "last_month")} disabled={timelineSpreading} />
+            <PillButton themeMode={themeMode} label="полгода" onPress={() => onAssignItemTime(item.id, "last_6_months")} disabled={timelineSpreading} />
           </View>
         ) : null}
       </Pressable>
@@ -412,25 +440,25 @@ export function LibraryScreen({
       <ScrollView style={appStyles.scroll} contentContainerStyle={appStyles.libraryListContent} showsVerticalScrollIndicator={false}>
         {renderTopCards()}
 
-        <View style={[appStyles.card, appStyles.calendarCard]}>
+        <View style={[appStyles.card, appStyles.calendarCard, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={appStyles.calendarTopRow}>
-            <Pressable style={appStyles.calendarArrow} onPress={() => setCalendarMonth((current) => startOfMonth(new Date(current.getFullYear(), current.getMonth() - 1, 1)))}>
-              <Text style={appStyles.calendarArrowText}>‹</Text>
+            <Pressable style={[appStyles.calendarArrow, themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} onPress={() => setCalendarMonth((current) => startOfMonth(new Date(current.getFullYear(), current.getMonth() - 1, 1)))}>
+              <Text style={[appStyles.calendarArrowText, { color: theme.text }]}>‹</Text>
             </Pressable>
-            <Text style={appStyles.calendarTitle}>
+            <Text style={[appStyles.calendarTitle, { color: theme.text }]}>
               {calendarMonth
                 .toLocaleString("ru-RU", { month: "long", year: "numeric" })
                 .replace(/\sг\.$/, "")
                 .replace(/^./, (char) => char.toUpperCase())}
             </Text>
-            <Pressable style={appStyles.calendarArrow} onPress={() => setCalendarMonth((current) => startOfMonth(new Date(current.getFullYear(), current.getMonth() + 1, 1)))}>
-              <Text style={appStyles.calendarArrowText}>›</Text>
+            <Pressable style={[appStyles.calendarArrow, themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} onPress={() => setCalendarMonth((current) => startOfMonth(new Date(current.getFullYear(), current.getMonth() + 1, 1)))}>
+              <Text style={[appStyles.calendarArrowText, { color: theme.text }]}>›</Text>
             </Pressable>
           </View>
 
           <View style={appStyles.calendarWeekdays}>
             {["пн", "вт", "ср", "чт", "пт", "сб", "вс"].map((label) => (
-              <Text key={label} style={appStyles.calendarWeekday}>
+              <Text key={label} style={[appStyles.calendarWeekday, { color: theme.mutedText }]}>
                 {label}
               </Text>
             ))}
@@ -442,6 +470,7 @@ export function LibraryScreen({
                 key={day.key}
                 day={day}
                 selected={day.key === selectedDay?.key}
+                themeMode={themeMode}
                 onPress={() => openDay(day.key)}
               />
             ))}
@@ -465,7 +494,7 @@ export function LibraryScreen({
           ListHeaderComponent={renderTopCards}
           ListEmptyComponent={
             <View style={appStyles.card}>
-              <Text style={appStyles.helper}>пока пусто. попробуй импорт из spotify, импорт изображений или загрузку файла.</Text>
+              <Text style={[appStyles.helper, { color: theme.text }]}>пока пусто. попробуй импорт из spotify, импорт изображений или загрузку файла.</Text>
             </View>
           }
           contentContainerStyle={appStyles.libraryListContent}
@@ -479,8 +508,8 @@ export function LibraryScreen({
       )}
 
       <Modal visible={dayModalVisible && Boolean(selectedDay)} transparent animationType="fade" onRequestClose={() => setDayModalVisible(false)}>
-        <View style={appStyles.dayModalBackdrop}>
-          <View style={appStyles.dayModalSheet}>
+        <View style={[appStyles.dayModalBackdrop, { backgroundColor: theme.overlay }]}>
+          <View style={[appStyles.dayModalSheet, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             {selectedDay ? (
               <>
                 <View style={appStyles.dayModalTopRow}>
@@ -495,8 +524,8 @@ export function LibraryScreen({
                         .replace(/^./, (char) => char.toUpperCase())}
                     </Text>
                   </View>
-                  <Pressable style={appStyles.dayModalClose} onPress={() => setDayModalVisible(false)}>
-                    <Text style={appStyles.dayModalCloseText}>закрыть</Text>
+                  <Pressable style={[appStyles.dayModalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} onPress={() => setDayModalVisible(false)}>
+                    <Text style={[appStyles.dayModalCloseText, { color: theme.text }]}>закрыть</Text>
                   </Pressable>
                 </View>
 
@@ -506,6 +535,7 @@ export function LibraryScreen({
                       key={day.key}
                       day={day}
                       active={day.key === selectedDay.key}
+                      themeMode={themeMode}
                       onPress={() => setSelectedDayKey(day.key)}
                     />
                   ))}
@@ -514,11 +544,11 @@ export function LibraryScreen({
                 <ScrollView style={appStyles.dayModalScroll} contentContainerStyle={appStyles.dayModalContent} showsVerticalScrollIndicator={false}>
                   {selectedDay.items.length > 0 ? (
                     selectedDay.items.map((item) => (
-                      <DayDetailCard key={item.id} item={item} onPress={() => onSelectItem(item.id)} />
+                      <DayDetailCard key={item.id} item={item} themeMode={themeMode} onPress={() => onSelectItem(item.id)} />
                     ))
                   ) : (
                     <View style={appStyles.card}>
-                      <Text style={appStyles.helper}>в этот день пока пусто.</Text>
+                      <Text style={[appStyles.helper, { color: theme.text }]}>в этот день пока пусто.</Text>
                     </View>
                   )}
                 </ScrollView>

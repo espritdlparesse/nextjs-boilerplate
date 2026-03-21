@@ -18,6 +18,7 @@ import {
   type ContentType,
   type LibraryItem,
   type SourceType,
+  type ThemeMode,
   type TimeOrigin,
   type Tab,
   type TgUser,
@@ -34,12 +35,14 @@ import {
   fetchSpotifyPlaylists,
   getStoredAvatarUri,
   getStoredGuestName,
+  getStoredThemeMode,
   getSpotifyOAuthUrl,
   importFromSpotifyUser,
   importFromSpotifyUrl,
   runVibeCheck,
   setStoredAvatarUri,
   setStoredGuestName,
+  setStoredThemeMode,
   updateItem,
 } from "../lib/api";
 import { parseImportedFile } from "../lib/fileImports";
@@ -168,6 +171,7 @@ export function useEveryYouApp() {
   const [syncMessage, setSyncMessage] = useState("локальная библиотека");
   const [nameDraft, setNameDraft] = useState("");
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [themeMode, setThemeMode] = useState<ThemeMode>("light");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [timelineSpreading, setTimelineSpreading] = useState(false);
   const [timelinePromptVisible, setTimelinePromptVisible] = useState(false);
@@ -196,6 +200,7 @@ export function useEveryYouApp() {
       let nextSyncMessage = "локальная библиотека";
       const storedGuestName = await getStoredGuestName("ios friend");
       const storedAvatarUri = await getStoredAvatarUri();
+      const storedThemeMode = await getStoredThemeMode();
 
       try {
         if (mounted) {
@@ -229,6 +234,7 @@ export function useEveryYouApp() {
       setUser(nextUser);
       setNameDraft(hasValidCustomName(nextUser) ? getDisplayName(nextUser) : "");
       setAvatarUri(storedAvatarUri);
+      setThemeMode(storedThemeMode);
       setApiToken(nextToken);
       setSyncStatus(nextSyncStatus);
       setSyncMessage(nextSyncMessage);
@@ -1169,6 +1175,12 @@ export function useEveryYouApp() {
     setToastMessage("аватар убрали");
   }
 
+  async function updateThemeMode(nextMode: ThemeMode) {
+    await setStoredThemeMode(nextMode);
+    setThemeMode(nextMode);
+    setToastMessage(nextMode === "dark" ? "включили темную тему" : "вернули светлую тему");
+  }
+
   return {
     tab,
     setTab,
@@ -1176,6 +1188,7 @@ export function useEveryYouApp() {
     hasCustomName,
     nameDraft,
     avatarUri,
+    themeMode,
     namePlaceholder,
     syncStatus,
     syncMessage,
@@ -1222,6 +1235,7 @@ export function useEveryYouApp() {
     saveProfileName,
     pickAvatar,
     clearAvatar,
+    setThemeMode: updateThemeMode,
     setType,
     setSource,
     setTitle,

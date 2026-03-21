@@ -18,6 +18,7 @@ import { HomeScreen } from "./screens/HomeScreen";
 import { LibraryScreen } from "./screens/LibraryScreen";
 import { ProfileScreen } from "./screens/ProfileScreen";
 import { appStyles } from "./styles/appStyles";
+import { getTheme } from "./styles/theme";
 
 type NavItem = {
   key: Exclude<Tab, "add">;
@@ -34,6 +35,7 @@ const navItems: NavItem[] = [
 
 export default function App() {
   const app = useEveryYouApp();
+  const theme = getTheme(app.themeMode);
   const toastOpacity = useSharedValue(0);
   const toastTranslateY = useSharedValue(18);
   const toastScale = useSharedValue(0.96);
@@ -66,11 +68,11 @@ export default function App() {
 
   const headerBlock = (
     <>
-      <Text style={appStyles.brand}>everyyou</Text>
+      <Text style={[appStyles.brand, { color: theme.text }]}>everyyou</Text>
       {app.hasCustomName ? (
-        <Text style={appStyles.subtitle}>привет, {app.displayName.toLowerCase()}</Text>
+        <Text style={[appStyles.subtitle, { color: theme.text }]}>привет, {app.displayName.toLowerCase()}</Text>
       ) : null}
-      <Text style={appStyles.syncText}>
+      <Text style={[appStyles.syncText, { color: theme.mutedText }]}>
         синхронизация: {app.syncStatus === "online" ? "онлайн" : app.syncStatus === "syncing" ? "обновляем" : "офлайн"} ·{" "}
         {app.syncMessage}
       </Text>
@@ -78,14 +80,15 @@ export default function App() {
   );
 
   return (
-    <GestureHandlerRootView style={appStyles.safeArea}>
-      <SafeAreaView style={appStyles.safeArea}>
-        <StatusBar style="dark" />
-        <View style={appStyles.shell}>
+    <GestureHandlerRootView style={[appStyles.safeArea, { backgroundColor: theme.background }]}>
+      <SafeAreaView style={[appStyles.safeArea, { backgroundColor: theme.background }]}>
+        <StatusBar style={app.themeMode === "dark" ? "light" : "dark"} />
+        <View style={[appStyles.shell, { backgroundColor: theme.background }]}>
           {app.tab === "library" ? (
-            <View style={appStyles.libraryShell}>
+            <View style={[appStyles.libraryShell, { backgroundColor: theme.background }]}>
               <View style={appStyles.libraryHeader}>{headerBlock}</View>
               <LibraryScreen
+                themeMode={app.themeMode}
                 typeFilter={app.typeFilter}
                 sourceFilter={app.sourceFilter}
                 timeQualityFilter={app.timeQualityFilter}
@@ -118,11 +121,15 @@ export default function App() {
               />
             </View>
           ) : (
-            <ScrollView style={appStyles.scroll} contentContainerStyle={appStyles.container}>
+            <ScrollView
+              style={[appStyles.scroll, { backgroundColor: theme.background }]}
+              contentContainerStyle={[appStyles.container, { backgroundColor: theme.background }]}
+            >
               {headerBlock}
 
               {app.tab === "home" && (
                 <HomeScreen
+                  themeMode={app.themeMode}
                   hasCustomName={app.hasCustomName}
                   nameDraft={app.nameDraft}
                   namePlaceholder={app.namePlaceholder}
@@ -139,6 +146,7 @@ export default function App() {
 
               {app.tab === "add" && (
                 <AddScreen
+                  themeMode={app.themeMode}
                   editingId={app.editingId}
                   isScreenshotImporting={app.isScreenshotImporting}
                   importedCount={app.importedCount}
@@ -198,6 +206,7 @@ export default function App() {
 
               {app.tab === "analysis" && (
                 <AnalysisScreen
+                  themeMode={app.themeMode}
                   counters={app.counters}
                   analysisRunning={app.analysisRunning}
                   analysisResult={app.analysisResult}
@@ -209,6 +218,7 @@ export default function App() {
 
               {app.tab === "profile" && (
                 <ProfileScreen
+                  themeMode={app.themeMode}
                   displayName={app.displayName}
                   nameDraft={app.nameDraft}
                   avatarUri={app.avatarUri}
@@ -224,6 +234,7 @@ export default function App() {
                   onSaveNamePress={app.saveProfileName}
                   onPickAvatarPress={app.pickAvatar}
                   onClearAvatarPress={app.clearAvatar}
+                  onThemeChange={app.setThemeMode}
                 />
               )}
             </ScrollView>
@@ -231,20 +242,25 @@ export default function App() {
 
           <View style={appStyles.bottomBarWrap}>
             {app.toastMessage ? (
-              <Animated.View style={[appStyles.toast, toastAnimatedStyle]}>
-                <Text style={appStyles.toastText}>{app.toastMessage}</Text>
+              <Animated.View style={[appStyles.toast, toastAnimatedStyle, { backgroundColor: theme.toastBg }]}>
+                <Text style={[appStyles.toastText, { color: theme.toastText }]}>{app.toastMessage}</Text>
               </Animated.View>
             ) : null}
 
-            <View style={appStyles.bottomBar}>
+            <View style={[appStyles.bottomBar, { backgroundColor: theme.bottomBarBg, borderColor: theme.bottomBarBorder }]}>
               {navItems.slice(0, 2).map((item) => {
                 const active = app.tab === item.key;
                 return (
                   <Pressable key={item.key} style={appStyles.bottomItem} onPress={() => app.setTab(item.key)}>
-                    <View style={[appStyles.bottomIcon, active && appStyles.bottomIconActive]}>
-                      <Text style={appStyles.secondaryText}>{item.icon}</Text>
+                    <View
+                      style={[
+                        appStyles.bottomIcon,
+                        { backgroundColor: active ? theme.bottomIconActiveBg : theme.bottomIconBg },
+                      ]}
+                    >
+                      <Text style={[appStyles.secondaryText, { color: theme.bottomIconText }]}>{item.icon}</Text>
                     </View>
-                    <Text style={[appStyles.bottomItemLabel, active && appStyles.bottomItemLabelActive]}>
+                    <Text style={[appStyles.bottomItemLabel, { color: active ? theme.bottomLabelActive : theme.bottomLabel }]}>
                       {item.label}
                     </Text>
                   </Pressable>
@@ -252,7 +268,7 @@ export default function App() {
               })}
 
               <View style={appStyles.bottomPlusWrap}>
-                <Pressable style={appStyles.bottomPlus} onPress={() => app.setTab("add")}>
+                <Pressable style={[appStyles.bottomPlus, { borderColor: theme.bottomPlusBorder }]} onPress={() => app.setTab("add")}>
                   <Text style={appStyles.bottomPlusText}>+</Text>
                 </Pressable>
               </View>
@@ -261,10 +277,15 @@ export default function App() {
                 const active = app.tab === item.key;
                 return (
                   <Pressable key={item.key} style={appStyles.bottomItem} onPress={() => app.setTab(item.key)}>
-                    <View style={[appStyles.bottomIcon, active && appStyles.bottomIconActive]}>
-                      <Text style={appStyles.secondaryText}>{item.icon}</Text>
+                    <View
+                      style={[
+                        appStyles.bottomIcon,
+                        { backgroundColor: active ? theme.bottomIconActiveBg : theme.bottomIconBg },
+                      ]}
+                    >
+                      <Text style={[appStyles.secondaryText, { color: theme.bottomIconText }]}>{item.icon}</Text>
                     </View>
-                    <Text style={[appStyles.bottomItemLabel, active && appStyles.bottomItemLabelActive]}>
+                    <Text style={[appStyles.bottomItemLabel, { color: active ? theme.bottomLabelActive : theme.bottomLabel }]}>
                       {item.label}
                     </Text>
                   </Pressable>

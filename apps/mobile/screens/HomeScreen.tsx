@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { type ContentType } from "../shared/everyyou/domain";
+import { type ContentType, type ThemeMode } from "../shared/everyyou/domain";
 import { PillButton } from "../components/PillButton";
 import { appStyles } from "../styles/appStyles";
+import { getTheme } from "../styles/theme";
 
 type HomeScreenProps = {
+  themeMode: ThemeMode;
   hasCustomName: boolean;
   nameDraft: string;
   namePlaceholder: string;
@@ -16,6 +18,7 @@ type HomeScreenProps = {
 };
 
 export function HomeScreen({
+  themeMode,
   hasCustomName,
   nameDraft,
   namePlaceholder,
@@ -25,6 +28,7 @@ export function HomeScreen({
   onNameDraftChange,
   onSaveNamePress,
 }: HomeScreenProps) {
+  const theme = getTheme(themeMode);
   const [editingName, setEditingName] = useState(!hasCustomName);
 
   useEffect(() => {
@@ -38,11 +42,19 @@ export function HomeScreen({
   return (
     <View style={appStyles.screen}>
       {!hasCustomName || editingName ? (
-        <View style={[appStyles.card, appStyles.cardAccentYellow]}>
-          <Text style={appStyles.label}>как тебя зовут?</Text>
+        <View style={[appStyles.card, themeMode === "dark" ? { backgroundColor: theme.accentYellow, borderColor: theme.border } : appStyles.cardAccentYellow]}>
+          <Text style={[appStyles.label, { color: themeMode === "dark" ? theme.mutedText : undefined }]}>как тебя зовут?</Text>
           <TextInput
-            style={appStyles.input}
+            style={[
+              appStyles.input,
+              {
+                backgroundColor: theme.inputBg,
+                borderColor: theme.inputBorder,
+                color: theme.inputText,
+              },
+            ]}
             placeholder={namePlaceholder}
+            placeholderTextColor={theme.inputPlaceholder}
             value={nameDraft}
             onChangeText={onNameDraftChange}
             autoCapitalize="words"
@@ -51,6 +63,7 @@ export function HomeScreen({
           <PillButton
             label={hasCustomName ? "обновить имя" : "сохранить имя"}
             variant="primary"
+            themeMode={themeMode}
             disabled={!nameDraft.trim()}
             onPress={() => {
               onSaveNamePress();
@@ -60,7 +73,13 @@ export function HomeScreen({
         </View>
       ) : null}
 
-      <View style={[appStyles.sectionHero, appStyles.sectionHeroAlt]}>
+      <View
+        style={[
+          appStyles.sectionHero,
+          appStyles.sectionHeroAlt,
+          themeMode === "dark" && { backgroundColor: theme.accentBlue, borderColor: theme.border },
+        ]}
+      >
         <Text style={appStyles.sectionTitle}>что это</Text>
         <Text style={appStyles.helper}>
           здесь живут музыка, книги и фильмы, которые ты реально слушала, читала и смотрела. не список на потом, а след того,
@@ -69,7 +88,7 @@ export function HomeScreen({
         <Text style={appStyles.metaText}>
           потом из этого получается библиотека, таймлайн вкуса и нормальный вайбчек, а не просто склад названий.
         </Text>
-        <PillButton label="добавить контент" variant="primary" onPress={onAddPress} />
+        <PillButton label="добавить контент" variant="primary" themeMode={themeMode} onPress={onAddPress} />
       </View>
 
       <View style={appStyles.tileGrid}>

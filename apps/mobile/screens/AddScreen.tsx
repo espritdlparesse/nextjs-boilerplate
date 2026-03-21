@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { PLACEHOLDERS, TYPE_LABEL, type ContentType, type SourceType } from "../shared/everyyou/domain";
+import { PLACEHOLDERS, TYPE_LABEL, type ContentType, type SourceType, type ThemeMode } from "../shared/everyyou/domain";
 import { BrandLogo } from "../components/BrandLogo";
 import { PillButton } from "../components/PillButton";
 import { appStyles } from "../styles/appStyles";
+import { getTheme } from "../styles/theme";
 
 type SpotifyPlaylist = {
   id: string;
@@ -14,6 +15,7 @@ type SpotifyPlaylist = {
 type GuideKey = "spotify" | "livelib" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi" | null;
 
 type AddScreenProps = {
+  themeMode: ThemeMode;
   editingId: string | null;
   isScreenshotImporting: boolean;
   importedCount: number;
@@ -155,15 +157,21 @@ function BrandImportButton({
   brand,
   hint,
   onPress,
+  themeMode,
 }: {
   brand: Exclude<GuideKey, null>;
   hint: string;
   onPress: () => void;
+  themeMode: ThemeMode;
 }) {
+  const theme = getTheme(themeMode);
   return (
-    <Pressable style={appStyles.brandButton} onPress={onPress}>
+    <Pressable
+      style={[appStyles.brandButton, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}
+      onPress={onPress}
+    >
       <BrandLogo brand={brand} />
-      <Text style={appStyles.brandHint}>{hint}</Text>
+      <Text style={[appStyles.brandHint, { color: theme.mutedText }]}>{hint}</Text>
     </Pressable>
   );
 }
@@ -187,6 +195,7 @@ function DateInsightBlock({ insight }: { insight: { title: string; body: string;
 }
 
 export function AddScreen({
+  themeMode,
   editingId,
   isScreenshotImporting,
   importedCount,
@@ -242,6 +251,7 @@ export function AddScreen({
   onCancelPress,
   onDone,
 }: AddScreenProps) {
+  const theme = getTheme(themeMode);
   const [guide, setGuide] = useState<GuideKey>(null);
   const [showSpotifyPlaylists, setShowSpotifyPlaylists] = useState(false);
   const activeType = (type || "music") as ContentType;
@@ -265,7 +275,7 @@ export function AddScreen({
 
   return (
     <View style={appStyles.screen}>
-      <View style={[appStyles.card, appStyles.cardAccentPink]}>
+      <View style={[appStyles.card, themeMode === "dark" ? { backgroundColor: theme.accentPink, borderColor: theme.border } : appStyles.cardAccentPink]}>
         <Text style={appStyles.sectionTitle}>{editingId ? "редактировать" : "добавить"}</Text>
         <Text style={appStyles.helper}>
           {pendingImageItems.length > 0
@@ -276,6 +286,7 @@ export function AddScreen({
         <PillButton
           label={isScreenshotImporting ? "анализируем изображения..." : "загрузить изображения"}
           onPress={onScreenshotImportPress}
+          themeMode={themeMode}
           disabled={isScreenshotImporting}
         />
 
@@ -309,7 +320,7 @@ export function AddScreen({
               ))}
             </View>
             {selectedPendingImageItem ? (
-              <View style={[appStyles.instructionCard, appStyles.compactEditorCard]}>
+              <View style={[appStyles.instructionCard, appStyles.compactEditorCard, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>
                 <Text style={appStyles.editorTitle}>поправить карточку</Text>
                 <View style={appStyles.row}>
                   {(["music", "book", "film"] as ContentType[]).map((value) => (
@@ -317,6 +328,7 @@ export function AddScreen({
                       key={value}
                       label={TYPE_LABEL[value]}
                       active={selectedPendingImageItem.type === value}
+                      themeMode={themeMode}
                       onPress={() =>
                         onUpdatePendingImageItem(selectedPendingImageItem.id, { type: value })
                       }
@@ -324,8 +336,9 @@ export function AddScreen({
                   ))}
                 </View>
                 <TextInput
-                  style={[appStyles.input, appStyles.compactInput]}
+                  style={[appStyles.input, appStyles.compactInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
                   placeholder="название"
+                  placeholderTextColor={theme.inputPlaceholder}
                   value={selectedPendingImageItem.title}
                   onChangeText={(value) =>
                     onUpdatePendingImageItem(selectedPendingImageItem.id, { title: value })
@@ -334,8 +347,9 @@ export function AddScreen({
                   autoCorrect={false}
                 />
                 <TextInput
-                  style={[appStyles.input, appStyles.compactInput]}
+                  style={[appStyles.input, appStyles.compactInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
                   placeholder="автор, артист или режиссер"
+                  placeholderTextColor={theme.inputPlaceholder}
                   value={selectedPendingImageItem.authorOrArtist}
                   onChangeText={(value) =>
                     onUpdatePendingImageItem(selectedPendingImageItem.id, { authorOrArtist: value })
@@ -343,13 +357,13 @@ export function AddScreen({
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
-                <Text style={appStyles.metaText}>когда это было примерно?</Text>
+                <Text style={[appStyles.metaText, { color: theme.mutedText }]}>когда это было примерно?</Text>
                 <View style={appStyles.row}>
-                  <PillButton label="недавно" onPress={() => onAssignPendingImageItemThisMonth(selectedPendingImageItem.id)} />
-                  <PillButton label="прошлый месяц" onPress={() => onAssignPendingImageItemLastMonth(selectedPendingImageItem.id)} />
-                  <PillButton label="полгода" onPress={() => onAssignPendingImageItemLast6Months(selectedPendingImageItem.id)} />
-                  <PillButton label="этот год" onPress={() => onAssignPendingImageItemThisYear(selectedPendingImageItem.id)} />
-                  <PillButton label="очень давно" onPress={() => onAssignPendingImageItemVeryOld(selectedPendingImageItem.id)} />
+                  <PillButton themeMode={themeMode} label="недавно" onPress={() => onAssignPendingImageItemThisMonth(selectedPendingImageItem.id)} />
+                  <PillButton themeMode={themeMode} label="прошлый месяц" onPress={() => onAssignPendingImageItemLastMonth(selectedPendingImageItem.id)} />
+                  <PillButton themeMode={themeMode} label="полгода" onPress={() => onAssignPendingImageItemLast6Months(selectedPendingImageItem.id)} />
+                  <PillButton themeMode={themeMode} label="этот год" onPress={() => onAssignPendingImageItemThisYear(selectedPendingImageItem.id)} />
+                  <PillButton themeMode={themeMode} label="очень давно" onPress={() => onAssignPendingImageItemVeryOld(selectedPendingImageItem.id)} />
                 </View>
               </View>
             ) : null}
@@ -357,11 +371,13 @@ export function AddScreen({
               <PillButton
                 label={confirmingPendingImageImport ? "сохраняем..." : `сохранить ${pendingImageItems.length}`}
                 variant="primary"
+                themeMode={themeMode}
                 disabled={confirmingPendingImageImport}
                 onPress={onConfirmPendingImageImport}
               />
               <PillButton
                 label="отмена"
+                themeMode={themeMode}
                 disabled={confirmingPendingImageImport}
                 onPress={onCancelPendingImageImport}
               />
@@ -370,27 +386,28 @@ export function AddScreen({
         ) : null}
       </View>
 
-      <View style={appStyles.card}>
-        <Text style={appStyles.label}>импорт из площадок</Text>
+      <View style={[appStyles.card, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <Text style={[appStyles.label, { color: theme.mutedText }]}>импорт из площадок</Text>
         <View style={appStyles.row}>
-          <BrandImportButton brand="spotify" hint="музыка сама" onPress={() => setGuide("spotify")} />
-          <BrandImportButton brand="livelib" hint="книги csv" onPress={() => setGuide("livelib")} />
-          <BrandImportButton brand="letterboxd" hint="фильмы csv" onPress={() => setGuide("letterboxd")} />
-          <BrandImportButton brand="lastfm" hint="история треков" onPress={() => setGuide("lastfm")} />
-          <BrandImportButton brand="kinopoisk" hint="просмотры csv" onPress={() => setGuide("kinopoisk")} />
-          <BrandImportButton brand="mubi" hint="фильмы csv" onPress={() => setGuide("mubi")} />
+          <BrandImportButton brand="spotify" hint="музыка сама" themeMode={themeMode} onPress={() => setGuide("spotify")} />
+          <BrandImportButton brand="livelib" hint="книги csv" themeMode={themeMode} onPress={() => setGuide("livelib")} />
+          <BrandImportButton brand="letterboxd" hint="фильмы csv" themeMode={themeMode} onPress={() => setGuide("letterboxd")} />
+          <BrandImportButton brand="lastfm" hint="история треков" themeMode={themeMode} onPress={() => setGuide("lastfm")} />
+          <BrandImportButton brand="kinopoisk" hint="просмотры csv" themeMode={themeMode} onPress={() => setGuide("kinopoisk")} />
+          <BrandImportButton brand="mubi" hint="фильмы csv" themeMode={themeMode} onPress={() => setGuide("mubi")} />
         </View>
 
         {guide ? (
-          <View style={appStyles.instructionCard}>
+          <View style={[appStyles.instructionCard, themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
             <Text style={appStyles.itemTitle}>{guides[guide].logo}</Text>
             {guides[guide].steps.map((step) => (
-              <Text key={step} style={appStyles.metaText}>
+              <Text key={step} style={[appStyles.metaText, { color: theme.mutedText }]}>
                 • {step}
               </Text>
             ))}
             <PillButton
               label={guides[guide].actionLabel}
+              themeMode={themeMode}
               onPress={runGuideAction}
               disabled={guide === "spotify" && spotifyOAuthLoading}
             />
@@ -408,7 +425,7 @@ export function AddScreen({
         {spotifyDateInsight ? <DateInsightBlock insight={spotifyDateInsight} /> : null}
       </View>
 
-      <View style={[appStyles.card, appStyles.cardAccentBlue]}>
+      <View style={[appStyles.card, themeMode === "dark" ? { backgroundColor: theme.accentBlue, borderColor: theme.border } : appStyles.cardAccentBlue]}>
         <Text style={appStyles.label}>добавить вручную</Text>
         <View style={appStyles.row}>
           {(["music", "book", "film"] as ContentType[]).map((value) => (
@@ -416,6 +433,7 @@ export function AddScreen({
               key={value}
               label={TYPE_LABEL[value]}
               active={type === value}
+              themeMode={themeMode}
               onPress={() => {
                 onTypeChange(value);
                 if (!editingId) {
@@ -427,8 +445,9 @@ export function AddScreen({
         </View>
 
         <TextInput
-          style={appStyles.input}
+          style={[appStyles.input, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
           placeholder={`например: ${currentPh.title}`}
+          placeholderTextColor={theme.inputPlaceholder}
           value={title}
           onChangeText={onTitleChange}
           autoCapitalize="none"
@@ -436,8 +455,9 @@ export function AddScreen({
         />
 
         <TextInput
-          style={appStyles.input}
+          style={[appStyles.input, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
           placeholder={`например: ${currentPh.authorOrArtist}`}
+          placeholderTextColor={theme.inputPlaceholder}
           value={authorOrArtist}
           onChangeText={onAuthorOrArtistChange}
           autoCapitalize="none"
@@ -448,6 +468,7 @@ export function AddScreen({
           <PillButton
             label="добавить в библиотеку"
             variant="primary"
+            themeMode={themeMode}
             disabled={!canSave}
             onPress={() => {
               onSavePress();
@@ -459,6 +480,7 @@ export function AddScreen({
             <PillButton
               label="сохранить"
               variant="primary"
+              themeMode={themeMode}
               disabled={!canSave}
               onPress={() => {
                 onSavePress();
@@ -467,6 +489,7 @@ export function AddScreen({
             />
             <PillButton
               label="отмена"
+              themeMode={themeMode}
               onPress={() => {
                 onCancelPress();
                 onDone();
@@ -476,36 +499,38 @@ export function AddScreen({
         )}
       </View>
 
-      <View style={[appStyles.card, appStyles.cardAccentGreen, appStyles.compactCard]}>
+      <View style={[appStyles.card, themeMode === "dark" ? { backgroundColor: theme.accentGreen, borderColor: theme.border } : appStyles.cardAccentGreen, appStyles.compactCard]}>
         <Text style={appStyles.label}>обновить spotify</Text>
         <View style={appStyles.row}>
-          <PillButton label="обновить" onPress={onSpotifyRefreshPress} />
+          <PillButton themeMode={themeMode} label="обновить" onPress={onSpotifyRefreshPress} />
           <PillButton
             label={spotifyPlaylistLoading ? "грузим..." : spotifyPlaylists.length > 0 ? "обновить плейлисты" : "плейлисты"}
+            themeMode={themeMode}
             onPress={() => {
               onSpotifyLoadPlaylistsPress();
               setShowSpotifyPlaylists(true);
             }}
             disabled={spotifyPlaylistLoading}
           />
-          <PillButton label="любимые треки" onPress={onSpotifyLikedSongsPress} />
-          <PillButton label="недавнее" onPress={onSpotifyRecentlyPlayedPress} />
+          <PillButton themeMode={themeMode} label="любимые треки" onPress={onSpotifyLikedSongsPress} />
+          <PillButton themeMode={themeMode} label="недавнее" onPress={onSpotifyRecentlyPlayedPress} />
         </View>
 
         <TextInput
-          style={appStyles.input}
+          style={[appStyles.input, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
           placeholder="ссылка на трек, альбом или плейлист"
+          placeholderTextColor={theme.inputPlaceholder}
           value={spotifyUrl}
           onChangeText={onSpotifyUrlChange}
           autoCapitalize="none"
           autoCorrect={false}
         />
-        <PillButton label="импортировать ссылку" onPress={onSpotifyImportPress} />
+        <PillButton themeMode={themeMode} label="импортировать ссылку" onPress={onSpotifyImportPress} />
 
         {spotifyPlaylists.length > 0 ? (
           <View style={appStyles.stack}>
-            <Pressable style={appStyles.collapseButton} onPress={() => setShowSpotifyPlaylists((current) => !current)}>
-              <Text style={appStyles.collapseButtonText}>
+            <Pressable style={[appStyles.collapseButton, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setShowSpotifyPlaylists((current) => !current)}>
+              <Text style={[appStyles.collapseButtonText, { color: theme.text }]}>
                 {showSpotifyPlaylists
                   ? `спрятать плейлисты (${spotifyPlaylists.length})`
                   : `показать плейлисты (${spotifyPlaylists.length})`}
@@ -516,9 +541,10 @@ export function AddScreen({
               ? spotifyPlaylists.map((playlist) => (
                   <View key={playlist.id} style={[appStyles.tile, appStyles.tileGreen]}>
                     <Text style={appStyles.itemTitle}>{playlist.name}</Text>
-                    <Text style={appStyles.metaText}>{playlist.trackCount} треков</Text>
+                    <Text style={[appStyles.metaText, { color: theme.mutedText }]}>{playlist.trackCount} треков</Text>
                     <PillButton
                       label="импортировать плейлист"
+                      themeMode={themeMode}
                       onPress={() => onSpotifyPlaylistImportPress(playlist.id, playlist.name)}
                     />
                   </View>

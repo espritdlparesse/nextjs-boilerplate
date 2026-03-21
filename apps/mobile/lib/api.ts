@@ -1,10 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { uid, type LibraryItem } from "../shared/everyyou/domain";
+import { uid, type LibraryItem, type ThemeMode } from "../shared/everyyou/domain";
 
 const STORAGE_KEY_DEVICE_ID = "everyyou.mobile.deviceId";
 const STORAGE_KEY_TOKEN = "everyyou.mobile.token";
 const STORAGE_KEY_USER_NAME = "everyyou.mobile.userName";
 const STORAGE_KEY_AVATAR_URI = "everyyou.mobile.avatarUri";
+const STORAGE_KEY_THEME_MODE = "everyyou.mobile.themeMode";
 
 type GuestAuthResponse = {
   token: string;
@@ -209,6 +210,15 @@ export async function setStoredAvatarUri(uri: string) {
 
 export async function clearStoredAvatarUri() {
   await AsyncStorage.removeItem(STORAGE_KEY_AVATAR_URI);
+}
+
+export async function getStoredThemeMode(): Promise<ThemeMode> {
+  const value = await AsyncStorage.getItem(STORAGE_KEY_THEME_MODE);
+  return value === "dark" ? "dark" : "light";
+}
+
+export async function setStoredThemeMode(mode: ThemeMode) {
+  await AsyncStorage.setItem(STORAGE_KEY_THEME_MODE, mode);
 }
 
 export async function fetchBackendHealth() {

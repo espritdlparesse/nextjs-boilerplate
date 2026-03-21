@@ -8,6 +8,7 @@ export type TgUser = {
 export type ContentType = "music" | "book" | "film";
 export type SourceType = "manual" | "import_spotify";
 export type TimeOrigin = "exact" | "imported" | "estimated";
+export type ThemeMode = "light" | "dark";
 
 export type LibraryItem = {
   id: string;
