@@ -163,6 +163,7 @@ export function useEveryYouApp() {
   const [spotifyOAuthLoading, setSpotifyOAuthLoading] = useState(false);
   const [spotifyPlaylistLoading, setSpotifyPlaylistLoading] = useState(false);
   const [fileImportStatus, setFileImportStatus] = useState<string | null>(null);
+  const [fileImportBusy, setFileImportBusy] = useState(false);
   const filePickerBusyRef = useRef(false);
   const [analysisRunning, setAnalysisRunning] = useState(false);
   const [analysisHistory, setAnalysisHistory] = useState<AnalysisRun[]>([]);
@@ -985,6 +986,7 @@ export function useEveryYouApp() {
 
     filePickerBusyRef.current = true;
     try {
+      setFileImportBusy(true);
       setFileImportStatus("открываем файлы...");
       setFileImportDateInsight(null);
       const result = await DocumentPicker.getDocumentAsync({
@@ -1046,6 +1048,7 @@ export function useEveryYouApp() {
       const message = error instanceof Error ? error.message : "file import failed";
       setFileImportStatus(message);
     } finally {
+      setFileImportBusy(false);
       setTimeout(() => {
         filePickerBusyRef.current = false;
       }, 350);
@@ -1301,6 +1304,7 @@ export function useEveryYouApp() {
     spotifyOAuthLoading,
     spotifyPlaylistLoading,
     fileImportStatus,
+    fileImportBusy,
     fileImportDateInsight,
     type,
     source,

@@ -100,6 +100,22 @@ export default function App() {
       <SafeAreaView style={[appStyles.safeArea, { backgroundColor: theme.background }]}>
         <StatusBar style={app.themeMode === "dark" ? "light" : "dark"} />
         <View style={[appStyles.shell, { backgroundColor: theme.background }]}>
+          {app.fileImportBusy ? (
+            <View style={[appStyles.busyOverlay, { backgroundColor: theme.overlay }]}>
+              <View
+                style={[
+                  appStyles.busyOverlayCard,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <Text style={[appStyles.busyOverlayTitle, { color: theme.text }]}>открываем файлы...</Text>
+                <Text style={[appStyles.busyOverlayText, { color: theme.mutedText }]}>
+                  сейчас айфон покажет выбор файла, это может занять пару секунд
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
           {app.tab === "library" ? (
             <View style={[appStyles.libraryShell, { backgroundColor: theme.background }]}>
               <View style={appStyles.libraryHeader}>{headerBlock}</View>
