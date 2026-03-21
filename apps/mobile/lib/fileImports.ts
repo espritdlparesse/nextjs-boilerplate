@@ -1,6 +1,6 @@
 import { clampText, type ContentType, type LibraryItem } from "../shared/everyyou/domain";
 
-type ImportPlatform = "livelib" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi";
+type ImportPlatform = "livelib" | "goodreads" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi";
 
 type DraftItem = Pick<
   LibraryItem,
@@ -124,6 +124,48 @@ function parseLivelib(text: string) {
   }
 
   if (items.length === 0) throw new Error("книги не найдены в файле");
+  return dedupeDrafts(items);
+}
+
+function parseGoodreads(text: string) {
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  if (lines.length < 2) throw new Error("файл пустой или не распознан");
+
+  const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase());
+  const titleCol = findColumn(headers, ["title"]);
+  const authorCol = findColumn(headers, ["author", "author l-f", "additional authors"]);
+  const shelfCol = findColumn(headers, ["exclusive shelf"]);
+  const dateReadCol = findColumn(headers, ["date read"]);
+  const dateAddedCol = findColumn(headers, ["date added"]);
+
+  if (titleCol === -1) {
+    throw new Error("не распознан формат goodreads export");
+  }
+
+  const items: DraftItem[] = [];
+  for (let i = 1; i < lines.length; i += 1) {
+    const row = parseCsvLine(lines[i]);
+    const shelf = (row[shelfCol] ?? "").toLowerCase();
+    const dateRead = dateReadCol !== -1 ? normalizeDateInput(row[dateReadCol] ?? "") : undefined;
+    const dateAdded = dateAddedCol !== -1 ? normalizeDateInput(row[dateAddedCol] ?? "") : undefined;
+
+    const shouldInclude =
+      shelf === "read" ||
+      shelf === "currently-reading" ||
+      typeof dateRead === "number";
+
+    if (!shouldInclude) continue;
+
+    const item = rowToDraft(
+      "book",
+      row[titleCol] ?? "",
+      authorCol !== -1 ? row[authorCol] ?? "" : "",
+      dateRead ?? dateAdded
+    );
+    if (item) items.push(item);
+  }
+
+  if (items.length === 0) throw new Error("книги не найдены в файле Goodreads");
   return dedupeDrafts(items);
 }
 
@@ -264,6 +306,7 @@ function parseMubi(text: string) {
 
 export function parseImportedFile(platform: ImportPlatform, text: string) {
   if (platform === "livelib") return parseLivelib(text);
+  if (platform === "goodreads") return parseGoodreads(text);
   if (platform === "letterboxd") return parseLetterboxd(text);
   if (platform === "lastfm") return parseLastfm(text);
   if (platform === "kinopoisk") return parseKinopoisk(text);

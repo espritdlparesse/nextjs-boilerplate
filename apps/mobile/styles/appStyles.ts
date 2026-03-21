@@ -815,6 +815,16 @@ export const appStyles = StyleSheet.create({
     padding: 18,
     gap: 14,
   },
+  guideModalSheet: {
+    width: "100%",
+    maxHeight: "72%",
+    backgroundColor: colors.white,
+    borderRadius: 32,
+    borderWidth: 1,
+    borderColor: colors.line,
+    padding: 18,
+    gap: 14,
+  },
   dayModalTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",

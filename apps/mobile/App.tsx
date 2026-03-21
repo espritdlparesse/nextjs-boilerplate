@@ -206,6 +206,7 @@ export default function App() {
                   onSpotifyRecentlyPlayedPress={app.importSpotifyRecentlyPlayed}
                   onSpotifyPlaylistImportPress={app.importSpotifyPlaylist}
                   onLivelibImportPress={app.importLivelibFile}
+                  onGoodreadsImportPress={app.importGoodreadsFile}
                   onLetterboxdImportPress={app.importLetterboxdFile}
                   onLastfmImportPress={app.importLastfmFile}
                   onKinopoiskImportPress={app.importKinopoiskFile}

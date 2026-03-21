@@ -1,6 +1,6 @@
 import Svg, { Circle, Ellipse, Path, Rect, Text as SvgText } from "react-native-svg";
 
-type Brand = "spotify" | "livelib" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi";
+type Brand = "spotify" | "livelib" | "goodreads" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi";
 
 type BrandLogoProps = {
   brand: Brand;
@@ -29,6 +29,16 @@ function LivelibLogo() {
       <Rect x="8" y="20" width="11" height="2" rx="1" fill="#111" />
       <SvgText x="34" y="24" fontSize="19" fontWeight="800" fill="#111">
         LiveLib
+      </SvgText>
+    </Svg>
+  );
+}
+
+function GoodreadsLogo() {
+  return (
+    <Svg width={170} height={36} viewBox="0 0 170 36">
+      <SvgText x="4" y="24" fontSize="21" fontWeight="800" fill="#6F4E37">
+        Goodreads
       </SvgText>
     </Svg>
   );
@@ -88,6 +98,7 @@ function MubiLogo() {
 export function BrandLogo({ brand }: BrandLogoProps) {
   if (brand === "spotify") return <SpotifyLogo />;
   if (brand === "livelib") return <LivelibLogo />;
+  if (brand === "goodreads") return <GoodreadsLogo />;
   if (brand === "letterboxd") return <LetterboxdLogo />;
   if (brand === "lastfm") return <LastfmLogo />;
   if (brand === "kinopoisk") return <KinopoiskLogo />;

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PLACEHOLDERS, TYPE_LABEL, type ContentType, type SourceType, type ThemeMode } from "../shared/everyyou/domain";
 import { BrandLogo } from "../components/BrandLogo";
 import { PillButton } from "../components/PillButton";
@@ -12,7 +12,7 @@ type SpotifyPlaylist = {
   trackCount: number;
 };
 
-type GuideKey = "spotify" | "livelib" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi" | null;
+type GuideKey = "spotify" | "livelib" | "goodreads" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi" | null;
 
 type AddScreenProps = {
   themeMode: ThemeMode;
@@ -83,6 +83,7 @@ type AddScreenProps = {
   onSpotifyRecentlyPlayedPress: () => void;
   onSpotifyPlaylistImportPress: (playlistId: string, playlistName: string) => void;
   onLivelibImportPress: () => void;
+  onGoodreadsImportPress: () => void;
   onLetterboxdImportPress: () => void;
   onLastfmImportPress: () => void;
   onKinopoiskImportPress: () => void;
@@ -114,6 +115,15 @@ const guides: Record<Exclude<GuideKey, null>, { logo: string; steps: string[]; a
       "потом нажми кнопку ниже и выбери csv из файлов",
     ],
     actionLabel: "ок, импортировать livelib",
+  },
+  goodreads: {
+    logo: "goodreads",
+    steps: [
+      "в goodreads открой my books и найди import and export",
+      "сделай export library, goodreads скачает csv",
+      "потом вернись сюда и выбери этот csv из файлов",
+    ],
+    actionLabel: "ок, импортировать goodreads",
   },
   letterboxd: {
     logo: "letterboxd",
@@ -240,6 +250,7 @@ export function AddScreen({
   onSpotifyPlaylistImportPress,
   onLivelibImportPress,
   onLetterboxdImportPress,
+  onGoodreadsImportPress,
   onLastfmImportPress,
   onKinopoiskImportPress,
   onMubiImportPress,
@@ -267,6 +278,7 @@ export function AddScreen({
       return;
     }
     if (guide === "livelib") return onLivelibImportPress();
+    if (guide === "goodreads") return onGoodreadsImportPress();
     if (guide === "letterboxd") return onLetterboxdImportPress();
     if (guide === "lastfm") return onLastfmImportPress();
     if (guide === "kinopoisk") return onKinopoiskImportPress();
@@ -394,28 +406,12 @@ export function AddScreen({
         <View style={appStyles.row}>
           <BrandImportButton brand="spotify" hint="музыка сама" themeMode={themeMode} onPress={() => setGuide("spotify")} />
           <BrandImportButton brand="livelib" hint="книги csv" themeMode={themeMode} onPress={() => setGuide("livelib")} />
+          <BrandImportButton brand="goodreads" hint="книги csv" themeMode={themeMode} onPress={() => setGuide("goodreads")} />
           <BrandImportButton brand="letterboxd" hint="фильмы csv" themeMode={themeMode} onPress={() => setGuide("letterboxd")} />
           <BrandImportButton brand="lastfm" hint="история треков" themeMode={themeMode} onPress={() => setGuide("lastfm")} />
           <BrandImportButton brand="kinopoisk" hint="просмотры csv" themeMode={themeMode} onPress={() => setGuide("kinopoisk")} />
           <BrandImportButton brand="mubi" hint="фильмы csv" themeMode={themeMode} onPress={() => setGuide("mubi")} />
         </View>
-
-        {guide ? (
-          <View style={[appStyles.instructionCard, themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-            <Text style={[appStyles.itemTitle, { color: theme.text }]}>{guides[guide].logo}</Text>
-            {guides[guide].steps.map((step) => (
-              <Text key={step} style={[appStyles.metaText, { color: theme.text }]}>
-                • {step}
-              </Text>
-            ))}
-            <PillButton
-              label={guides[guide].actionLabel}
-              themeMode={themeMode}
-              onPress={runGuideAction}
-              disabled={guide === "spotify" && spotifyOAuthLoading}
-            />
-          </View>
-        ) : null}
 
         <View style={appStyles.chipRow}>
           {spotifyConnected ? (
@@ -556,6 +552,47 @@ export function AddScreen({
           </View>
         ) : null}
       </View>
+
+      <Modal visible={Boolean(guide)} transparent animationType="fade" onRequestClose={() => setGuide(null)}>
+        <View style={[appStyles.dayModalBackdrop, { backgroundColor: theme.overlay }]}>
+          <View style={[appStyles.guideModalSheet, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            {guide ? (
+              <>
+                <View style={appStyles.dayModalTopRow}>
+                  <View style={appStyles.dayModalHeading}>
+                    <BrandLogo brand={guide} />
+                  </View>
+                  <Pressable
+                    style={[appStyles.dayModalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+                    onPress={() => setGuide(null)}
+                  >
+                    <Text style={[appStyles.dayModalCloseText, { color: theme.text }]}>закрыть</Text>
+                  </Pressable>
+                </View>
+
+                <ScrollView style={appStyles.dayModalScroll} contentContainerStyle={appStyles.dayModalContent} showsVerticalScrollIndicator={false}>
+                  <View style={[appStyles.instructionCard, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+                    {guides[guide].steps.map((step) => (
+                      <Text key={step} style={[appStyles.metaText, { color: theme.text }]}>
+                        • {step}
+                      </Text>
+                    ))}
+                    <PillButton
+                      label={guides[guide].actionLabel}
+                      themeMode={themeMode}
+                      onPress={() => {
+                        runGuideAction();
+                        setGuide(null);
+                      }}
+                      disabled={guide === "spotify" && spotifyOAuthLoading}
+                    />
+                  </View>
+                </ScrollView>
+              </>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

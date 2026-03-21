@@ -975,7 +975,7 @@ export function useEveryYouApp() {
   }
 
   async function importPlatformFile(
-    platform: "livelib" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi"
+    platform: "livelib" | "goodreads" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi"
   ) {
     try {
       setFileImportStatus("открываем файлы...");
@@ -1346,6 +1346,7 @@ export function useEveryYouApp() {
     importSpotifyPlaylist: (playlistId: string, playlistName: string) =>
       importSpotifyAccountSource({ mode: "playlist", playlistId }, `playlist ${playlistName}`),
     importLivelibFile: () => importPlatformFile("livelib"),
+    importGoodreadsFile: () => importPlatformFile("goodreads"),
     importLetterboxdFile: () => importPlatformFile("letterboxd"),
     importLastfmFile: () => importPlatformFile("lastfm"),
     importKinopoiskFile: () => importPlatformFile("kinopoisk"),
