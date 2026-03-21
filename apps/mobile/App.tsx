@@ -54,6 +54,7 @@ export default function App() {
               isScreenshotImporting={app.isScreenshotImporting}
               importedCount={app.importedCount}
               screenshotStatus={app.screenshotStatus}
+              pendingImageItems={app.pendingImageItems}
               spotifyUrl={app.spotifyUrl}
               spotifyStatus={app.spotifyStatus}
               spotifyConnected={app.spotifyConnected}
@@ -68,6 +69,9 @@ export default function App() {
               placeholderIndex={app.phIdx}
               canSave={app.canSave}
               onScreenshotImportPress={app.importFromScreenshot}
+              onConfirmPendingImageImport={app.confirmPendingImageImport}
+              onCancelPendingImageImport={app.cancelPendingImageImport}
+              onRemovePendingImageItem={app.removePendingImageItem}
               onSpotifyUrlChange={app.setSpotifyUrl}
               onSpotifyImportPress={app.importSpotifyLink}
               onSpotifyConnectPress={app.connectSpotifyAccount}

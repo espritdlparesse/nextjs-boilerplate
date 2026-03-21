@@ -18,6 +18,14 @@ type AddScreenProps = {
   isScreenshotImporting: boolean;
   importedCount: number;
   screenshotStatus: string | null;
+  pendingImageItems: Array<{
+    id: string;
+    type: ContentType;
+    source: SourceType;
+    title: string;
+    authorOrArtist: string;
+    createdAt?: number;
+  }>;
   spotifyUrl: string;
   spotifyStatus: string | null;
   spotifyConnected: boolean;
@@ -32,6 +40,9 @@ type AddScreenProps = {
   placeholderIndex: number;
   canSave: boolean;
   onScreenshotImportPress: () => void;
+  onConfirmPendingImageImport: () => void;
+  onCancelPendingImageImport: () => void;
+  onRemovePendingImageItem: (id: string) => void;
   onSpotifyUrlChange: (value: string) => void;
   onSpotifyImportPress: () => void;
   onSpotifyConnectPress: () => void;
@@ -141,6 +152,7 @@ export function AddScreen({
   isScreenshotImporting,
   importedCount,
   screenshotStatus,
+  pendingImageItems,
   spotifyUrl,
   spotifyStatus,
   spotifyConnected,
@@ -155,6 +167,9 @@ export function AddScreen({
   placeholderIndex,
   canSave,
   onScreenshotImportPress,
+  onConfirmPendingImageImport,
+  onCancelPendingImageImport,
+  onRemovePendingImageItem,
   onSpotifyUrlChange,
   onSpotifyImportPress,
   onSpotifyConnectPress,
@@ -213,6 +228,23 @@ export function AddScreen({
           <StatusChip text={`импортировано: ${importedCount} треков`} />
           {screenshotStatus ? <StatusChip text={screenshotStatus} /> : null}
         </View>
+
+        {pendingImageItems.length > 0 ? (
+          <View style={appStyles.stack}>
+            {pendingImageItems.map((item) => (
+              <View key={item.id} style={[appStyles.tile, appStyles.tileYellow]}>
+                <Text style={appStyles.metaText}>{TYPE_LABEL[item.type]}</Text>
+                <Text style={appStyles.itemTitle}>{item.title}</Text>
+                <Text style={appStyles.itemMeta}>{item.authorOrArtist}</Text>
+                <PillButton label="убрать" variant="danger" onPress={() => onRemovePendingImageItem(item.id)} />
+              </View>
+            ))}
+            <View style={appStyles.row}>
+              <PillButton label="сохранить найденное" variant="primary" onPress={onConfirmPendingImageImport} />
+              <PillButton label="отмена" onPress={onCancelPendingImageImport} />
+            </View>
+          </View>
+        ) : null}
       </View>
 
       <View style={appStyles.card}>

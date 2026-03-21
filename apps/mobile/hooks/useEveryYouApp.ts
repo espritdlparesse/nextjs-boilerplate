@@ -48,6 +48,7 @@ type SpotifyPlaylist = {
   name: string;
   trackCount: number;
 };
+type PendingImageItem = Pick<LibraryItem, "id" | "type" | "source" | "title" | "authorOrArtist" | "createdAt">;
 
 const NAME_PLACEHOLDERS = [
   "лил пип",
@@ -132,6 +133,7 @@ export function useEveryYouApp() {
   const [isScreenshotImporting, setIsScreenshotImporting] = useState(false);
   const [importedCount, setImportedCount] = useState(0);
   const [screenshotStatus, setScreenshotStatus] = useState<string | null>(null);
+  const [pendingImageItems, setPendingImageItems] = useState<PendingImageItem[]>([]);
   const [spotifyUrl, setSpotifyUrl] = useState("");
   const [spotifyStatus, setSpotifyStatus] = useState<string | null>(null);
   const [spotifyConnected, setSpotifyConnected] = useState(false);
@@ -470,7 +472,7 @@ export function useEveryYouApp() {
         return;
       }
 
-      const importedItems: LibraryItem[] = parsedItems.map((item) => ({
+      const importedItems: PendingImageItem[] = parsedItems.map((item) => ({
         id: uid(),
         type: item.type,
         source: "manual",
@@ -478,28 +480,47 @@ export function useEveryYouApp() {
         authorOrArtist: item.authorOrArtist,
         createdAt: Date.now(),
       }));
-
-      if (apiToken) {
-        const savedItems: LibraryItem[] = [];
-        for (const item of importedItems) {
-          const saved = await createItem(apiToken, item);
-          savedItems.push(saved);
-        }
-        setLibrary((current) => [...savedItems, ...current]);
-        setSyncStatus("online");
-        setSyncMessage("данные синхронизируются с сервером");
-      } else {
-        setLibrary((current) => [...importedItems, ...current]);
-      }
-
-      setScreenshotStatus(`добавили ${importedItems.length} айтем(ов) из изображений`);
-      setTab("library");
+      setPendingImageItems(importedItems);
+      setScreenshotStatus(`нашли ${importedItems.length} айтем(ов), проверь перед сохранением`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "не удалось проанализировать изображение";
       setScreenshotStatus(message);
     } finally {
       setIsScreenshotImporting(false);
     }
+  }
+
+  function removePendingImageItem(id: string) {
+    setPendingImageItems((current) => current.filter((item) => item.id !== id));
+  }
+
+  function cancelPendingImageImport() {
+    setPendingImageItems([]);
+    setScreenshotStatus("импорт изображений отменен");
+  }
+
+  async function confirmPendingImageImport() {
+    if (pendingImageItems.length === 0) {
+      setScreenshotStatus("нечего сохранять");
+      return;
+    }
+
+    if (apiToken) {
+      const savedItems: LibraryItem[] = [];
+      for (const item of pendingImageItems) {
+        const saved = await createItem(apiToken, item);
+        savedItems.push(saved);
+      }
+      setLibrary((current) => [...savedItems, ...current]);
+      setSyncStatus("online");
+      setSyncMessage("данные синхронизируются с сервером");
+    } else {
+      setLibrary((current) => [...pendingImageItems, ...current]);
+    }
+
+    setScreenshotStatus(`добавили ${pendingImageItems.length} айтем(ов) из изображений`);
+    setPendingImageItems([]);
+    setTab("library");
   }
 
   async function importSpotifyLink() {
@@ -797,6 +818,7 @@ export function useEveryYouApp() {
     isScreenshotImporting,
     importedCount,
     screenshotStatus,
+    pendingImageItems,
     spotifyUrl,
     spotifyStatus,
     spotifyConnected,
@@ -831,6 +853,9 @@ export function useEveryYouApp() {
     removeItem,
     runFakeImport,
     importFromScreenshot,
+    confirmPendingImageImport,
+    cancelPendingImageImport,
+    removePendingImageItem,
     setSpotifyUrl,
     importSpotifyLink,
     connectSpotifyAccount,
