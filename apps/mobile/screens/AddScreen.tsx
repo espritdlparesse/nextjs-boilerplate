@@ -388,6 +388,9 @@ export function AddScreen({
 
       <View style={[appStyles.card, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <Text style={[appStyles.label, { color: theme.mutedText }]}>импорт из площадок</Text>
+        <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
+          можно выбирать файлы из «файлы», icloud drive и других подключенных источников.
+        </Text>
         <View style={appStyles.row}>
           <BrandImportButton brand="spotify" hint="музыка сама" themeMode={themeMode} onPress={() => setGuide("spotify")} />
           <BrandImportButton brand="livelib" hint="книги csv" themeMode={themeMode} onPress={() => setGuide("livelib")} />

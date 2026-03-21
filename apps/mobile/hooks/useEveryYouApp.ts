@@ -268,6 +268,75 @@ export function useEveryYouApp() {
   }, [toastMessage]);
 
   useEffect(() => {
+    if (!loaded) return;
+
+    let active = true;
+
+    function acceptIncomingShare(url: string) {
+      const normalized = clampText(url).trim();
+      if (!normalized) return;
+
+      if (normalized.includes("open.spotify.com/")) {
+        setSpotifyUrl(normalized);
+        setSpotifyStatus("получили ссылку из share, можно импортировать");
+        setTab("add");
+        setToastMessage("ссылка открыта в everyyou");
+        return;
+      }
+
+      try {
+        const parsed = new URL(normalized);
+        const host = parsed.host.toLowerCase();
+        const pathname = parsed.pathname.toLowerCase();
+        const isEveryyouImport =
+          parsed.protocol === "everyyou:" && (host === "import" || pathname === "/import");
+        if (!isEveryyouImport) return;
+
+        const sharedUrl = parsed.searchParams.get("url")?.trim() ?? "";
+        const sharedTitle = clampText(parsed.searchParams.get("title") ?? "").toLowerCase();
+        const sharedAuthor = clampText(parsed.searchParams.get("author") ?? "").toLowerCase();
+        const sharedType = (parsed.searchParams.get("type") ?? "").toLowerCase();
+
+        if (sharedUrl && sharedUrl.includes("open.spotify.com/")) {
+          setSpotifyUrl(sharedUrl);
+          setSpotifyStatus("получили ссылку из share, можно импортировать");
+          setTab("add");
+          setToastMessage("ссылка открыта в everyyou");
+          return;
+        }
+
+        if (sharedType === "music" || sharedType === "book" || sharedType === "film") {
+          setType(sharedType as ContentType);
+          setSource("manual");
+          setTitle(sharedTitle);
+          setAuthorOrArtist(sharedAuthor);
+          setTab("add");
+          setToastMessage("контент из share открыт");
+        }
+      } catch {
+        return;
+      }
+    }
+
+    async function processInitialUrl() {
+      const initialUrl = await Linking.getInitialURL();
+      if (!active || !initialUrl) return;
+      acceptIncomingShare(initialUrl);
+    }
+
+    processInitialUrl();
+
+    const subscription = Linking.addEventListener("url", ({ url }) => {
+      acceptIncomingShare(url);
+    });
+
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, [loaded]);
+
+  useEffect(() => {
     if (!apiToken) return;
 
     const token = apiToken;

@@ -2,6 +2,7 @@
   "expo": {
     "name": "EveryYou",
     "slug": "everyyou-mobile",
+    "scheme": "everyyou",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
