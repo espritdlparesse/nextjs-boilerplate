@@ -97,8 +97,6 @@ export function LibraryScreen({
                 <Text style={appStyles.itemMeta}>{item.authorOrArtist || TYPE_LABEL[item.type]}</Text>
                 <Text style={appStyles.itemTitle}>{item.title}</Text>
               </View>
-
-              <Text style={appStyles.metaText}>{SOURCE_LABEL[item.source]}</Text>
             </Pressable>
           ))}
         </View>
