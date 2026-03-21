@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { PLACEHOLDERS, SOURCE_LABEL, TYPE_LABEL, type ContentType, type SourceType } from "../shared/everyyou/domain";
+import { BrandLogo } from "../components/BrandLogo";
 import { PillButton } from "../components/PillButton";
 import { appStyles } from "../styles/appStyles";
 
@@ -112,32 +113,17 @@ const guides: Record<Exclude<GuideKey, null>, { logo: string; steps: string[]; a
 };
 
 function BrandImportButton({
-  label,
-  wordmark,
+  brand,
   hint,
   onPress,
 }: {
-  label: string;
-  wordmark: GuideKey extends null ? never : Exclude<GuideKey, null>;
+  brand: Exclude<GuideKey, null>;
   hint: string;
   onPress: () => void;
 }) {
-  const wordmarkStyle =
-    wordmark === "spotify"
-      ? appStyles.brandLogoSpotify
-      : wordmark === "livelib"
-        ? appStyles.brandLogoLivelib
-        : wordmark === "letterboxd"
-          ? appStyles.brandLogoLetterboxd
-          : wordmark === "lastfm"
-            ? appStyles.brandLogoLastfm
-            : wordmark === "kinopoisk"
-              ? appStyles.brandLogoKinopoisk
-              : appStyles.brandLogoMubi;
-
   return (
     <Pressable style={appStyles.brandButton} onPress={onPress}>
-      <Text style={[appStyles.brandLogo, wordmarkStyle]}>{label}</Text>
+      <BrandLogo brand={brand} />
       <Text style={appStyles.brandHint}>{hint}</Text>
     </Pressable>
   );
@@ -223,12 +209,12 @@ export function AddScreen({
       <View style={appStyles.card}>
         <Text style={appStyles.label}>импорт из площадок</Text>
         <View style={appStyles.row}>
-          <BrandImportButton label="Spotify" wordmark="spotify" hint="музыка сама" onPress={() => setGuide("spotify")} />
-          <BrandImportButton label="LiveLib" wordmark="livelib" hint="книги csv" onPress={() => setGuide("livelib")} />
-          <BrandImportButton label="Letterboxd" wordmark="letterboxd" hint="фильмы csv" onPress={() => setGuide("letterboxd")} />
-          <BrandImportButton label="Last.fm" wordmark="lastfm" hint="история треков" onPress={() => setGuide("lastfm")} />
-          <BrandImportButton label="Кинопоиск" wordmark="kinopoisk" hint="просмотры csv" onPress={() => setGuide("kinopoisk")} />
-          <BrandImportButton label="MUBI" wordmark="mubi" hint="фильмы csv" onPress={() => setGuide("mubi")} />
+          <BrandImportButton brand="spotify" hint="музыка сама" onPress={() => setGuide("spotify")} />
+          <BrandImportButton brand="livelib" hint="книги csv" onPress={() => setGuide("livelib")} />
+          <BrandImportButton brand="letterboxd" hint="фильмы csv" onPress={() => setGuide("letterboxd")} />
+          <BrandImportButton brand="lastfm" hint="история треков" onPress={() => setGuide("lastfm")} />
+          <BrandImportButton brand="kinopoisk" hint="просмотры csv" onPress={() => setGuide("kinopoisk")} />
+          <BrandImportButton brand="mubi" hint="фильмы csv" onPress={() => setGuide("mubi")} />
         </View>
 
         {guide ? (
