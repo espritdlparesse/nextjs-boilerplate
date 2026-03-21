@@ -113,16 +113,31 @@ const guides: Record<Exclude<GuideKey, null>, { logo: string; steps: string[]; a
 
 function BrandImportButton({
   label,
+  wordmark,
   hint,
   onPress,
 }: {
   label: string;
+  wordmark: GuideKey extends null ? never : Exclude<GuideKey, null>;
   hint: string;
   onPress: () => void;
 }) {
+  const wordmarkStyle =
+    wordmark === "spotify"
+      ? appStyles.brandLogoSpotify
+      : wordmark === "livelib"
+        ? appStyles.brandLogoLivelib
+        : wordmark === "letterboxd"
+          ? appStyles.brandLogoLetterboxd
+          : wordmark === "lastfm"
+            ? appStyles.brandLogoLastfm
+            : wordmark === "kinopoisk"
+              ? appStyles.brandLogoKinopoisk
+              : appStyles.brandLogoMubi;
+
   return (
     <Pressable style={appStyles.brandButton} onPress={onPress}>
-      <Text style={appStyles.brandLogo}>{label}</Text>
+      <Text style={[appStyles.brandLogo, wordmarkStyle]}>{label}</Text>
       <Text style={appStyles.brandHint}>{hint}</Text>
     </Pressable>
   );
@@ -208,12 +223,12 @@ export function AddScreen({
       <View style={appStyles.card}>
         <Text style={appStyles.label}>импорт из площадок</Text>
         <View style={appStyles.row}>
-          <BrandImportButton label="spotify" hint="музыка сама" onPress={() => setGuide("spotify")} />
-          <BrandImportButton label="livelib" hint="книги csv" onPress={() => setGuide("livelib")} />
-          <BrandImportButton label="letterboxd" hint="фильмы csv" onPress={() => setGuide("letterboxd")} />
-          <BrandImportButton label="last.fm" hint="история треков" onPress={() => setGuide("lastfm")} />
-          <BrandImportButton label="кинопоиск" hint="просмотры csv" onPress={() => setGuide("kinopoisk")} />
-          <BrandImportButton label="mubi" hint="фильмы csv" onPress={() => setGuide("mubi")} />
+          <BrandImportButton label="Spotify" wordmark="spotify" hint="музыка сама" onPress={() => setGuide("spotify")} />
+          <BrandImportButton label="LiveLib" wordmark="livelib" hint="книги csv" onPress={() => setGuide("livelib")} />
+          <BrandImportButton label="Letterboxd" wordmark="letterboxd" hint="фильмы csv" onPress={() => setGuide("letterboxd")} />
+          <BrandImportButton label="Last.fm" wordmark="lastfm" hint="история треков" onPress={() => setGuide("lastfm")} />
+          <BrandImportButton label="Кинопоиск" wordmark="kinopoisk" hint="просмотры csv" onPress={() => setGuide("kinopoisk")} />
+          <BrandImportButton label="MUBI" wordmark="mubi" hint="фильмы csv" onPress={() => setGuide("mubi")} />
         </View>
 
         {guide ? (

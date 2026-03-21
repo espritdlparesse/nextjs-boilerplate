@@ -338,6 +338,37 @@ export const appStyles = StyleSheet.create({
     color: colors.black,
     textTransform: "uppercase",
   },
+  brandLogoSpotify: {
+    fontSize: 18,
+    fontWeight: "900",
+    letterSpacing: 0.4,
+  },
+  brandLogoLivelib: {
+    fontSize: 18,
+    fontWeight: "900",
+    letterSpacing: 0.6,
+  },
+  brandLogoLetterboxd: {
+    fontSize: 17,
+    fontWeight: "900",
+    letterSpacing: 0.4,
+  },
+  brandLogoLastfm: {
+    fontSize: 19,
+    fontWeight: "900",
+    fontStyle: "italic",
+    letterSpacing: 0.2,
+  },
+  brandLogoKinopoisk: {
+    fontSize: 17,
+    fontWeight: "900",
+    letterSpacing: 0.3,
+  },
+  brandLogoMubi: {
+    fontSize: 22,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+  },
   brandHint: {
     fontSize: 11,
     color: colors.subtext,
