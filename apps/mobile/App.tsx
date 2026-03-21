@@ -110,7 +110,7 @@ export default function App() {
               >
                 <Text style={[appStyles.busyOverlayTitle, { color: theme.text }]}>открываем файлы...</Text>
                 <Text style={[appStyles.busyOverlayText, { color: theme.mutedText }]}>
-                  сейчас айфон покажет выбор файла, это может занять пару секунд
+                  это может занять несколько секунд
                 </Text>
               </View>
             </View>

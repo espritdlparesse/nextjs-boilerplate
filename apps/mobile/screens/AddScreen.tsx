@@ -291,7 +291,7 @@ export function AddScreen({
     setGuide(null);
     setTimeout(() => {
       runGuideAction(currentGuide);
-    }, 220);
+    }, 80);
   }
 
   return (
