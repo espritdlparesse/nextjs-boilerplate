@@ -240,45 +240,6 @@ export function AddScreen({
         {spotifyStatus ? <Text style={appStyles.metaText}>{spotifyStatus}</Text> : null}
       </View>
 
-      <View style={[appStyles.card, appStyles.cardAccentGreen]}>
-        <Text style={appStyles.label}>быстрый spotify</Text>
-        <View style={appStyles.row}>
-          <PillButton label="обновить spotify" onPress={onSpotifyRefreshPress} />
-          <PillButton
-            label={spotifyPlaylistLoading ? "грузим плейлисты..." : "мои плейлисты"}
-            onPress={onSpotifyLoadPlaylistsPress}
-            disabled={spotifyPlaylistLoading}
-          />
-          <PillButton label="liked songs" onPress={onSpotifyLikedSongsPress} />
-          <PillButton label="recently played" onPress={onSpotifyRecentlyPlayedPress} />
-        </View>
-
-        <TextInput
-          style={appStyles.input}
-          placeholder="или вставь spotify track, album или playlist link"
-          value={spotifyUrl}
-          onChangeText={onSpotifyUrlChange}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <PillButton label="импортировать из spotify" onPress={onSpotifyImportPress} />
-
-        {spotifyPlaylists.length > 0 ? (
-          <View style={appStyles.stack}>
-            {spotifyPlaylists.map((playlist) => (
-              <View key={playlist.id} style={[appStyles.tile, appStyles.tileGreen]}>
-                <Text style={appStyles.itemTitle}>{playlist.name}</Text>
-                <Text style={appStyles.metaText}>{playlist.trackCount} треков</Text>
-                <PillButton
-                  label="импортировать плейлист"
-                  onPress={() => onSpotifyPlaylistImportPress(playlist.id, playlist.name)}
-                />
-              </View>
-            ))}
-          </View>
-        ) : null}
-      </View>
-
       <View style={[appStyles.card, appStyles.cardAccentBlue]}>
         <Text style={appStyles.label}>добавить вручную</Text>
         <View style={appStyles.row}>
@@ -345,6 +306,45 @@ export function AddScreen({
             />
           </>
         )}
+      </View>
+
+      <View style={[appStyles.card, appStyles.cardAccentGreen, appStyles.compactCard]}>
+        <Text style={appStyles.label}>обновить spotify</Text>
+        <View style={appStyles.row}>
+          <PillButton label="обновить" onPress={onSpotifyRefreshPress} />
+          <PillButton
+            label={spotifyPlaylistLoading ? "грузим..." : "плейлисты"}
+            onPress={onSpotifyLoadPlaylistsPress}
+            disabled={spotifyPlaylistLoading}
+          />
+          <PillButton label="liked songs" onPress={onSpotifyLikedSongsPress} />
+          <PillButton label="recently played" onPress={onSpotifyRecentlyPlayedPress} />
+        </View>
+
+        <TextInput
+          style={appStyles.input}
+          placeholder="spotify track, album или playlist link"
+          value={spotifyUrl}
+          onChangeText={onSpotifyUrlChange}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <PillButton label="импортировать ссылку" onPress={onSpotifyImportPress} />
+
+        {spotifyPlaylists.length > 0 ? (
+          <View style={appStyles.stack}>
+            {spotifyPlaylists.map((playlist) => (
+              <View key={playlist.id} style={[appStyles.tile, appStyles.tileGreen]}>
+                <Text style={appStyles.itemTitle}>{playlist.name}</Text>
+                <Text style={appStyles.metaText}>{playlist.trackCount} треков</Text>
+                <PillButton
+                  label="импортировать плейлист"
+                  onPress={() => onSpotifyPlaylistImportPress(playlist.id, playlist.name)}
+                />
+              </View>
+            ))}
+          </View>
+        ) : null}
       </View>
     </View>
   );

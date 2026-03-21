@@ -69,7 +69,12 @@ export const appStyles = StyleSheet.create({
     backgroundColor: "#FFF3B6",
   },
   cardAccentGreen: {
-    backgroundColor: "#D9FFD9",
+    backgroundColor: "#B8FFB6",
+  },
+  compactCard: {
+    gap: 10,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
   compactNameCard: {
     backgroundColor: "#FAFAFA",
