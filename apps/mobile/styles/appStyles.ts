@@ -818,6 +818,7 @@ export const appStyles = StyleSheet.create({
   guideModalSheet: {
     width: "100%",
     maxHeight: "72%",
+    minHeight: 320,
     backgroundColor: colors.white,
     borderRadius: 32,
     borderWidth: 1,
@@ -851,10 +852,12 @@ export const appStyles = StyleSheet.create({
   },
   dayModalScroll: {
     flex: 1,
+    minHeight: 1,
   },
   dayModalContent: {
     gap: 12,
     paddingBottom: 20,
+    flexGrow: 1,
   },
   tileTopRow: {
     flexDirection: "row",
