@@ -94,6 +94,7 @@ type SpotifyPlaylistListResponse = {
 type SpotifyUserImportResponse = {
   importedCount: number;
   skippedCount?: number;
+  dateSummary?: string;
 };
 
 type VibeCheckResponse = {

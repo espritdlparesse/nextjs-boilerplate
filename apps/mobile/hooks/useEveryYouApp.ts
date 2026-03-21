@@ -18,6 +18,7 @@ import {
   type ContentType,
   type LibraryItem,
   type SourceType,
+  type TimeOrigin,
   type Tab,
   type TgUser,
 } from "../shared/everyyou/domain";
@@ -42,6 +43,7 @@ import { parseImportedFile } from "../lib/fileImports";
 
 type TypeFilter = ContentType | "all";
 type SourceFilter = SourceType | "all";
+type TimeQualityFilter = "all" | TimeOrigin | "undated";
 type SyncStatus = "idle" | "syncing" | "online" | "offline";
 type TimelineSpreadPreset = "this_month" | "last_month" | "last_6_months" | "this_year" | "very_old";
 type SpotifyPlaylist = {
@@ -130,6 +132,7 @@ export function useEveryYouApp() {
   const [library, setLibrary] = useState<LibraryItem[]>([]);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [timeQualityFilter, setTimeQualityFilter] = useState<TimeQualityFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [phIdx, setPhIdx] = useState(0);
@@ -289,9 +292,15 @@ export function useEveryYouApp() {
     return library.filter((item) => {
       const typeMatch = typeFilter === "all" || item.type === typeFilter;
       const sourceMatch = sourceFilter === "all" || item.source === sourceFilter;
-      return typeMatch && sourceMatch;
+      const timeMatch =
+        timeQualityFilter === "all"
+          ? true
+          : timeQualityFilter === "undated"
+            ? item.consumedAt == null
+            : item.timeOrigin === timeQualityFilter;
+      return typeMatch && sourceMatch && timeMatch;
     });
-  }, [library, sourceFilter, typeFilter]);
+  }, [library, sourceFilter, timeQualityFilter, typeFilter]);
   const counters = useMemo(() => {
     const byType: Record<ContentType, number> = { music: 0, book: 0, film: 0 };
     library.forEach((item) => {
@@ -307,6 +316,19 @@ export function useEveryYouApp() {
     () => pendingImageItems.find((item) => item.id === selectedPendingImageId) ?? null,
     [pendingImageItems, selectedPendingImageId]
   );
+
+  function describeDateCoverage(items: Array<Pick<LibraryItem, "consumedAt" | "timeOrigin">>) {
+    const exact = items.filter((item) => item.timeOrigin === "exact").length;
+    const imported = items.filter((item) => item.timeOrigin === "imported").length;
+    const estimated = items.filter((item) => item.timeOrigin === "estimated").length;
+    const undated = items.filter((item) => item.consumedAt == null).length;
+    const parts: string[] = [];
+    if (exact > 0) parts.push(`точные даты: ${exact}`);
+    if (imported > 0) parts.push(`из импорта: ${imported}`);
+    if (estimated > 0) parts.push(`примерно: ${estimated}`);
+    if (undated > 0) parts.push(`без даты: ${undated}`);
+    return parts.join(" · ");
+  }
 
   function buildSpreadDates(count: number, preset: TimelineSpreadPreset) {
     const now = new Date();
@@ -677,7 +699,10 @@ export function useEveryYouApp() {
         timeOrigin: undefined,
       }));
       setPendingImageItems(importedItems);
-      setScreenshotStatus(`нашли ${importedItems.length} айтем(ов), проверь перед сохранением`);
+      const coverage = describeDateCoverage(importedItems);
+      setScreenshotStatus(
+        `нашли ${importedItems.length} айтем(ов), проверь перед сохранением${coverage ? ` · ${coverage}` : ""}`
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : "не удалось проанализировать изображение";
       setScreenshotStatus(message);
@@ -777,7 +802,10 @@ export function useEveryYouApp() {
       }
 
       setImportedCount((current) => current + importedItems.length);
-      setSpotifyStatus(`добавили ${importedItems.length} трек(ов) из spotify`);
+      const coverage = describeDateCoverage(importedItems);
+      setSpotifyStatus(
+        `добавили ${importedItems.length} трек(ов) из spotify${coverage ? ` · ${coverage}` : ""}`
+      );
       setSpotifyUrl("");
       setTab("library");
       setToastMessage(`импортировали ${importedItems.length} трек(ов)`);
@@ -824,7 +852,8 @@ export function useEveryYouApp() {
         setLibrary(remoteLibrary);
         setSyncStatus("online");
         setSyncMessage("данные синхронизируются с сервером");
-        setFileImportStatus(`добавили ${created} айтем(ов) из файла`);
+        const coverage = describeDateCoverage(parsedItems);
+        setFileImportStatus(`добавили ${created} айтем(ов) из файла${coverage ? ` · ${coverage}` : ""}`);
         setToastMessage(`загрузили ${created} айтем(ов)`);
       } else {
         setLibrary((current) => [
@@ -837,7 +866,10 @@ export function useEveryYouApp() {
           })),
           ...current,
         ]);
-        setFileImportStatus(`добавили ${parsedItems.length} айтем(ов) локально`);
+        const coverage = describeDateCoverage(parsedItems);
+        setFileImportStatus(
+          `добавили ${parsedItems.length} айтем(ов) локально${coverage ? ` · ${coverage}` : ""}`
+        );
         setToastMessage(`загрузили ${parsedItems.length} айтем(ов)`);
       }
 
@@ -946,10 +978,12 @@ export function useEveryYouApp() {
       setSyncMessage("данные синхронизируются с сервером");
       if ((result.skippedCount ?? 0) > 0) {
         setSpotifyStatus(
-          `добавили ${result.importedCount} трек(ов) из ${successLabel}, пропустили ${result.skippedCount} дублей`
+          `добавили ${result.importedCount} трек(ов) из ${successLabel}, пропустили ${result.skippedCount} дублей${result.dateSummary ? ` · ${result.dateSummary}` : ""}`
         );
       } else {
-        setSpotifyStatus(`добавили ${result.importedCount} трек(ов) из ${successLabel}`);
+        setSpotifyStatus(
+          `добавили ${result.importedCount} трек(ов) из ${successLabel}${result.dateSummary ? ` · ${result.dateSummary}` : ""}`
+        );
       }
       setTab("library");
       setToastMessage(`добавили ${result.importedCount} трек(ов)`);
@@ -1065,6 +1099,7 @@ export function useEveryYouApp() {
     canSave,
     typeFilter,
     sourceFilter,
+    timeQualityFilter,
     undatedVisibleLibrary,
     selectedItem,
     visibleLibrary,
@@ -1122,6 +1157,10 @@ export function useEveryYouApp() {
     },
     setSourceFilter: (value: SourceFilter) => {
       setSourceFilter(value);
+      setSelectedId(null);
+    },
+    setTimeQualityFilter: (value: TimeQualityFilter) => {
+      setTimeQualityFilter(value);
       setSelectedId(null);
     },
     setSelectedId,

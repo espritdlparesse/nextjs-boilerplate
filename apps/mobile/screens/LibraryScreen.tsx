@@ -19,6 +19,7 @@ type LibraryViewMode = "tiles" | "calendar";
 type LibraryScreenProps = {
   typeFilter: TypeFilter;
   sourceFilter: SourceFilter;
+  timeQualityFilter: "all" | "exact" | "imported" | "estimated" | "undated";
   undatedVisibleLibrary: LibraryItem[];
   timelineSpreading: boolean;
   timelinePromptVisible: boolean;
@@ -26,6 +27,7 @@ type LibraryScreenProps = {
   visibleLibrary: LibraryItem[];
   onTypeFilterChange: (value: TypeFilter) => void;
   onSourceFilterChange: (value: SourceFilter) => void;
+  onTimeQualityFilterChange: (value: "all" | "exact" | "imported" | "estimated" | "undated") => void;
   onSelectItem: (id: string) => void;
   onSpreadThisMonth: () => void;
   onSpreadLastMonth: () => void;
@@ -171,6 +173,7 @@ const DayDetailCard = memo(function DayDetailCard({
 export function LibraryScreen({
   typeFilter,
   sourceFilter,
+  timeQualityFilter,
   undatedVisibleLibrary,
   timelineSpreading,
   timelinePromptVisible,
@@ -178,6 +181,7 @@ export function LibraryScreen({
   visibleLibrary,
   onTypeFilterChange,
   onSourceFilterChange,
+  onTimeQualityFilterChange,
   onSelectItem,
   onSpreadThisMonth,
   onSpreadLastMonth,
@@ -286,6 +290,26 @@ export function LibraryScreen({
                 label={value === "all" ? "все" : TYPE_LABEL[value]}
                 active={typeFilter === value}
                 onPress={() => onTypeFilterChange(value)}
+              />
+            ))}
+          </View>
+
+          <Text style={appStyles.label}>дата</Text>
+          <View style={appStyles.row}>
+            {(
+              [
+                ["all", "все"],
+                ["exact", "точные"],
+                ["imported", "из импорта"],
+                ["estimated", "примерно"],
+                ["undated", "без даты"],
+              ] as const
+            ).map(([value, label]) => (
+              <PillButton
+                key={value}
+                label={label}
+                active={timeQualityFilter === value}
+                onPress={() => onTimeQualityFilterChange(value)}
               />
             ))}
           </View>

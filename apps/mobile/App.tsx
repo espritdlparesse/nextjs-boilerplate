@@ -86,6 +86,7 @@ export default function App() {
               <LibraryScreen
                 typeFilter={app.typeFilter}
                 sourceFilter={app.sourceFilter}
+                timeQualityFilter={app.timeQualityFilter}
                 undatedVisibleLibrary={app.undatedVisibleLibrary}
                 timelineSpreading={app.timelineSpreading}
                 timelinePromptVisible={app.timelinePromptVisible}
@@ -93,6 +94,7 @@ export default function App() {
                 visibleLibrary={app.visibleLibrary}
                 onTypeFilterChange={app.setTypeFilter}
                 onSourceFilterChange={app.setSourceFilter}
+                onTimeQualityFilterChange={app.setTimeQualityFilter}
                 onSelectItem={app.setSelectedId}
                 onSpreadThisMonth={app.spreadIntoThisMonth}
                 onSpreadLastMonth={app.spreadIntoLastMonth}
