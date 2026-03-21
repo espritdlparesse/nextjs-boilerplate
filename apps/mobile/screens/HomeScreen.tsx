@@ -1,14 +1,49 @@
-import { Text, View } from "react-native";
+import { Text, TextInput, View } from "react-native";
 import { PillButton } from "../components/PillButton";
 import { appStyles } from "../styles/appStyles";
 
 type HomeScreenProps = {
+  displayName: string;
+  hasCustomName: boolean;
+  nameDraft: string;
   onAddPress: () => void;
+  onNameDraftChange: (value: string) => void;
+  onSaveNamePress: () => void;
 };
 
-export function HomeScreen({ onAddPress }: HomeScreenProps) {
+export function HomeScreen({
+  displayName,
+  hasCustomName,
+  nameDraft,
+  onAddPress,
+  onNameDraftChange,
+  onSaveNamePress,
+}: HomeScreenProps) {
   return (
     <View style={appStyles.screen}>
+      <View style={[appStyles.card, appStyles.cardAccentYellow]}>
+        <Text style={appStyles.label}>{hasCustomName ? "обращение" : "как тебя зовут?"}</Text>
+        <Text style={appStyles.helper}>
+          {hasCustomName
+            ? `сейчас приложение обращается к тебе как к ${displayName.toLowerCase()}. если хочешь, можно поменять это здесь.`
+            : "введи имя, и приложение будет обращаться к тебе нормально, а не как к ios friend."}
+        </Text>
+        <TextInput
+          style={appStyles.input}
+          placeholder="например: настя"
+          value={nameDraft}
+          onChangeText={onNameDraftChange}
+          autoCapitalize="words"
+          autoCorrect={false}
+        />
+        <PillButton
+          label={hasCustomName ? "обновить имя" : "сохранить имя"}
+          variant="primary"
+          disabled={!nameDraft.trim()}
+          onPress={onSaveNamePress}
+        />
+      </View>
+
       <View style={[appStyles.sectionHero, appStyles.sectionHeroAlt]}>
         <Text style={appStyles.sectionTitle}>what is this</Text>
         <Text style={appStyles.helper}>

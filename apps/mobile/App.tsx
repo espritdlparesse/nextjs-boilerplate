@@ -35,7 +35,16 @@ export default function App() {
             {app.syncMessage}
           </Text>
 
-          {app.tab === "home" && <HomeScreen onAddPress={() => app.setTab("add")} />}
+          {app.tab === "home" && (
+            <HomeScreen
+              displayName={app.displayName}
+              hasCustomName={app.hasCustomName}
+              nameDraft={app.nameDraft}
+              onAddPress={() => app.setTab("add")}
+              onNameDraftChange={app.setNameDraft}
+              onSaveNamePress={app.saveProfileName}
+            />
+          )}
 
           {app.tab === "add" && (
             <AddScreen

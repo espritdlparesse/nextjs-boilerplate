@@ -168,6 +168,14 @@ export async function ensureGuestSession(name = "ios friend") {
   return { token: data.token, name: data.user.name ?? existingName };
 }
 
+export async function getStoredGuestName(fallback = "ios friend") {
+  return (await AsyncStorage.getItem(STORAGE_KEY_USER_NAME)) ?? fallback;
+}
+
+export async function setStoredGuestName(name: string) {
+  await AsyncStorage.setItem(STORAGE_KEY_USER_NAME, name);
+}
+
 export async function fetchBackendHealth() {
   return fetchJson<HealthResponse>("/api/health", {
     method: "GET",

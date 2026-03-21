@@ -30,10 +30,12 @@ import {
   fetchItems,
   fetchSpotifyConnectionStatus,
   fetchSpotifyPlaylists,
+  getStoredGuestName,
   getSpotifyOAuthUrl,
   importFromSpotifyUser,
   importFromSpotifyUrl,
   runVibeCheck,
+  setStoredGuestName,
   updateItem,
 } from "../lib/api";
 import { parseImportedFile } from "../lib/fileImports";
@@ -46,6 +48,19 @@ type SpotifyPlaylist = {
   name: string;
   trackCount: number;
 };
+
+function splitDisplayName(name: string): TgUser {
+  const normalized = clampText(name);
+  if (!normalized) {
+    return { first_name: "друг", last_name: "" };
+  }
+
+  const [firstName, ...rest] = normalized.split(" ");
+  return {
+    first_name: firstName,
+    last_name: rest.join(" "),
+  };
+}
 
 async function loadJSON<T>(mainKey: string, legacyKeys: string[], fallback: T): Promise<T> {
   const mainRaw = await AsyncStorage.getItem(mainKey);
@@ -124,6 +139,7 @@ export function useEveryYouApp() {
   const [apiToken, setApiToken] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [syncMessage, setSyncMessage] = useState("локальная библиотека");
+  const [nameDraft, setNameDraft] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -144,6 +160,7 @@ export function useEveryYouApp() {
       let nextToken: string | null = null;
       let nextSyncStatus: SyncStatus = "offline";
       let nextSyncMessage = "локальная библиотека";
+      const storedGuestName = await getStoredGuestName("ios friend");
 
       try {
         if (mounted) {
@@ -156,17 +173,18 @@ export function useEveryYouApp() {
           throw new Error("backend reachable, but EVERYYOU_APP_AUTH_SECRET is missing");
         }
 
-        const session = await ensureGuestSession("ios friend");
+        const session = await ensureGuestSession(storedGuestName);
         const remoteLibrary = await fetchItems(session.token);
         nextLibrary = remoteLibrary;
         nextToken = session.token;
-        nextUser = { first_name: session.name, last_name: "" };
+        nextUser = splitDisplayName(session.name);
         nextSyncStatus = "online";
         nextSyncMessage = "данные синхронизируются с сервером";
       } catch (error) {
         const message = error instanceof Error ? error.message : "backend недоступен";
         nextSyncStatus = "offline";
         nextSyncMessage = message;
+        nextUser = splitDisplayName(storedGuestName);
       }
 
       if (!mounted) return;
@@ -174,6 +192,7 @@ export function useEveryYouApp() {
       setImportedCount(storedImportCount);
       setAnalysisHistory(storedAnalysis);
       setUser(nextUser);
+      setNameDraft(getDisplayName(nextUser));
       setApiToken(nextToken);
       setSyncStatus(nextSyncStatus);
       setSyncMessage(nextSyncMessage);
@@ -230,6 +249,10 @@ export function useEveryYouApp() {
   }, [analysisHistory, loaded]);
 
   const displayName = useMemo(() => getDisplayName(user), [user]);
+  const hasCustomName = useMemo(() => {
+    const normalized = clampText(displayName).toLowerCase();
+    return normalized !== "друг" && normalized !== "ios friend" && normalized !== "ios друг";
+  }, [displayName]);
   const canSave = useMemo(
     () => Boolean(type && source && clampText(title) && clampText(authorOrArtist)),
     [authorOrArtist, source, title, type]
@@ -729,10 +752,21 @@ export function useEveryYouApp() {
     }
   }
 
+  async function saveProfileName() {
+    const normalized = clampText(nameDraft);
+    if (!normalized) return;
+
+    await setStoredGuestName(normalized);
+    setUser(splitDisplayName(normalized));
+    setNameDraft(normalized);
+  }
+
   return {
     tab,
     setTab,
     displayName,
+    hasCustomName,
+    nameDraft,
     syncStatus,
     syncMessage,
     editingId,
@@ -762,6 +796,8 @@ export function useEveryYouApp() {
     analysisRunning,
     analysisResult,
     analysisHistory,
+    setNameDraft,
+    saveProfileName,
     setType,
     setSource,
     setTitle,
