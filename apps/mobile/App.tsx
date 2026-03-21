@@ -170,6 +170,10 @@ export default function App() {
               onSpreadLastMonth={app.spreadIntoLastMonth}
               onSpreadLast3Months={app.spreadIntoLast3Months}
               onSpreadThisYear={app.spreadIntoThisYear}
+              onAssignSelectedThisMonth={app.assignSelectedToThisMonth}
+              onAssignSelectedLastMonth={app.assignSelectedToLastMonth}
+              onAssignSelectedLast3Months={app.assignSelectedToLast3Months}
+              onAssignSelectedThisYear={app.assignSelectedToThisYear}
               onDismissTimelinePrompt={app.dismissTimelinePrompt}
               onEditItem={(id) => {
                 app.startEdit(id);

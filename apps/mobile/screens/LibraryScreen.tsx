@@ -3,7 +3,6 @@ import { Pressable, Text, View } from "react-native";
 import {
   formatFullDate,
   getConsumptionDate,
-  SOURCE_LABEL,
   TYPE_LABEL,
   type ContentType,
   type LibraryItem,
@@ -31,6 +30,10 @@ type LibraryScreenProps = {
   onSpreadLastMonth: () => void;
   onSpreadLast3Months: () => void;
   onSpreadThisYear: () => void;
+  onAssignSelectedThisMonth: () => void;
+  onAssignSelectedLastMonth: () => void;
+  onAssignSelectedLast3Months: () => void;
+  onAssignSelectedThisYear: () => void;
   onDismissTimelinePrompt: () => void;
   onEditItem: (id: string) => void;
   onDeleteItem: (id: string) => void;
@@ -67,6 +70,10 @@ export function LibraryScreen({
   onSpreadLastMonth,
   onSpreadLast3Months,
   onSpreadThisYear,
+  onAssignSelectedThisMonth,
+  onAssignSelectedLastMonth,
+  onAssignSelectedLast3Months,
+  onAssignSelectedThisYear,
   onDismissTimelinePrompt,
   onEditItem,
   onDeleteItem,
@@ -139,12 +146,22 @@ export function LibraryScreen({
             <Text style={appStyles.metaDate}>
               {getConsumptionDate(selectedItem)
                 ? formatFullDate(getConsumptionDate(selectedItem) as number)
-                : "дата не указана"}
+                : "выбери время"}
             </Text>
           </View>
           <Text style={appStyles.itemTitle}>{selectedItem.title}</Text>
           <Text style={appStyles.itemMeta}>{selectedItem.authorOrArtist || "без автора"}</Text>
-          <Text style={appStyles.metaText}>источник: {SOURCE_LABEL[selectedItem.source]}</Text>
+          {!getConsumptionDate(selectedItem) ? (
+            <View style={appStyles.stack}>
+              <Text style={appStyles.metaText}>когда это было примерно?</Text>
+              <View style={appStyles.row}>
+                <PillButton label="недавно" onPress={onAssignSelectedThisMonth} disabled={timelineSpreading} />
+                <PillButton label="прошлый месяц" onPress={onAssignSelectedLastMonth} disabled={timelineSpreading} />
+                <PillButton label="3 месяца" onPress={onAssignSelectedLast3Months} disabled={timelineSpreading} />
+                <PillButton label="этот год" onPress={onAssignSelectedThisYear} disabled={timelineSpreading} />
+              </View>
+            </View>
+          ) : null}
           <PillButton label="редактировать" onPress={() => onEditItem(selectedItem.id)} />
           <PillButton label="удалить" variant="danger" onPress={() => onDeleteItem(selectedItem.id)} />
         </View>
@@ -169,7 +186,7 @@ export function LibraryScreen({
                         <Text style={appStyles.metaDate}>
                           {getConsumptionDate(item)
                             ? formatFullDate(getConsumptionDate(item) as number)
-                            : "дата не указана"}
+                            : "без времени"}
                         </Text>
                       </View>
                       <Text style={appStyles.itemMeta}>{item.authorOrArtist || TYPE_LABEL[item.type]}</Text>
@@ -196,7 +213,7 @@ export function LibraryScreen({
                 <Text style={appStyles.metaDate}>
                   {getConsumptionDate(item)
                     ? formatFullDate(getConsumptionDate(item) as number)
-                    : "дата не указана"}
+                    : "без времени"}
                 </Text>
               </View>
 

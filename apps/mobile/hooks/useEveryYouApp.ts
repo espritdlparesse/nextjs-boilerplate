@@ -381,6 +381,43 @@ export function useEveryYouApp() {
     }
   }
 
+  async function assignTimelineToItem(itemId: string, preset: TimelineSpreadPreset) {
+    const item = library.find((entry) => entry.id === itemId);
+    if (!item || timelineSpreading) return;
+
+    const [date] = buildSpreadDates(1, preset);
+    setTimelineSpreading(true);
+
+    try {
+      if (apiToken) {
+        const updated = await updateItem(apiToken, {
+          id: item.id,
+          type: item.type,
+          source: item.source,
+          title: item.title,
+          authorOrArtist: item.authorOrArtist,
+          consumedAt: date,
+        });
+        setLibrary((current) => current.map((entry) => (entry.id === item.id ? updated : entry)));
+        setSyncStatus("online");
+        setSyncMessage("данные синхронизируются с сервером");
+      } else {
+        setLibrary((current) =>
+          current.map((entry) => (entry.id === item.id ? { ...entry, consumedAt: date } : entry))
+        );
+      }
+
+      setToastMessage("время обновили");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "не удалось обновить время";
+      setSyncStatus("offline");
+      setSyncMessage(message);
+      setToastMessage("не удалось обновить время");
+    } finally {
+      setTimelineSpreading(false);
+    }
+  }
+
   function promptTimelinePlacement() {
     if (undatedVisibleLibrary.length === 0) return;
     setTimelinePromptVisible(true);
@@ -1031,6 +1068,10 @@ export function useEveryYouApp() {
     spreadIntoLastMonth: () => spreadVisibleUndatedItems("last_month"),
     spreadIntoLast3Months: () => spreadVisibleUndatedItems("last_3_months"),
     spreadIntoThisYear: () => spreadVisibleUndatedItems("this_year"),
+    assignSelectedToThisMonth: () => selectedId && assignTimelineToItem(selectedId, "this_month"),
+    assignSelectedToLastMonth: () => selectedId && assignTimelineToItem(selectedId, "last_month"),
+    assignSelectedToLast3Months: () => selectedId && assignTimelineToItem(selectedId, "last_3_months"),
+    assignSelectedToThisYear: () => selectedId && assignTimelineToItem(selectedId, "this_year"),
     dismissTimelinePrompt: () => setTimelinePromptVisible(false),
     promptTimelinePlacement,
     openAnalysisResult: setAnalysisResult,
