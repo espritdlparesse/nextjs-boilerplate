@@ -83,3 +83,22 @@ Once connected from the mobile app, you can import:
 - Move analysis to the shared backend instead of local-only storage
 - Split the single `App.tsx` screen into reusable mobile components and navigation
 - Rework Telegram-only auth in `/app/api/items/route.ts` so native clients can use the same API
+
+## iOS share flow
+
+The app is already prepared to accept incoming deep links through the custom scheme:
+
+```text
+everyyou://
+```
+
+This is the base for a future iOS Share Extension. The current app can already accept:
+
+- Spotify URLs pushed into the app
+- `everyyou://import?...` style payloads for manual prefills
+
+The next native step is to add a real iOS Share Extension in a development build / prebuild workflow.
+
+See:
+
+- `/Users/nastyad/Documents/GitHub/nextjs-boilerplate/docs/ios-share-extension.md`
