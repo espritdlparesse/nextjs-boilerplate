@@ -268,8 +268,8 @@ export function AddScreen({
   const activeType = (type || "music") as ContentType;
   const currentPh = PLACEHOLDERS[activeType][placeholderIndex % PLACEHOLDERS[activeType].length];
 
-  function runGuideAction() {
-    if (guide === "spotify") {
+  function runGuideAction(currentGuide: Exclude<GuideKey, null>) {
+    if (currentGuide === "spotify") {
       if (spotifyConnected) {
         onSpotifyRefreshPress();
       } else {
@@ -277,12 +277,21 @@ export function AddScreen({
       }
       return;
     }
-    if (guide === "livelib") return onLivelibImportPress();
-    if (guide === "goodreads") return onGoodreadsImportPress();
-    if (guide === "letterboxd") return onLetterboxdImportPress();
-    if (guide === "lastfm") return onLastfmImportPress();
-    if (guide === "kinopoisk") return onKinopoiskImportPress();
-    if (guide === "mubi") return onMubiImportPress();
+    if (currentGuide === "livelib") return onLivelibImportPress();
+    if (currentGuide === "goodreads") return onGoodreadsImportPress();
+    if (currentGuide === "letterboxd") return onLetterboxdImportPress();
+    if (currentGuide === "lastfm") return onLastfmImportPress();
+    if (currentGuide === "kinopoisk") return onKinopoiskImportPress();
+    if (currentGuide === "mubi") return onMubiImportPress();
+  }
+
+  function confirmGuideAction() {
+    if (!guide) return;
+    const currentGuide = guide;
+    setGuide(null);
+    setTimeout(() => {
+      runGuideAction(currentGuide);
+    }, 220);
   }
 
   return (
@@ -580,10 +589,7 @@ export function AddScreen({
                     <PillButton
                       label={guides[guide].actionLabel}
                       themeMode={themeMode}
-                      onPress={() => {
-                        runGuideAction();
-                        setGuide(null);
-                      }}
+                      onPress={confirmGuideAction}
                       disabled={guide === "spotify" && spotifyOAuthLoading}
                     />
                   </View>
