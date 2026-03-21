@@ -663,6 +663,54 @@ export const appStyles = StyleSheet.create({
   weekDayNumberActive: {
     color: colors.white,
   },
+  dayModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(17,17,17,0.18)",
+    justifyContent: "flex-end",
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    paddingTop: 80,
+  },
+  dayModalSheet: {
+    flex: 1,
+    backgroundColor: colors.white,
+    borderRadius: 32,
+    borderWidth: 1,
+    borderColor: colors.line,
+    padding: 18,
+    gap: 14,
+  },
+  dayModalTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  dayModalHeading: {
+    flex: 1,
+    gap: 4,
+  },
+  dayModalClose: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  dayModalCloseText: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: colors.black,
+    textTransform: "lowercase",
+  },
+  dayModalScroll: {
+    flex: 1,
+  },
+  dayModalContent: {
+    gap: 12,
+    paddingBottom: 20,
+  },
   tileTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",

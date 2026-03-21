@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FlatList, Pressable, ScrollView, Text, View } from "react-native";
+import { FlatList, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import {
   formatFullDate,
   getConsumptionDate,
@@ -102,6 +102,7 @@ export function LibraryScreen({
   const [viewMode, setViewMode] = useState<LibraryViewMode>("tiles");
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
+  const [dayModalVisible, setDayModalVisible] = useState(false);
 
   const itemsByDay = useMemo(() => {
     const grouped = new Map<string, LibraryItem[]>();
@@ -161,6 +162,11 @@ export function LibraryScreen({
       setSelectedDayKey(selectedDay.key);
     }
   }, [selectedDay?.key]);
+
+  function openDay(dateKey: string) {
+    setSelectedDayKey(dateKey);
+    setDayModalVisible(true);
+  }
 
   function renderTopCards() {
     return (
@@ -314,7 +320,7 @@ export function LibraryScreen({
                   !day.inMonth && appStyles.calendarDayMuted,
                   day.key === selectedDay?.key && appStyles.calendarDayActive,
                 ]}
-                onPress={() => setSelectedDayKey(day.key)}
+                onPress={() => openDay(day.key)}
               >
                 <View style={appStyles.calendarDayHead}>
                   <Text style={[appStyles.calendarDayNumber, !day.inMonth && appStyles.calendarDayNumberMuted]}>
@@ -339,61 +345,6 @@ export function LibraryScreen({
           </View>
         </View>
 
-        {selectedDay ? (
-          <View style={[appStyles.card, appStyles.cardAccentBlue]}>
-            <Text style={appStyles.sectionTitle}>
-              {selectedDay.date
-                .toLocaleString("ru-RU", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })
-                .replace(/^./, (char) => char.toUpperCase())}
-            </Text>
-            <Text style={appStyles.metaText}>можно смотреть по дням и в разрезе недели.</Text>
-
-            <View style={appStyles.weekStrip}>
-              {selectedWeek.map((day) => (
-                <Pressable
-                  key={day.key}
-                  style={[
-                    appStyles.weekDayChip,
-                    day.key === selectedDay.key && appStyles.weekDayChipActive,
-                  ]}
-                  onPress={() => setSelectedDayKey(day.key)}
-                >
-                  <Text style={[appStyles.weekDayName, day.key === selectedDay.key && appStyles.weekDayNameActive]}>
-                    {day.date.toLocaleString("ru-RU", { weekday: "short" })}
-                  </Text>
-                  <Text style={[appStyles.weekDayNumber, day.key === selectedDay.key && appStyles.weekDayNumberActive]}>
-                    {day.date.getDate()}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <View style={appStyles.stack}>
-              {selectedDay.items.length > 0 ? (
-                selectedDay.items.map((item) => (
-                  <Pressable key={item.id} style={[appStyles.tile, typeTileStyle(item.type)]} onPress={() => onSelectItem(item.id)}>
-                    <View style={appStyles.tileTopRow}>
-                      <View style={appStyles.typeBadge}>
-                        <Text style={appStyles.typeBadgeText}>{TYPE_LABEL[item.type]}</Text>
-                      </View>
-                      <Text style={appStyles.metaDate}>{formatFullDate(getConsumptionDate(item) as number)}</Text>
-                    </View>
-                    <Text style={appStyles.itemTitle}>{item.title}</Text>
-                    <Text style={appStyles.itemMeta}>{item.authorOrArtist || "без автора"}</Text>
-                  </Pressable>
-                ))
-              ) : (
-                <View style={appStyles.card}>
-                  <Text style={appStyles.helper}>в этот день пока пусто.</Text>
-                </View>
-              )}
-            </View>
-          </View>
-        ) : null}
       </ScrollView>
     );
   }
@@ -423,6 +374,75 @@ export function LibraryScreen({
           windowSize={7}
         />
       )}
+
+      <Modal visible={dayModalVisible && Boolean(selectedDay)} transparent animationType="fade" onRequestClose={() => setDayModalVisible(false)}>
+        <View style={appStyles.dayModalBackdrop}>
+          <View style={appStyles.dayModalSheet}>
+            {selectedDay ? (
+              <>
+                <View style={appStyles.dayModalTopRow}>
+                  <View style={appStyles.dayModalHeading}>
+                    <Text style={appStyles.sectionTitle}>
+                      {selectedDay.date
+                        .toLocaleString("ru-RU", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })
+                        .replace(/^./, (char) => char.toUpperCase())}
+                    </Text>
+                    <Text style={appStyles.metaText}>можно смотреть по дням и в разрезе недели.</Text>
+                  </View>
+                  <Pressable style={appStyles.dayModalClose} onPress={() => setDayModalVisible(false)}>
+                    <Text style={appStyles.dayModalCloseText}>закрыть</Text>
+                  </Pressable>
+                </View>
+
+                <View style={appStyles.weekStrip}>
+                  {selectedWeek.map((day) => (
+                    <Pressable
+                      key={day.key}
+                      style={[
+                        appStyles.weekDayChip,
+                        day.key === selectedDay.key && appStyles.weekDayChipActive,
+                      ]}
+                      onPress={() => setSelectedDayKey(day.key)}
+                    >
+                      <Text style={[appStyles.weekDayName, day.key === selectedDay.key && appStyles.weekDayNameActive]}>
+                        {day.date.toLocaleString("ru-RU", { weekday: "short" })}
+                      </Text>
+                      <Text style={[appStyles.weekDayNumber, day.key === selectedDay.key && appStyles.weekDayNumberActive]}>
+                        {day.date.getDate()}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                <ScrollView style={appStyles.dayModalScroll} contentContainerStyle={appStyles.dayModalContent} showsVerticalScrollIndicator={false}>
+                  {selectedDay.items.length > 0 ? (
+                    selectedDay.items.map((item) => (
+                      <Pressable key={item.id} style={[appStyles.tile, typeTileStyle(item.type)]} onPress={() => onSelectItem(item.id)}>
+                        <View style={appStyles.tileTopRow}>
+                          <View style={appStyles.typeBadge}>
+                            <Text style={appStyles.typeBadgeText}>{TYPE_LABEL[item.type]}</Text>
+                          </View>
+                          <Text style={appStyles.metaDate}>{formatFullDate(getConsumptionDate(item) as number)}</Text>
+                        </View>
+                        <Text style={appStyles.itemTitle}>{item.title}</Text>
+                        <Text style={appStyles.itemMeta}>{item.authorOrArtist || "без автора"}</Text>
+                      </Pressable>
+                    ))
+                  ) : (
+                    <View style={appStyles.card}>
+                      <Text style={appStyles.helper}>в этот день пока пусто.</Text>
+                    </View>
+                  )}
+                </ScrollView>
+              </>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
