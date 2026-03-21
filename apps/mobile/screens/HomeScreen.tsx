@@ -94,26 +94,34 @@ export function HomeScreen({
       <View style={appStyles.tileGrid}>
         <Pressable style={[appStyles.tile, appStyles.homeFeatureTile, appStyles.tilePink]} onPress={() => onOpenLibraryType("music")}>
           <Text style={[appStyles.metaDate, { color: theme.accentMutedText }]}>музыка</Text>
-          <Text style={appStyles.itemTitle}>трек за треком</Text>
-          <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>spotify, last.fm, скриншоты и ручной импорт.</Text>
+          <Text style={appStyles.itemTitle}>всё, что ты слушаешь</Text>
+          <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
+            подключи спотифай, импортируй из last.fm, загрузи по скриншоту или впиши вручную.
+          </Text>
         </Pressable>
 
         <Pressable style={[appStyles.tile, appStyles.homeFeatureTile, appStyles.tileGreen]} onPress={() => onOpenLibraryType("book")}>
           <Text style={[appStyles.metaDate, { color: theme.accentMutedText }]}>книги</Text>
           <Text style={appStyles.itemTitle}>книжная полка</Text>
-          <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>livelib и другие экспортные файлы можно загрузить прямо здесь.</Text>
+          <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
+            скинь фотку книги или книжной полки, загрузи статистику из livelib или другого сервиса и посмотри, что будет.
+          </Text>
         </Pressable>
 
         <Pressable style={[appStyles.tile, appStyles.homeFeatureTile, appStyles.tileBlue]} onPress={() => onOpenLibraryType("film")}>
           <Text style={[appStyles.metaDate, { color: theme.accentMutedText }]}>фильмы</Text>
           <Text style={appStyles.itemTitle}>все просмотры</Text>
-          <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>letterboxd, кинопоиск, mubi и любые странные списки через импорт изображений.</Text>
+          <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
+            импортируй контент из letterboxd, кинопоиска, mubi и других уже подключенных площадок.
+          </Text>
         </Pressable>
 
         <Pressable style={[appStyles.tile, appStyles.homeFeatureTile, appStyles.tileYellow]} onPress={onOpenVibeCheck}>
           <Text style={[appStyles.metaDate, { color: theme.accentMutedText }]}>вайбчек</Text>
-          <Text style={appStyles.itemTitle}>прожарка вкуса</Text>
-          <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>когда контента накопится достаточно, можно получить уже не демо, а реальную читку.</Text>
+          <Text style={appStyles.itemTitle}>узнай себя получше</Text>
+          <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
+            когда будешь готов — нажми кнопку «вайбчек» и сам всё поймешь.
+          </Text>
         </Pressable>
       </View>
     </View>

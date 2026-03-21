@@ -440,12 +440,16 @@ export const appStyles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     gap: 6,
+    minWidth: 0,
   },
   bottomItemLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "800",
     color: colors.subtext,
     textTransform: "lowercase",
+    textAlign: "center",
+    width: "100%",
+    lineHeight: 13,
   },
   bottomItemLabelActive: {
     color: colors.black,

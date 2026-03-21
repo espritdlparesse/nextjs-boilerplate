@@ -276,7 +276,12 @@ export default function App() {
                     >
                       <Text style={[appStyles.secondaryText, { color: theme.bottomIconText }]}>{item.icon}</Text>
                     </View>
-                    <Text style={[appStyles.bottomItemLabel, { color: active ? theme.bottomLabelActive : theme.bottomLabel }]}>
+                    <Text
+                      style={[appStyles.bottomItemLabel, { color: active ? theme.bottomLabelActive : theme.bottomLabel }]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.8}
+                    >
                       {item.label}
                     </Text>
                   </Pressable>
@@ -301,7 +306,12 @@ export default function App() {
                     >
                       <Text style={[appStyles.secondaryText, { color: theme.bottomIconText }]}>{item.icon}</Text>
                     </View>
-                    <Text style={[appStyles.bottomItemLabel, { color: active ? theme.bottomLabelActive : theme.bottomLabel }]}>
+                    <Text
+                      style={[appStyles.bottomItemLabel, { color: active ? theme.bottomLabelActive : theme.bottomLabel }]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.8}
+                    >
                       {item.label}
                     </Text>
                   </Pressable>
