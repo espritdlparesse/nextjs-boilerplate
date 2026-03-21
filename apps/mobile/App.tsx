@@ -29,7 +29,9 @@ export default function App() {
       <View style={appStyles.shell}>
         <ScrollView style={appStyles.scroll} contentContainerStyle={appStyles.container}>
           <Text style={appStyles.brand}>everyyou</Text>
-          <Text style={appStyles.subtitle}>привет, {app.displayName.toLowerCase()}</Text>
+          {app.hasCustomName ? (
+            <Text style={appStyles.subtitle}>привет, {app.displayName.toLowerCase()}</Text>
+          ) : null}
           <Text style={appStyles.syncText}>
             sync: {app.syncStatus === "online" ? "online" : app.syncStatus === "syncing" ? "syncing" : "offline"} ·{" "}
             {app.syncMessage}
@@ -37,9 +39,9 @@ export default function App() {
 
           {app.tab === "home" && (
             <HomeScreen
-              displayName={app.displayName}
               hasCustomName={app.hasCustomName}
               nameDraft={app.nameDraft}
+              namePlaceholder={app.namePlaceholder}
               onAddPress={() => app.setTab("add")}
               onNameDraftChange={app.setNameDraft}
               onSaveNamePress={app.saveProfileName}

@@ -3,18 +3,18 @@ import { PillButton } from "../components/PillButton";
 import { appStyles } from "../styles/appStyles";
 
 type HomeScreenProps = {
-  displayName: string;
   hasCustomName: boolean;
   nameDraft: string;
+  namePlaceholder: string;
   onAddPress: () => void;
   onNameDraftChange: (value: string) => void;
   onSaveNamePress: () => void;
 };
 
 export function HomeScreen({
-  displayName,
   hasCustomName,
   nameDraft,
+  namePlaceholder,
   onAddPress,
   onNameDraftChange,
   onSaveNamePress,
@@ -23,14 +23,9 @@ export function HomeScreen({
     <View style={appStyles.screen}>
       <View style={[appStyles.card, appStyles.cardAccentYellow]}>
         <Text style={appStyles.label}>{hasCustomName ? "обращение" : "как тебя зовут?"}</Text>
-        <Text style={appStyles.helper}>
-          {hasCustomName
-            ? `сейчас приложение обращается к тебе как к ${displayName.toLowerCase()}. если хочешь, можно поменять это здесь.`
-            : "введи имя, и приложение будет обращаться к тебе нормально, а не как к ios friend."}
-        </Text>
         <TextInput
           style={appStyles.input}
-          placeholder="например: настя"
+          placeholder={namePlaceholder}
           value={nameDraft}
           onChangeText={onNameDraftChange}
           autoCapitalize="words"

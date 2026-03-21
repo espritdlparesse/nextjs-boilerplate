@@ -49,6 +49,14 @@ type SpotifyPlaylist = {
   trackCount: number;
 };
 
+const NAME_PLACEHOLDERS = [
+  "лил пип",
+  "владислав юрьевич",
+  "настя д.",
+  "имя фамилия",
+  "случайный набор букв",
+];
+
 function splitDisplayName(name: string): TgUser {
   const normalized = clampText(name);
   if (!normalized) {
@@ -192,7 +200,7 @@ export function useEveryYouApp() {
       setImportedCount(storedImportCount);
       setAnalysisHistory(storedAnalysis);
       setUser(nextUser);
-      setNameDraft(getDisplayName(nextUser));
+      setNameDraft(hasValidCustomName(nextUser) ? getDisplayName(nextUser) : "");
       setApiToken(nextToken);
       setSyncStatus(nextSyncStatus);
       setSyncMessage(nextSyncMessage);
@@ -249,10 +257,11 @@ export function useEveryYouApp() {
   }, [analysisHistory, loaded]);
 
   const displayName = useMemo(() => getDisplayName(user), [user]);
-  const hasCustomName = useMemo(() => {
-    const normalized = clampText(displayName).toLowerCase();
-    return normalized !== "друг" && normalized !== "ios friend" && normalized !== "ios друг";
-  }, [displayName]);
+  const hasCustomName = useMemo(() => hasValidCustomName(user), [user]);
+  const namePlaceholder = useMemo(
+    () => NAME_PLACEHOLDERS[phIdx % NAME_PLACEHOLDERS.length],
+    [phIdx]
+  );
   const canSave = useMemo(
     () => Boolean(type && source && clampText(title) && clampText(authorOrArtist)),
     [authorOrArtist, source, title, type]
@@ -767,6 +776,7 @@ export function useEveryYouApp() {
     displayName,
     hasCustomName,
     nameDraft,
+    namePlaceholder,
     syncStatus,
     syncMessage,
     editingId,
@@ -840,4 +850,9 @@ export function useEveryYouApp() {
     runFakeAnalysis,
     openAnalysisResult: setAnalysisResult,
   };
+}
+
+function hasValidCustomName(user: TgUser | null) {
+  const normalized = getDisplayName(user).trim().toLowerCase();
+  return normalized !== "друг" && normalized !== "ios friend" && normalized !== "ios друг";
 }
