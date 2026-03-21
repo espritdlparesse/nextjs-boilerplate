@@ -76,6 +76,38 @@ export const appStyles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 16,
   },
+  chipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  statusChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  statusChipText: {
+    fontSize: 12,
+    color: colors.subtext,
+    textTransform: "lowercase",
+  },
+  collapseButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.white,
+  },
+  collapseButtonText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.black,
+    textTransform: "lowercase",
+  },
   compactNameCard: {
     backgroundColor: "#FAFAFA",
   },

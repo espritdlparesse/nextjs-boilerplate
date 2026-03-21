@@ -128,6 +128,14 @@ function BrandImportButton({
   );
 }
 
+function StatusChip({ text }: { text: string }) {
+  return (
+    <View style={appStyles.statusChip}>
+      <Text style={appStyles.statusChipText}>{text}</Text>
+    </View>
+  );
+}
+
 export function AddScreen({
   editingId,
   isScreenshotImporting,
@@ -169,6 +177,7 @@ export function AddScreen({
   onDone,
 }: AddScreenProps) {
   const [guide, setGuide] = useState<GuideKey>(null);
+  const [showSpotifyPlaylists, setShowSpotifyPlaylists] = useState(false);
   const activeType = (type || "music") as ContentType;
   const currentPh = PLACEHOLDERS[activeType][placeholderIndex % PLACEHOLDERS[activeType].length];
 
@@ -200,8 +209,10 @@ export function AddScreen({
           disabled={isScreenshotImporting}
         />
 
-        <Text style={appStyles.metaText}>импортировано: {importedCount} треков</Text>
-        {screenshotStatus ? <Text style={appStyles.metaText}>{screenshotStatus}</Text> : null}
+        <View style={appStyles.chipRow}>
+          <StatusChip text={`импортировано: ${importedCount} треков`} />
+          {screenshotStatus ? <StatusChip text={screenshotStatus} /> : null}
+        </View>
       </View>
 
       <View style={appStyles.card}>
@@ -231,13 +242,13 @@ export function AddScreen({
           </View>
         ) : null}
 
-        {spotifyConnected ? (
-          <Text style={appStyles.metaText}>
-            spotify подключен: {spotifyProfileName ?? "аккаунт найден"}
-          </Text>
-        ) : null}
-        {fileImportStatus ? <Text style={appStyles.metaText}>{fileImportStatus}</Text> : null}
-        {spotifyStatus ? <Text style={appStyles.metaText}>{spotifyStatus}</Text> : null}
+        <View style={appStyles.chipRow}>
+          {spotifyConnected ? (
+            <StatusChip text={`spotify подключен: ${spotifyProfileName ?? "аккаунт найден"}`} />
+          ) : null}
+          {fileImportStatus ? <StatusChip text={fileImportStatus} /> : null}
+          {spotifyStatus ? <StatusChip text={spotifyStatus} /> : null}
+        </View>
       </View>
 
       <View style={[appStyles.card, appStyles.cardAccentBlue]}>
@@ -313,8 +324,11 @@ export function AddScreen({
         <View style={appStyles.row}>
           <PillButton label="обновить" onPress={onSpotifyRefreshPress} />
           <PillButton
-            label={spotifyPlaylistLoading ? "грузим..." : "плейлисты"}
-            onPress={onSpotifyLoadPlaylistsPress}
+            label={spotifyPlaylistLoading ? "грузим..." : spotifyPlaylists.length > 0 ? "обновить плейлисты" : "плейлисты"}
+            onPress={() => {
+              onSpotifyLoadPlaylistsPress();
+              setShowSpotifyPlaylists(true);
+            }}
             disabled={spotifyPlaylistLoading}
           />
           <PillButton label="liked songs" onPress={onSpotifyLikedSongsPress} />
@@ -333,16 +347,26 @@ export function AddScreen({
 
         {spotifyPlaylists.length > 0 ? (
           <View style={appStyles.stack}>
-            {spotifyPlaylists.map((playlist) => (
-              <View key={playlist.id} style={[appStyles.tile, appStyles.tileGreen]}>
-                <Text style={appStyles.itemTitle}>{playlist.name}</Text>
-                <Text style={appStyles.metaText}>{playlist.trackCount} треков</Text>
-                <PillButton
-                  label="импортировать плейлист"
-                  onPress={() => onSpotifyPlaylistImportPress(playlist.id, playlist.name)}
-                />
-              </View>
-            ))}
+            <Pressable style={appStyles.collapseButton} onPress={() => setShowSpotifyPlaylists((current) => !current)}>
+              <Text style={appStyles.collapseButtonText}>
+                {showSpotifyPlaylists
+                  ? `спрятать плейлисты (${spotifyPlaylists.length})`
+                  : `показать плейлисты (${spotifyPlaylists.length})`}
+              </Text>
+            </Pressable>
+
+            {showSpotifyPlaylists
+              ? spotifyPlaylists.map((playlist) => (
+                  <View key={playlist.id} style={[appStyles.tile, appStyles.tileGreen]}>
+                    <Text style={appStyles.itemTitle}>{playlist.name}</Text>
+                    <Text style={appStyles.metaText}>{playlist.trackCount} треков</Text>
+                    <PillButton
+                      label="импортировать плейлист"
+                      onPress={() => onSpotifyPlaylistImportPress(playlist.id, playlist.name)}
+                    />
+                  </View>
+                ))
+              : null}
           </View>
         ) : null}
       </View>
