@@ -684,7 +684,7 @@ export function useEveryYouApp() {
         };
 
         setAnalysisResult(result);
-        setAnalysisHistory((current) => [result, ...current].slice(0, 30));
+        setAnalysisHistory([result]);
         return;
       }
 
@@ -712,7 +712,7 @@ export function useEveryYouApp() {
       };
 
       setAnalysisResult(result);
-      setAnalysisHistory((current) => [result, ...current].slice(0, 30));
+      setAnalysisHistory([result]);
     } catch (error) {
       const message = error instanceof Error ? error.message : "vibe check failed";
       const fallback: AnalysisRun = {
@@ -723,7 +723,7 @@ export function useEveryYouApp() {
         highlights: ["проверь OPENAI_API_KEY на backend", "и повтори попытку"],
       };
       setAnalysisResult(fallback);
-      setAnalysisHistory((current) => [fallback, ...current].slice(0, 30));
+      setAnalysisHistory([fallback]);
     } finally {
       setAnalysisRunning(false);
     }

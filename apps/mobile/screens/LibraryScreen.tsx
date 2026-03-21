@@ -52,18 +52,6 @@ export function LibraryScreen({
             />
           ))}
         </View>
-
-        <Text style={appStyles.label}>источник</Text>
-        <View style={appStyles.row}>
-          {(["all", "manual", "import_spotify"] as SourceFilter[]).map((value) => (
-            <PillButton
-              key={value}
-              label={value === "all" ? "все" : SOURCE_LABEL[value]}
-              active={sourceFilter === value}
-              onPress={() => onSourceFilterChange(value)}
-            />
-          ))}
-        </View>
       </View>
 
       {selectedItem ? (

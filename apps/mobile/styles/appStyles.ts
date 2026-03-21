@@ -60,16 +60,16 @@ export const appStyles = StyleSheet.create({
     borderColor: colors.line,
   },
   cardAccentPink: {
-    backgroundColor: "#FFF2FB",
+    backgroundColor: "#FFDDF4",
   },
   cardAccentBlue: {
-    backgroundColor: "#F2FBFF",
+    backgroundColor: "#DDF5FF",
   },
   cardAccentYellow: {
-    backgroundColor: "#FFFBE8",
+    backgroundColor: "#FFF3B6",
   },
   cardAccentGreen: {
-    backgroundColor: "#F1FFF1",
+    backgroundColor: "#D9FFD9",
   },
   sectionTitle: {
     fontSize: 28,
@@ -173,16 +173,16 @@ export const appStyles = StyleSheet.create({
     minHeight: 164,
   },
   tilePink: {
-    backgroundColor: "#FFF1FB",
+    backgroundColor: colors.pink,
   },
   tileBlue: {
-    backgroundColor: "#F1FAFF",
+    backgroundColor: colors.blue,
   },
   tileYellow: {
-    backgroundColor: "#FFF9E5",
+    backgroundColor: colors.yellow,
   },
   tileGreen: {
-    backgroundColor: "#F2FFF2",
+    backgroundColor: colors.green,
   },
   itemTitle: {
     fontSize: 24,
@@ -348,12 +348,12 @@ export const appStyles = StyleSheet.create({
     borderRadius: 32,
     padding: 20,
     gap: 12,
-    backgroundColor: "#FFF6FD",
+    backgroundColor: "#FFDDF4",
     borderWidth: 1,
-    borderColor: "#FFD5F2",
+    borderColor: colors.pink,
   },
   sectionHeroAlt: {
-    backgroundColor: "#F3FBFF",
-    borderColor: "#CFEFFF",
+    backgroundColor: "#DDF5FF",
+    borderColor: colors.blue,
   },
 });

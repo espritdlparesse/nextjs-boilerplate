@@ -52,19 +52,6 @@ export function AnalysisScreen({
           <Text style={appStyles.metaDate}>{formatFullDate(analysisResult.createdAt)}</Text>
         </View>
       ) : null}
-
-      {analysisHistory.length > 0 ? (
-        <View style={appStyles.stack}>
-          {analysisHistory.map((item) => (
-            <View key={item.id} style={[appStyles.tile, appStyles.tileYellow]}>
-              <Text style={appStyles.itemTitle}>{item.itemCount} айтемов</Text>
-              <Text style={appStyles.helper}>{item.summary}</Text>
-              <Text style={appStyles.metaDate}>{formatFullDate(item.createdAt)}</Text>
-              <PillButton label="открыть" onPress={() => onOpenResult(item)} />
-            </View>
-          ))}
-        </View>
-      ) : null}
     </View>
   );
 }
