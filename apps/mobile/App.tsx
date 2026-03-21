@@ -1,5 +1,6 @@
 import { StatusBar } from "expo-status-bar";
-import { Pressable, SafeAreaView, ScrollView, Text, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { Animated, Easing, Pressable, SafeAreaView, ScrollView, Text, View } from "react-native";
 import { type Tab } from "./shared/everyyou/domain";
 import { useEveryYouApp } from "./hooks/useEveryYouApp";
 import { AnalysisScreen } from "./screens/AnalysisScreen";
@@ -22,6 +23,58 @@ const navItems: NavItem[] = [
 
 export default function App() {
   const app = useEveryYouApp();
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const toastTranslateY = useRef(new Animated.Value(18)).current;
+  const toastScale = useRef(new Animated.Value(0.96)).current;
+
+  useEffect(() => {
+    if (!app.toastMessage) {
+      Animated.parallel([
+        Animated.timing(toastOpacity, {
+          toValue: 0,
+          duration: 170,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(toastTranslateY, {
+          toValue: 18,
+          duration: 170,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(toastScale, {
+          toValue: 0.96,
+          duration: 170,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]).start();
+      return;
+    }
+
+    Animated.parallel([
+      Animated.spring(toastTranslateY, {
+        toValue: 0,
+        damping: 14,
+        stiffness: 180,
+        mass: 0.8,
+        useNativeDriver: true,
+      }),
+      Animated.spring(toastScale, {
+        toValue: 1,
+        damping: 14,
+        stiffness: 180,
+        mass: 0.8,
+        useNativeDriver: true,
+      }),
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 210,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [app.toastMessage, toastOpacity, toastScale, toastTranslateY]);
 
   return (
     <SafeAreaView style={appStyles.safeArea}>
@@ -132,9 +185,17 @@ export default function App() {
 
         <View style={appStyles.bottomBarWrap}>
           {app.toastMessage ? (
-            <View style={appStyles.toast}>
+            <Animated.View
+              style={[
+                appStyles.toast,
+                {
+                  opacity: toastOpacity,
+                  transform: [{ translateY: toastTranslateY }, { scale: toastScale }],
+                },
+              ]}
+            >
               <Text style={appStyles.toastText}>{app.toastMessage}</Text>
-            </View>
+            </Animated.View>
           ) : null}
 
           <View style={appStyles.bottomBar}>
