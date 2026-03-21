@@ -185,7 +185,7 @@ export function useEveryYouApp() {
         const remoteLibrary = await fetchItems(session.token);
         nextLibrary = remoteLibrary;
         nextToken = session.token;
-        nextUser = splitDisplayName(session.name);
+        nextUser = splitDisplayName(session.name ?? storedGuestName);
         nextSyncStatus = "online";
         nextSyncMessage = "данные синхронизируются с сервером";
       } catch (error) {
@@ -221,10 +221,11 @@ export function useEveryYouApp() {
   useEffect(() => {
     if (!apiToken) return;
 
+    const token = apiToken;
     let cancelled = false;
     async function loadSpotifyStatus() {
       try {
-        const status = await fetchSpotifyConnectionStatus(apiToken);
+        const status = await fetchSpotifyConnectionStatus(token);
         if (cancelled) return;
         setSpotifyConnected(status.connected);
         setSpotifyProfileName(status.profile?.displayName ?? null);
@@ -262,10 +263,7 @@ export function useEveryYouApp() {
     () => NAME_PLACEHOLDERS[phIdx % NAME_PLACEHOLDERS.length],
     [phIdx]
   );
-  const canSave = useMemo(
-    () => Boolean(type && source && clampText(title) && clampText(authorOrArtist)),
-    [authorOrArtist, source, title, type]
-  );
+  const canSave = useMemo(() => Boolean(type && clampText(title) && clampText(authorOrArtist)), [authorOrArtist, title, type]);
   const selectedItem = useMemo(() => {
     if (!selectedId) return null;
     return library.find((item) => item.id === selectedId) ?? null;
@@ -298,7 +296,7 @@ export function useEveryYouApp() {
     const draft: LibraryItem = {
       id: uid(),
       type: type as ContentType,
-      source: source as SourceType,
+      source: (source || "manual") as SourceType,
       title: clampText(title).toLowerCase(),
       authorOrArtist: clampText(authorOrArtist).toLowerCase(),
       createdAt: Date.now(),
@@ -346,7 +344,7 @@ export function useEveryYouApp() {
     const updatedDraft = {
       id: editingId,
       type: type as ContentType,
-      source: source as SourceType,
+      source: (source || "manual") as SourceType,
       title: clampText(title).toLowerCase(),
       authorOrArtist: clampText(authorOrArtist).toLowerCase(),
     };
@@ -435,21 +433,34 @@ export function useEveryYouApp() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         allowsEditing: false,
+        allowsMultipleSelection: true,
+        selectionLimit: 10,
         quality: 0.9,
         base64: true,
       });
 
-      if (result.canceled || !result.assets[0]?.base64) {
+      if (result.canceled || !result.assets.length) {
         setScreenshotStatus("импорт отменен");
         setIsScreenshotImporting(false);
         return;
       }
 
-      setScreenshotStatus("анализируем скриншот через openai...");
-      const parsedItems = await analyzeScreenshot({
-        imageBase64: result.assets[0].base64,
-        mimeType: result.assets[0].mimeType ?? "image/jpeg",
-      });
+      const assets = result.assets.filter((asset) => asset.base64);
+      if (assets.length === 0) {
+        setScreenshotStatus("в выбранных файлах не нашлось изображений");
+        setIsScreenshotImporting(false);
+        return;
+      }
+
+      const parsedItems: Awaited<ReturnType<typeof analyzeScreenshot>> = [];
+      for (const [index, asset] of assets.entries()) {
+        setScreenshotStatus(`анализируем скриншоты: ${index + 1}/${assets.length}...`);
+        const chunk = await analyzeScreenshot({
+          imageBase64: asset.base64 as string,
+          mimeType: asset.mimeType ?? "image/jpeg",
+        });
+        parsedItems.push(...chunk);
+      }
 
       if (parsedItems.length === 0) {
         setScreenshotStatus("ничего уверенно не распознали");

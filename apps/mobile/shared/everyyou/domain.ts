@@ -40,6 +40,7 @@ export const SOURCE_LABEL: Record<SourceType, string> = {
 
 export const PLACEHOLDERS: Record<ContentType, Array<{ title: string; authorOrArtist: string }>> = {
   music: [
+    { title: "любой трек", authorOrArtist: "the national" },
     { title: "about today", authorOrArtist: "the national" },
     { title: "codex", authorOrArtist: "radiohead" },
     { title: "movies", authorOrArtist: "weyes blood" },
@@ -52,6 +53,7 @@ export const PLACEHOLDERS: Record<ContentType, Array<{ title: string; authorOrAr
     { title: "night shift", authorOrArtist: "lucy dacus" },
   ],
   film: [
+    { title: "трудности перевода", authorOrArtist: "коппола" },
     { title: "lost in translation", authorOrArtist: "sofia coppola" },
     { title: "personal shopper", authorOrArtist: "olivier assayas" },
     { title: "american beauty", authorOrArtist: "sam mendes" },
@@ -64,6 +66,7 @@ export const PLACEHOLDERS: Record<ContentType, Array<{ title: string; authorOrAr
     { title: "call me by your name", authorOrArtist: "luca guadagnino" },
   ],
   book: [
+    { title: "котлован", authorOrArtist: "платонов" },
     { title: "hot milk", authorOrArtist: "deborah levy" },
     { title: "the cost of living", authorOrArtist: "deborah levy" },
     { title: "how should a person be?", authorOrArtist: "sheila heti" },

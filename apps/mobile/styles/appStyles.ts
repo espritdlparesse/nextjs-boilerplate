@@ -71,6 +71,9 @@ export const appStyles = StyleSheet.create({
   cardAccentGreen: {
     backgroundColor: "#D9FFD9",
   },
+  compactNameCard: {
+    backgroundColor: "#FAFAFA",
+  },
   sectionTitle: {
     fontSize: 28,
     fontWeight: "900",
@@ -95,6 +98,16 @@ export const appStyles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
+  },
+  compactNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  compactNameTextWrap: {
+    flex: 1,
+    gap: 4,
   },
   stack: {
     gap: 12,
@@ -327,7 +340,7 @@ export const appStyles = StyleSheet.create({
     gap: 10,
   },
   brandButton: {
-    minWidth: 150,
+    width: "48%",
     alignItems: "center",
     paddingHorizontal: 14,
     paddingVertical: 14,

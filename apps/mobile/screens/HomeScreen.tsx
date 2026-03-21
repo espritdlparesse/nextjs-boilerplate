@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 import { PillButton } from "../components/PillButton";
 import { appStyles } from "../styles/appStyles";
@@ -19,25 +20,50 @@ export function HomeScreen({
   onNameDraftChange,
   onSaveNamePress,
 }: HomeScreenProps) {
+  const [editingName, setEditingName] = useState(!hasCustomName);
+
+  useEffect(() => {
+    if (!hasCustomName) {
+      setEditingName(true);
+      return;
+    }
+    setEditingName(false);
+  }, [hasCustomName]);
+
   return (
     <View style={appStyles.screen}>
-      <View style={[appStyles.card, appStyles.cardAccentYellow]}>
-        <Text style={appStyles.label}>{hasCustomName ? "обращение" : "как тебя зовут?"}</Text>
-        <TextInput
-          style={appStyles.input}
-          placeholder={namePlaceholder}
-          value={nameDraft}
-          onChangeText={onNameDraftChange}
-          autoCapitalize="words"
-          autoCorrect={false}
-        />
-        <PillButton
-          label={hasCustomName ? "обновить имя" : "сохранить имя"}
-          variant="primary"
-          disabled={!nameDraft.trim()}
-          onPress={onSaveNamePress}
-        />
-      </View>
+      {editingName ? (
+        <View style={[appStyles.card, appStyles.cardAccentYellow]}>
+          <Text style={appStyles.label}>как тебя зовут?</Text>
+          <TextInput
+            style={appStyles.input}
+            placeholder={namePlaceholder}
+            value={nameDraft}
+            onChangeText={onNameDraftChange}
+            autoCapitalize="words"
+            autoCorrect={false}
+          />
+          <PillButton
+            label={hasCustomName ? "обновить имя" : "сохранить имя"}
+            variant="primary"
+            disabled={!nameDraft.trim()}
+            onPress={() => {
+              onSaveNamePress();
+              setEditingName(false);
+            }}
+          />
+        </View>
+      ) : (
+        <View style={[appStyles.card, appStyles.compactNameCard]}>
+          <View style={appStyles.compactNameRow}>
+            <View style={appStyles.compactNameTextWrap}>
+              <Text style={appStyles.label}>обращение</Text>
+              <Text style={appStyles.helper}>можно поменять имя в любой момент</Text>
+            </View>
+            <PillButton label="изменить имя" onPress={() => setEditingName(true)} />
+          </View>
+        </View>
+      )}
 
       <View style={[appStyles.sectionHero, appStyles.sectionHeroAlt]}>
         <Text style={appStyles.sectionTitle}>what is this</Text>

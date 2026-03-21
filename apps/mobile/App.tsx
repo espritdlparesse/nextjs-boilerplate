@@ -63,7 +63,6 @@ export default function App() {
               spotifyPlaylistLoading={app.spotifyPlaylistLoading}
               fileImportStatus={app.fileImportStatus}
               type={app.type}
-              source={app.source}
               title={app.title}
               authorOrArtist={app.authorOrArtist}
               placeholderIndex={app.phIdx}

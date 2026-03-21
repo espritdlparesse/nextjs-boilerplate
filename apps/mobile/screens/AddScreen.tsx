@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { PLACEHOLDERS, SOURCE_LABEL, TYPE_LABEL, type ContentType, type SourceType } from "../shared/everyyou/domain";
+import { PLACEHOLDERS, TYPE_LABEL, type ContentType, type SourceType } from "../shared/everyyou/domain";
 import { BrandLogo } from "../components/BrandLogo";
 import { PillButton } from "../components/PillButton";
 import { appStyles } from "../styles/appStyles";
@@ -27,7 +27,6 @@ type AddScreenProps = {
   spotifyPlaylistLoading: boolean;
   fileImportStatus: string | null;
   type: ContentType | "";
-  source: SourceType | "";
   title: string;
   authorOrArtist: string;
   placeholderIndex: number;
@@ -143,7 +142,6 @@ export function AddScreen({
   spotifyPlaylistLoading,
   fileImportStatus,
   type,
-  source,
   title,
   authorOrArtist,
   placeholderIndex,
@@ -197,7 +195,7 @@ export function AddScreen({
         <Text style={appStyles.helper}>импортируй из сервисов, кидай скриншот или добавляй вручную. все должно ощущаться как один культурный таймлайн, а не куча отдельных списков.</Text>
 
         <PillButton
-          label={isScreenshotImporting ? "анализируем скрин..." : "загрузить скриншот"}
+          label={isScreenshotImporting ? "анализируем скриншоты..." : "загрузить скриншоты"}
           onPress={onScreenshotImportPress}
           disabled={isScreenshotImporting}
         />
@@ -289,18 +287,12 @@ export function AddScreen({
               key={value}
               label={TYPE_LABEL[value]}
               active={type === value}
-              onPress={() => onTypeChange(value)}
-            />
-          ))}
-        </View>
-
-        <View style={appStyles.row}>
-          {(["manual", "import_spotify"] as SourceType[]).map((value) => (
-            <PillButton
-              key={value}
-              label={SOURCE_LABEL[value]}
-              active={source === value}
-              onPress={() => onSourceChange(value)}
+              onPress={() => {
+                onTypeChange(value);
+                if (!editingId) {
+                  onSourceChange("manual");
+                }
+              }}
             />
           ))}
         </View>
