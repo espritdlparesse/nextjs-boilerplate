@@ -204,7 +204,7 @@ export function AddScreen({
         <Text style={appStyles.helper}>импортируй из сервисов, кидай скриншот или добавляй вручную. все должно ощущаться как один культурный таймлайн, а не куча отдельных списков.</Text>
 
         <PillButton
-          label={isScreenshotImporting ? "анализируем скриншоты..." : "загрузить скриншоты"}
+          label={isScreenshotImporting ? "анализируем изображения..." : "загрузить изображения"}
           onPress={onScreenshotImportPress}
           disabled={isScreenshotImporting}
         />

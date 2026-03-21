@@ -16,11 +16,16 @@ type ParsedItem = {
 
 function buildPrompt() {
   return [
-    "You extract media items from screenshots of libraries, playlists, feeds, notes, and lists.",
-    "Return only items that are visible with reasonable confidence.",
+    "You extract media items from images.",
+    "The image may be a screenshot, a photo of a book cover, a vinyl, a CD, a cinema poster, a TV screen, a playlist, a feed, a handwritten list, or a library page.",
+    "Return only items that are visible or strongly inferable with reasonable confidence.",
+    "Only return items that clearly belong to one of these categories: music, book, film.",
+    "If the image does not clearly contain music, book, or film content, return an empty items array.",
     "Infer the media type when possible: music, book, or film.",
+    "For books, return title and author.",
+    "For music, return track-or-album title and artist.",
+    "For films, return film title and director when recognizable; if director is unclear but the film title is clear, use the most relevant creator text visible on the image.",
     "Use lowercase for title and authorOrArtist.",
-    "If nothing is recognizable, return an empty items array.",
   ].join(" ");
 }
 
@@ -127,7 +132,7 @@ export async function POST(req: NextRequest) {
           content: [
             {
               type: "text",
-              text: "Analyze this screenshot and extract library items.",
+              text: "Analyze this image and extract media items that belong to music, book, or film.",
             },
             {
               type: "image_url",

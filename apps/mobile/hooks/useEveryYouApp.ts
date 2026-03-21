@@ -454,7 +454,7 @@ export function useEveryYouApp() {
 
       const parsedItems: Awaited<ReturnType<typeof analyzeScreenshot>> = [];
       for (const [index, asset] of assets.entries()) {
-        setScreenshotStatus(`анализируем скриншоты: ${index + 1}/${assets.length}...`);
+        setScreenshotStatus(`анализируем изображения: ${index + 1}/${assets.length}...`);
         const chunk = await analyzeScreenshot({
           imageBase64: asset.base64 as string,
           mimeType: asset.mimeType ?? "image/jpeg",
@@ -463,7 +463,9 @@ export function useEveryYouApp() {
       }
 
       if (parsedItems.length === 0) {
-        setScreenshotStatus("ничего уверенно не распознали");
+        setScreenshotStatus(
+          "не могу отнести это ни к музыке, ни к книгам, ни к фильмам — попробуй другое изображение"
+        );
         setIsScreenshotImporting(false);
         return;
       }
@@ -490,10 +492,10 @@ export function useEveryYouApp() {
         setLibrary((current) => [...importedItems, ...current]);
       }
 
-      setScreenshotStatus(`добавили ${importedItems.length} айтем(ов) из скриншота`);
+      setScreenshotStatus(`добавили ${importedItems.length} айтем(ов) из изображений`);
       setTab("library");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "не удалось проанализировать скриншот";
+      const message = error instanceof Error ? error.message : "не удалось проанализировать изображение";
       setScreenshotStatus(message);
     } finally {
       setIsScreenshotImporting(false);
