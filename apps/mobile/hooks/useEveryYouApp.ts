@@ -151,6 +151,7 @@ export function useEveryYouApp() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [syncMessage, setSyncMessage] = useState("локальная библиотека");
   const [nameDraft, setNameDraft] = useState("");
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -220,6 +221,12 @@ export function useEveryYouApp() {
     const id = setInterval(() => setPhIdx((current) => current + 1), 2500);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timeout = setTimeout(() => setToastMessage(null), 2400);
+    return () => clearTimeout(timeout);
+  }, [toastMessage]);
 
   useEffect(() => {
     if (!apiToken) return;
@@ -315,14 +322,17 @@ export function useEveryYouApp() {
         resetForm();
         setTab("library");
         setSelectedId(saved.id);
+        setToastMessage("добавили в библиотеку");
         return;
       } catch {
         setLibrary((current) => [draft, ...current]);
         setSyncStatus("offline");
         setSyncMessage("не удалось сохранить на сервер, айтем добавлен локально");
+        setToastMessage("сохранили локально");
       }
     } else {
       setLibrary((current) => [draft, ...current]);
+      setToastMessage("добавили в библиотеку");
     }
 
     resetForm();
@@ -359,17 +369,20 @@ export function useEveryYouApp() {
         setLibrary((current) => current.map((item) => (item.id === editingId ? saved : item)));
         setSyncStatus("online");
         setSyncMessage("данные синхронизируются с сервером");
+        setToastMessage("сохранили изменения");
       } catch {
         setLibrary((current) =>
           current.map((item) => (item.id === editingId ? { ...item, ...updatedDraft } : item))
         );
         setSyncStatus("offline");
         setSyncMessage("не удалось обновить сервер, изменения сохранены локально");
+        setToastMessage("обновили локально");
       }
     } else {
       setLibrary((current) =>
         current.map((item) => (item.id === editingId ? { ...item, ...updatedDraft } : item))
       );
+      setToastMessage("сохранили изменения");
     }
 
     setSelectedId(editingId);
@@ -394,6 +407,7 @@ export function useEveryYouApp() {
     setLibrary((current) => current.filter((item) => item.id !== id));
     if (selectedId === id) setSelectedId(null);
     if (editingId === id) setEditingId(null);
+    setToastMessage("удалили из библиотеки");
   }
 
   async function runFakeImport() {
@@ -526,6 +540,7 @@ export function useEveryYouApp() {
       setScreenshotStatus(`добавили ${pendingImageItems.length} айтем(ов) из изображений`);
       setPendingImageItems([]);
       setTab("library");
+      setToastMessage(`добавили ${pendingImageItems.length} айтем(ов)`);
     } finally {
       setConfirmingPendingImageImport(false);
     }
@@ -573,9 +588,11 @@ export function useEveryYouApp() {
       setSpotifyStatus(`добавили ${importedItems.length} трек(ов) из spotify`);
       setSpotifyUrl("");
       setTab("library");
+      setToastMessage(`импортировали ${importedItems.length} трек(ов)`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "не удалось импортировать из spotify";
       setSpotifyStatus(message);
+      setToastMessage("импорт не удался");
     }
   }
 
@@ -615,6 +632,7 @@ export function useEveryYouApp() {
         setSyncStatus("online");
         setSyncMessage("данные синхронизируются с сервером");
         setFileImportStatus(`добавили ${created} айтем(ов) из файла`);
+        setToastMessage(`загрузили ${created} айтем(ов)`);
       } else {
         setLibrary((current) => [
           ...parsedItems.map((item) => ({
@@ -625,6 +643,7 @@ export function useEveryYouApp() {
           ...current,
         ]);
         setFileImportStatus(`добавили ${parsedItems.length} айтем(ов) локально`);
+        setToastMessage(`загрузили ${parsedItems.length} айтем(ов)`);
       }
 
       setTab("library");
@@ -654,6 +673,7 @@ export function useEveryYouApp() {
             ? `spotify подключен: ${status.profile.displayName}`
             : "spotify подключен"
         );
+        setToastMessage("spotify обновлен");
       }
       return true;
     } catch (error) {
@@ -736,9 +756,11 @@ export function useEveryYouApp() {
         setSpotifyStatus(`добавили ${result.importedCount} трек(ов) из ${successLabel}`);
       }
       setTab("library");
+      setToastMessage(`добавили ${result.importedCount} трек(ов)`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "не удалось импортировать из spotify";
       setSpotifyStatus(message);
+      setToastMessage("импорт не удался");
     }
   }
 
@@ -821,6 +843,7 @@ export function useEveryYouApp() {
     namePlaceholder,
     syncStatus,
     syncMessage,
+    toastMessage,
     editingId,
     isImporting,
     isScreenshotImporting,

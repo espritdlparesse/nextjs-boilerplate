@@ -131,6 +131,12 @@ export default function App() {
         </ScrollView>
 
         <View style={appStyles.bottomBarWrap}>
+          {app.toastMessage ? (
+            <View style={appStyles.toast}>
+              <Text style={appStyles.toastText}>{app.toastMessage}</Text>
+            </View>
+          ) : null}
+
           <View style={appStyles.bottomBar}>
             {navItems.slice(0, 2).map((item) => {
               const active = app.tab === item.key;
