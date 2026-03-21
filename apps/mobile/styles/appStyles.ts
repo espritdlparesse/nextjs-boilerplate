@@ -52,6 +52,33 @@ export const appStyles = StyleSheet.create({
     color: colors.text,
     textTransform: "lowercase",
   },
+  headerIdentityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  headerIdentityText: {
+    flex: 1,
+    gap: 6,
+  },
+  headerAvatarBubble: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  headerAvatarImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  headerAvatarEmoji: {
+    fontSize: 30,
+  },
   syncText: {
     fontSize: 13,
     color: colors.subtext,

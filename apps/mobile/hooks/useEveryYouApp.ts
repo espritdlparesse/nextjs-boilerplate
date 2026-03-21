@@ -74,6 +74,7 @@ const NAME_PLACEHOLDERS = [
   "имя фамилия",
   "случайный набор букв",
 ];
+const HEADER_AVATAR_EMOJIS = ["🐸", "😈", "👹", "👀", "🫀", "🐽", "🐣", "🦆", "🐳", "🦦"];
 
 function splitDisplayName(name: string): TgUser {
   const normalized = clampText(name);
@@ -171,6 +172,9 @@ export function useEveryYouApp() {
   const [syncMessage, setSyncMessage] = useState("локальная библиотека");
   const [nameDraft, setNameDraft] = useState("");
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [headerAvatarEmojiIndex, setHeaderAvatarEmojiIndex] = useState(() =>
+    Math.floor(Math.random() * HEADER_AVATAR_EMOJIS.length)
+  );
   const [themeMode, setThemeMode] = useState<ThemeMode>("light");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [timelineSpreading, setTimelineSpreading] = useState(false);
@@ -251,6 +255,11 @@ export function useEveryYouApp() {
     const id = setInterval(() => setPhIdx((current) => current + 1), 2500);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    if (!loaded || avatarUri || tab !== "home") return;
+    setHeaderAvatarEmojiIndex((current) => (current + 1) % HEADER_AVATAR_EMOJIS.length);
+  }, [tab, avatarUri, loaded]);
 
   useEffect(() => {
     if (!toastMessage) return;
@@ -1188,6 +1197,7 @@ export function useEveryYouApp() {
     hasCustomName,
     nameDraft,
     avatarUri,
+    headerAvatarEmoji: HEADER_AVATAR_EMOJIS[headerAvatarEmojiIndex],
     themeMode,
     namePlaceholder,
     syncStatus,
