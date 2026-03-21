@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "EveryYou",
+    "slug": "everyyou-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "platforms": ["ios", "android"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.everyyou.mobile"
+    },
+    "android": {
+      "package": "com.everyyou.mobile"
+    }
+  }
+}
