@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { FlatList, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import {
   formatFullDate,
@@ -72,6 +72,97 @@ function startOfMonth(date: Date) {
 function addDays(date: Date, days: number) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days, 12, 0, 0, 0);
 }
+
+const CalendarDayCell = memo(function CalendarDayCell({
+  day,
+  selected,
+  onPress,
+}: {
+  day: {
+    key: string;
+    date: Date;
+    inMonth: boolean;
+    items: LibraryItem[];
+  };
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      style={[
+        appStyles.calendarDay,
+        !day.inMonth && appStyles.calendarDayMuted,
+        selected && appStyles.calendarDayActive,
+      ]}
+      onPress={onPress}
+    >
+      <View style={appStyles.calendarDayHead}>
+        <Text style={[appStyles.calendarDayNumber, !day.inMonth && appStyles.calendarDayNumberMuted]}>
+          {day.date.getDate()}
+        </Text>
+        {day.items.length > 0 ? <Text style={appStyles.calendarDayCount}>{day.items.length}</Text> : null}
+      </View>
+
+      {day.items.slice(0, 2).map((item) => (
+        <View key={item.id} style={[appStyles.calendarItemChip, typeTileStyle(item.type)]}>
+          <Text style={appStyles.calendarItemChipText} numberOfLines={1}>
+            {item.title}
+          </Text>
+        </View>
+      ))}
+
+      {day.items.length > 2 ? <Text style={appStyles.calendarMore}>+ еще {day.items.length - 2}</Text> : null}
+    </Pressable>
+  );
+});
+
+const WeekDayPill = memo(function WeekDayPill({
+  day,
+  active,
+  onPress,
+}: {
+  day: {
+    key: string;
+    date: Date;
+  };
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      style={[appStyles.weekDayChip, active && appStyles.weekDayChipActive]}
+      onPress={onPress}
+    >
+      <Text style={[appStyles.weekDayName, active && appStyles.weekDayNameActive]}>
+        {day.date.toLocaleString("ru-RU", { weekday: "short" })}
+      </Text>
+      <Text style={[appStyles.weekDayNumber, active && appStyles.weekDayNumberActive]}>
+        {day.date.getDate()}
+      </Text>
+    </Pressable>
+  );
+});
+
+const DayDetailCard = memo(function DayDetailCard({
+  item,
+  onPress,
+}: {
+  item: LibraryItem;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable style={[appStyles.tile, typeTileStyle(item.type)]} onPress={onPress}>
+      <View style={appStyles.tileTopRow}>
+        <View style={appStyles.typeBadge}>
+          <Text style={appStyles.typeBadgeText}>{TYPE_LABEL[item.type]}</Text>
+        </View>
+        <Text style={appStyles.metaDate}>{formatFullDate(getConsumptionDate(item) as number)}</Text>
+      </View>
+      <Text style={appStyles.itemTitle}>{item.title}</Text>
+      <Text style={appStyles.itemMeta}>{item.authorOrArtist || "без автора"}</Text>
+    </Pressable>
+  );
+});
 
 export function LibraryScreen({
   typeFilter,
@@ -313,34 +404,12 @@ export function LibraryScreen({
 
           <View style={appStyles.calendarGrid}>
             {calendarDays.map((day) => (
-              <Pressable
+              <CalendarDayCell
                 key={day.key}
-                style={[
-                  appStyles.calendarDay,
-                  !day.inMonth && appStyles.calendarDayMuted,
-                  day.key === selectedDay?.key && appStyles.calendarDayActive,
-                ]}
+                day={day}
+                selected={day.key === selectedDay?.key}
                 onPress={() => openDay(day.key)}
-              >
-                <View style={appStyles.calendarDayHead}>
-                  <Text style={[appStyles.calendarDayNumber, !day.inMonth && appStyles.calendarDayNumberMuted]}>
-                    {day.date.getDate()}
-                  </Text>
-                  {day.items.length > 0 ? <Text style={appStyles.calendarDayCount}>{day.items.length}</Text> : null}
-                </View>
-
-                {day.items.slice(0, 2).map((item) => (
-                  <View key={item.id} style={[appStyles.calendarItemChip, typeTileStyle(item.type)]}>
-                    <Text style={appStyles.calendarItemChipText} numberOfLines={1}>
-                      {item.title}
-                    </Text>
-                  </View>
-                ))}
-
-                {day.items.length > 2 ? (
-                  <Text style={appStyles.calendarMore}>+ еще {day.items.length - 2}</Text>
-                ) : null}
-              </Pressable>
+              />
             ))}
           </View>
         </View>
@@ -400,37 +469,19 @@ export function LibraryScreen({
 
                 <View style={appStyles.weekStrip}>
                   {selectedWeek.map((day) => (
-                    <Pressable
+                    <WeekDayPill
                       key={day.key}
-                      style={[
-                        appStyles.weekDayChip,
-                        day.key === selectedDay.key && appStyles.weekDayChipActive,
-                      ]}
+                      day={day}
+                      active={day.key === selectedDay.key}
                       onPress={() => setSelectedDayKey(day.key)}
-                    >
-                      <Text style={[appStyles.weekDayName, day.key === selectedDay.key && appStyles.weekDayNameActive]}>
-                        {day.date.toLocaleString("ru-RU", { weekday: "short" })}
-                      </Text>
-                      <Text style={[appStyles.weekDayNumber, day.key === selectedDay.key && appStyles.weekDayNumberActive]}>
-                        {day.date.getDate()}
-                      </Text>
-                    </Pressable>
+                    />
                   ))}
                 </View>
 
                 <ScrollView style={appStyles.dayModalScroll} contentContainerStyle={appStyles.dayModalContent} showsVerticalScrollIndicator={false}>
                   {selectedDay.items.length > 0 ? (
                     selectedDay.items.map((item) => (
-                      <Pressable key={item.id} style={[appStyles.tile, typeTileStyle(item.type)]} onPress={() => onSelectItem(item.id)}>
-                        <View style={appStyles.tileTopRow}>
-                          <View style={appStyles.typeBadge}>
-                            <Text style={appStyles.typeBadgeText}>{TYPE_LABEL[item.type]}</Text>
-                          </View>
-                          <Text style={appStyles.metaDate}>{formatFullDate(getConsumptionDate(item) as number)}</Text>
-                        </View>
-                        <Text style={appStyles.itemTitle}>{item.title}</Text>
-                        <Text style={appStyles.itemMeta}>{item.authorOrArtist || "без автора"}</Text>
-                      </Pressable>
+                      <DayDetailCard key={item.id} item={item} onPress={() => onSelectItem(item.id)} />
                     ))
                   ) : (
                     <View style={appStyles.card}>
