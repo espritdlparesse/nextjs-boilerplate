@@ -67,7 +67,7 @@ export default function App() {
   }));
 
   const headerBlock = (
-    <>
+    <View style={appStyles.appHeader}>
       <View style={appStyles.headerIdentityRow}>
         {app.avatarUri ? (
           <Image source={{ uri: app.avatarUri }} style={appStyles.headerAvatarImage} />
@@ -92,7 +92,7 @@ export default function App() {
         синхронизация: {app.syncStatus === "online" ? "онлайн" : app.syncStatus === "syncing" ? "обновляем" : "офлайн"} ·{" "}
         {app.syncMessage}
       </Text>
-    </>
+    </View>
   );
 
   return (

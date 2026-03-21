@@ -31,14 +31,17 @@ export const appStyles = StyleSheet.create({
   },
   container: {
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 16,
     paddingBottom: 140,
-    gap: 18,
+    gap: 20,
   },
   libraryHeader: {
     paddingHorizontal: 20,
-    paddingTop: 12,
-    gap: 18,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  appHeader: {
+    gap: 14,
   },
   brand: {
     fontSize: 34,
@@ -59,7 +62,7 @@ export const appStyles = StyleSheet.create({
   },
   headerIdentityText: {
     flex: 1,
-    gap: 6,
+    gap: 4,
   },
   headerAvatarBubble: {
     width: 64,
@@ -83,6 +86,7 @@ export const appStyles = StyleSheet.create({
     fontSize: 13,
     color: colors.subtext,
     textTransform: "lowercase",
+    lineHeight: 18,
   },
   screen: {
     gap: 16,
