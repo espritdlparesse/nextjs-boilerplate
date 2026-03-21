@@ -1119,6 +1119,7 @@ export function useEveryYouApp() {
     spreadIntoLast6Months: () => spreadVisibleUndatedItems("last_6_months"),
     spreadIntoThisYear: () => spreadVisibleUndatedItems("this_year"),
     spreadIntoVeryOld: () => spreadVisibleUndatedItems("very_old"),
+    assignItemTime: (itemId: string, preset: TimelineSpreadPreset) => assignTimelineToItem(itemId, preset),
     assignSelectedToThisMonth: () => selectedId && assignTimelineToItem(selectedId, "this_month"),
     assignSelectedToLastMonth: () => selectedId && assignTimelineToItem(selectedId, "last_month"),
     assignSelectedToLast6Months: () => selectedId && assignTimelineToItem(selectedId, "last_6_months"),

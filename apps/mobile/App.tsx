@@ -179,6 +179,7 @@ export default function App() {
               onSpreadLast6Months={app.spreadIntoLast6Months}
               onSpreadThisYear={app.spreadIntoThisYear}
               onSpreadVeryOld={app.spreadIntoVeryOld}
+              onAssignItemTime={app.assignItemTime}
               onAssignSelectedThisMonth={app.assignSelectedToThisMonth}
               onAssignSelectedLastMonth={app.assignSelectedToLastMonth}
               onAssignSelectedLast6Months={app.assignSelectedToLast6Months}
