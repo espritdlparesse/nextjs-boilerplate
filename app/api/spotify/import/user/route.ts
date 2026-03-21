@@ -13,12 +13,12 @@ type SpotifyTrackShape = {
 };
 
 type SpotifyTrackPage = {
-  items?: Array<{ track?: SpotifyTrackShape | null }>;
+  items?: Array<{ track?: SpotifyTrackShape | null; added_at?: string | null }>;
   next?: string | null;
 };
 
 type SpotifyRecentlyPlayedPage = {
-  items?: Array<{ track?: SpotifyTrackShape | null }>;
+  items?: Array<{ track?: SpotifyTrackShape | null; played_at?: string | null }>;
 };
 
 function legacyNativeTgUserId(ownerKey: string) {
@@ -29,7 +29,10 @@ function legacyNativeTgUserId(ownerKey: string) {
   return Math.abs(hash) || 1;
 }
 
-function trackToItem(track: SpotifyTrackShape | null | undefined) {
+function trackToItem(
+  track: SpotifyTrackShape | null | undefined,
+  consumedAt?: string | null
+) {
   const title = track?.name?.trim().toLowerCase() ?? "";
   const authorOrArtist = (track?.artists ?? [])
     .map((artist) => artist.name.trim().toLowerCase())
@@ -42,13 +45,17 @@ function trackToItem(track: SpotifyTrackShape | null | undefined) {
     source: "import_spotify" as const,
     title,
     authorOrArtist,
+    consumedAt:
+      consumedAt && Number.isFinite(Date.parse(consumedAt))
+        ? new Date(consumedAt).toISOString()
+        : null,
   };
 }
 
-function dedupeItems<T extends { title: string; authorOrArtist: string }>(items: T[]) {
+function dedupeItems<T extends { title: string; authorOrArtist: string; consumedAt?: string | null }>(items: T[]) {
   const seen = new Set<string>();
   return items.filter((item) => {
-    const key = `${item.title}::${item.authorOrArtist}`;
+    const key = `${item.title}::${item.authorOrArtist}::${item.consumedAt ?? "undated"}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -77,6 +84,7 @@ async function loadSpotifyItems(
     source: "import_spotify";
     title: string;
     authorOrArtist: string;
+    consumedAt: string | null;
   }> = [];
 
   if (mode === "liked") {
@@ -84,7 +92,7 @@ async function loadSpotifyItems(
     while (nextUrl) {
       const page: SpotifyTrackPage = await fetchSpotify<SpotifyTrackPage>(nextUrl, accessToken);
       for (const item of page.items ?? []) {
-        const mapped = trackToItem(item.track);
+        const mapped = trackToItem(item.track, item.added_at ?? null);
         if (mapped) items.push(mapped);
       }
       nextUrl = page.next ?? null;
@@ -98,7 +106,7 @@ async function loadSpotifyItems(
       accessToken
     );
     for (const item of page.items ?? []) {
-      const mapped = trackToItem(item.track);
+      const mapped = trackToItem(item.track, item.played_at ?? null);
       if (mapped) items.push(mapped);
     }
     return dedupeItems(items);
@@ -110,7 +118,7 @@ async function loadSpotifyItems(
   while (nextUrl) {
     const page: SpotifyTrackPage = await fetchSpotify<SpotifyTrackPage>(nextUrl, accessToken);
     for (const item of page.items ?? []) {
-      const mapped = trackToItem(item.track);
+      const mapped = trackToItem(item.track, null);
       if (mapped) items.push(mapped);
     }
     nextUrl = page.next ?? null;
@@ -141,7 +149,7 @@ export async function POST(req: NextRequest) {
     const sb = supabaseAdmin();
     const { data: existingItems, error: existingError } = await sb
       .from("items")
-      .select("title, creator")
+      .select("title, creator, consumed_at")
       .eq("owner_key", auth.ownerKey)
       .eq("source", "import_spotify");
 
@@ -150,11 +158,16 @@ export async function POST(req: NextRequest) {
     }
 
     const existingKeys = new Set(
-      (existingItems ?? []).map((item) => `${item.title}::${item.creator ?? ""}`)
+      (existingItems ?? []).map(
+        (item) => `${item.title}::${item.creator ?? ""}::${item.consumed_at ?? "undated"}`
+      )
     );
 
     const payload = spotifyItems
-      .filter((item) => !existingKeys.has(`${item.title}::${item.authorOrArtist}`))
+      .filter(
+        (item) =>
+          !existingKeys.has(`${item.title}::${item.authorOrArtist}::${item.consumedAt ?? "undated"}`)
+      )
       .map((item) => ({
       owner_key: auth.ownerKey,
       owner_kind: auth.ownerKind,
@@ -163,6 +176,7 @@ export async function POST(req: NextRequest) {
       source: item.source,
       title: item.title,
       creator: item.authorOrArtist,
+      consumed_at: item.consumedAt,
     }));
 
     if (payload.length === 0) {

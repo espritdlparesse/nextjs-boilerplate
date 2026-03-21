@@ -2,7 +2,7 @@ import { clampText, type ContentType, type LibraryItem } from "../shared/everyyo
 
 type ImportPlatform = "livelib" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi";
 
-type DraftItem = Pick<LibraryItem, "type" | "source" | "title" | "authorOrArtist">;
+type DraftItem = Pick<LibraryItem, "type" | "source" | "title" | "authorOrArtist" | "consumedAt">;
 
 function parseCsvLine(line: string) {
   const result: string[] = [];
@@ -40,14 +40,38 @@ function parseCsvLine(line: string) {
 function dedupeDrafts(items: DraftItem[]) {
   const seen = new Set<string>();
   return items.filter((item) => {
-    const key = `${item.type}::${item.title}::${item.authorOrArtist}`;
+    const dateKey = typeof item.consumedAt === "number" ? String(item.consumedAt) : "undated";
+    const key = `${item.type}::${item.title}::${item.authorOrArtist}::${dateKey}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 }
 
-function rowToDraft(type: ContentType, title: string, authorOrArtist = ""): DraftItem | null {
+function normalizeDateInput(raw: string) {
+  const value = clampText(raw);
+  if (!value) return undefined;
+
+  const direct = Date.parse(value);
+  if (Number.isFinite(direct)) return direct;
+
+  const dotted = value.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+  if (dotted) {
+    const [, dd, mm, yyyy] = dotted;
+    const year = yyyy.length === 2 ? `20${yyyy}` : yyyy;
+    const parsed = Date.parse(`${year}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}T12:00:00`);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  return undefined;
+}
+
+function rowToDraft(
+  type: ContentType,
+  title: string,
+  authorOrArtist = "",
+  consumedAt?: number
+): DraftItem | null {
   const normalizedTitle = clampText(title).toLowerCase();
   const normalizedAuthor = clampText(authorOrArtist).toLowerCase();
   if (!normalizedTitle) return null;
@@ -58,6 +82,7 @@ function rowToDraft(type: ContentType, title: string, authorOrArtist = ""): Draf
     source: "manual",
     title: normalizedTitle,
     authorOrArtist: normalizedAuthor,
+    consumedAt,
   };
 }
 
@@ -76,6 +101,7 @@ function parseLivelib(text: string) {
   const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase());
   const titleCol = findColumn(headers, ["title", "название", "book title", "name"]);
   const authorCol = findColumn(headers, ["author", "автор", "writer"]);
+  const dateCol = findColumn(headers, ["date", "дата", "finished", "finish date", "read date"]);
 
   if (titleCol === -1) {
     throw new Error("не нашли колонку с названием книги. попробуй формат из livelib-backup");
@@ -84,7 +110,12 @@ function parseLivelib(text: string) {
   const items: DraftItem[] = [];
   for (let i = 1; i < lines.length; i += 1) {
     const row = parseCsvLine(lines[i]);
-    const item = rowToDraft("book", row[titleCol] ?? "", authorCol !== -1 ? row[authorCol] ?? "" : "");
+    const item = rowToDraft(
+      "book",
+      row[titleCol] ?? "",
+      authorCol !== -1 ? row[authorCol] ?? "" : "",
+      dateCol !== -1 ? normalizeDateInput(row[dateCol] ?? "") : undefined
+    );
     if (item) items.push(item);
   }
 
@@ -99,6 +130,7 @@ function parseLetterboxd(text: string) {
   const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase());
   const nameCol = findColumn(headers, ["name", "title"]);
   const yearCol = findColumn(headers, ["year"]);
+  const watchedCol = findColumn(headers, ["watched date", "watcheddate", "diary date", "date"]);
 
   if (nameCol === -1) throw new Error("не распознан формат Letterboxd CSV");
 
@@ -108,7 +140,12 @@ function parseLetterboxd(text: string) {
     const name = row[nameCol] ?? "";
     const year = yearCol !== -1 ? row[yearCol] ?? "" : "";
     const title = year ? `${name} (${year})` : name;
-    const item = rowToDraft("film", title);
+    const item = rowToDraft(
+      "film",
+      title,
+      "",
+      watchedCol !== -1 ? normalizeDateInput(row[watchedCol] ?? "") : undefined
+    );
     if (item) items.push(item);
   }
 
@@ -123,6 +160,7 @@ function parseLastfm(text: string) {
   const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase());
   const trackCol = findColumn(headers, ["track", "track name", "name", "song"]);
   const artistCol = findColumn(headers, ["artist", "artist name"]);
+  const dateCol = findColumn(headers, ["date", "timestamp", "time", "scrobbled at", "played at", "uts"]);
 
   if (trackCol === -1 || artistCol === -1) {
     throw new Error("не распознан формат Last.fm CSV");
@@ -131,7 +169,12 @@ function parseLastfm(text: string) {
   const items: DraftItem[] = [];
   for (let i = 1; i < lines.length; i += 1) {
     const row = parseCsvLine(lines[i]);
-    const item = rowToDraft("music", row[trackCol] ?? "", row[artistCol] ?? "");
+    const item = rowToDraft(
+      "music",
+      row[trackCol] ?? "",
+      row[artistCol] ?? "",
+      dateCol !== -1 ? normalizeDateInput(row[dateCol] ?? "") : undefined
+    );
     if (item) items.push(item);
   }
 
@@ -148,6 +191,7 @@ function parseKinopoisk(text: string) {
   const originalNameCol = findColumn(headers, ["originalname", "original name", "english title"]);
   const yearCol = findColumn(headers, ["year", "год"]);
   const watchedCol = findColumn(headers, ["iswatched", "watched", "просмотрено"]);
+  const watchedDateCol = findColumn(headers, ["watched date", "watch date", "просмотрено дата", "дата просмотра", "date"]);
 
   if (nameCol === -1 && originalNameCol === -1) {
     throw new Error("не распознан формат Kinopoisk export");
@@ -162,7 +206,12 @@ function parseKinopoisk(text: string) {
     const baseTitle = row[nameCol] ?? row[originalNameCol] ?? "";
     const year = yearCol !== -1 ? row[yearCol] ?? "" : "";
     const title = year ? `${baseTitle} (${year})` : baseTitle;
-    const item = rowToDraft("film", title);
+    const item = rowToDraft(
+      "film",
+      title,
+      "",
+      watchedDateCol !== -1 ? normalizeDateInput(row[watchedDateCol] ?? "") : undefined
+    );
     if (item) items.push(item);
   }
 
@@ -178,6 +227,7 @@ function parseMubi(text: string) {
   const titleCol = findColumn(headers, ["title", "name", "film", "movie"]);
   const yearCol = findColumn(headers, ["year"]);
   const directorCol = findColumn(headers, ["director", "creator"]);
+  const watchedDateCol = findColumn(headers, ["watched date", "watch date", "date"]);
 
   if (titleCol === -1) {
     throw new Error("не распознан формат MUBI CSV");
@@ -190,7 +240,12 @@ function parseMubi(text: string) {
     const year = yearCol !== -1 ? row[yearCol] ?? "" : "";
     const director = directorCol !== -1 ? row[directorCol] ?? "" : "";
     const title = year ? `${titleBase} (${year})` : titleBase;
-    const item = rowToDraft("film", title, director);
+    const item = rowToDraft(
+      "film",
+      title,
+      director,
+      watchedDateCol !== -1 ? normalizeDateInput(row[watchedDateCol] ?? "") : undefined
+    );
     if (item) {
       items.push({
         ...item,

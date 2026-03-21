@@ -716,11 +716,12 @@ export function useEveryYouApp() {
       }
 
       setScreenshotStatus(`добавили ${pendingImageItems.length} айтем(ов) из изображений`);
+      const hasUndatedItems = pendingImageItems.some((item) => item.consumedAt == null);
       setPendingImageItems([]);
       setSelectedPendingImageId(null);
       setTab("library");
       setToastMessage(`добавили ${pendingImageItems.length} айтем(ов)`);
-      setTimelinePromptVisible(true);
+      setTimelinePromptVisible(hasUndatedItems);
     } finally {
       setConfirmingPendingImageImport(false);
     }
@@ -830,7 +831,7 @@ export function useEveryYouApp() {
       }
 
       setTab("library");
-      setTimelinePromptVisible(true);
+      setTimelinePromptVisible(parsedItems.some((item) => item.consumedAt == null));
     } catch (error) {
       const message = error instanceof Error ? error.message : "file import failed";
       setFileImportStatus(message);
@@ -941,7 +942,7 @@ export function useEveryYouApp() {
       }
       setTab("library");
       setToastMessage(`добавили ${result.importedCount} трек(ов)`);
-      setTimelinePromptVisible(true);
+      setTimelinePromptVisible(input.mode === "playlist");
     } catch (error) {
       const message = error instanceof Error ? error.message : "не удалось импортировать из spotify";
       setSpotifyStatus(message);
