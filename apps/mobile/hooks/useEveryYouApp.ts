@@ -164,7 +164,9 @@ export function useEveryYouApp() {
   const [spotifyPlaylistLoading, setSpotifyPlaylistLoading] = useState(false);
   const [fileImportStatus, setFileImportStatus] = useState<string | null>(null);
   const [fileImportBusy, setFileImportBusy] = useState(false);
+  const [fileImportCanCancel, setFileImportCanCancel] = useState(false);
   const filePickerBusyRef = useRef(false);
+  const filePickerCancelledRef = useRef(false);
   const [analysisRunning, setAnalysisRunning] = useState(false);
   const [analysisHistory, setAnalysisHistory] = useState<AnalysisRun[]>([]);
   const [analysisResult, setAnalysisResult] = useState<AnalysisRun | null>(null);
@@ -987,8 +989,19 @@ export function useEveryYouApp() {
     filePickerBusyRef.current = true;
     try {
       setFileImportBusy(true);
+      setFileImportCanCancel(true);
+      filePickerCancelledRef.current = false;
       setFileImportStatus("открываем файлы...");
       setFileImportDateInsight(null);
+
+      await new Promise((resolve) => setTimeout(resolve, 220));
+      if (filePickerCancelledRef.current) {
+        setFileImportStatus("пока не открываем файлы");
+        return;
+      }
+
+      setFileImportCanCancel(false);
+      setFileImportBusy(false);
       const result = await DocumentPicker.getDocumentAsync({
         multiple: false,
         copyToCacheDirectory: true,
@@ -1049,10 +1062,20 @@ export function useEveryYouApp() {
       setFileImportStatus(message);
     } finally {
       setFileImportBusy(false);
+      setFileImportCanCancel(false);
       setTimeout(() => {
+        filePickerCancelledRef.current = false;
         filePickerBusyRef.current = false;
       }, 350);
     }
+  }
+
+  function cancelFileImportOpening() {
+    if (!fileImportCanCancel) return;
+    filePickerCancelledRef.current = true;
+    setFileImportBusy(false);
+    setFileImportCanCancel(false);
+    setFileImportStatus("пока не открываем файлы");
   }
 
   async function refreshSpotifyConnection(showSuccessMessage = false) {
@@ -1305,6 +1328,7 @@ export function useEveryYouApp() {
     spotifyPlaylistLoading,
     fileImportStatus,
     fileImportBusy,
+    fileImportCanCancel,
     fileImportDateInsight,
     type,
     source,
@@ -1366,6 +1390,7 @@ export function useEveryYouApp() {
     importLastfmFile: () => importPlatformFile("lastfm"),
     importKinopoiskFile: () => importPlatformFile("kinopoisk"),
     importMubiFile: () => importPlatformFile("mubi"),
+    cancelFileImportOpening,
     cancelEdit: () => {
       setEditingId(null);
       resetForm();

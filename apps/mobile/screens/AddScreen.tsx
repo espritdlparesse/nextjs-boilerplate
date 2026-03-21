@@ -97,7 +97,10 @@ type AddScreenProps = {
   onDone: () => void;
 };
 
-const guides: Record<Exclude<GuideKey, null>, { logo: string; steps: string[]; actionLabel: string }> = {
+const guides: Record<
+  Exclude<GuideKey, null>,
+  { logo: string; title?: string; steps: string[]; actionLabel: string }
+> = {
   spotify: {
     logo: "spotify",
     steps: [
@@ -109,30 +112,33 @@ const guides: Record<Exclude<GuideKey, null>, { logo: string; steps: string[]; a
   },
   livelib: {
     logo: "livelib",
+    title: "нужен csv",
     steps: [
       "экспортируй свою библиотеку в csv через livelib-backup",
       "убедись, что в файле есть название и автор",
-      "потом нажми кнопку ниже и выбери csv из файлов",
+      "потом просто выбери csv из файлов",
     ],
-    actionLabel: "ок, импортировать livelib",
+    actionLabel: "выбрать файл",
   },
   goodreads: {
     logo: "goodreads",
+    title: "нужен csv",
     steps: [
       "в goodreads открой my books и найди import and export",
       "сделай export library, goodreads скачает csv",
-      "потом вернись сюда и выбери этот csv из файлов",
+      "потом просто выбери этот csv из файлов",
     ],
-    actionLabel: "ок, импортировать goodreads",
+    actionLabel: "выбрать файл",
   },
   letterboxd: {
     logo: "letterboxd",
+    title: "нужен csv",
     steps: [
       "в профиле letterboxd зайди в settings -> import & export",
       "скачай экспорт и найди watched.csv",
-      "потом вернись сюда и загрузи файл",
+      "потом просто загрузи этот csv",
     ],
-    actionLabel: "ок, импортировать letterboxd",
+    actionLabel: "выбрать файл",
   },
   lastfm: {
     logo: "last.fm",
@@ -570,6 +576,9 @@ export function AddScreen({
                 <View style={appStyles.dayModalTopRow}>
                   <View style={appStyles.dayModalHeading}>
                     <BrandLogo brand={guide} />
+                    {guides[guide].title ? (
+                      <Text style={[appStyles.metaText, { color: theme.mutedText }]}>{guides[guide].title}</Text>
+                    ) : null}
                   </View>
                   <Pressable
                     style={[appStyles.dayModalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}

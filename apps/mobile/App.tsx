@@ -112,6 +112,17 @@ export default function App() {
                 <Text style={[appStyles.busyOverlayText, { color: theme.mutedText }]}>
                   это может занять несколько секунд
                 </Text>
+                {app.fileImportCanCancel ? (
+                  <Pressable
+                    style={[
+                      appStyles.dayModalClose,
+                      { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                    ]}
+                    onPress={app.cancelFileImportOpening}
+                  >
+                    <Text style={[appStyles.dayModalCloseText, { color: theme.text }]}>закрыть</Text>
+                  </Pressable>
+                ) : null}
               </View>
             </View>
           ) : null}
