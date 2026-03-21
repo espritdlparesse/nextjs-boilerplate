@@ -68,35 +68,26 @@ export default function App() {
 
   const headerBlock = (
     <>
-      {app.tab === "home" ? (
-        <View style={appStyles.headerIdentityRow}>
-          {app.avatarUri ? (
-            <Image source={{ uri: app.avatarUri }} style={appStyles.headerAvatarImage} />
-          ) : (
-            <View
-              style={[
-                appStyles.headerAvatarBubble,
-                { backgroundColor: app.themeMode === "dark" ? theme.surfaceMuted : "#F4F4F4", borderColor: theme.border },
-              ]}
-            >
-              <Text style={appStyles.headerAvatarEmoji}>{app.headerAvatarEmoji}</Text>
-            </View>
-          )}
-          <View style={appStyles.headerIdentityText}>
-            <Text style={[appStyles.brand, { color: theme.text }]}>everyyou</Text>
-            {app.hasCustomName ? (
-              <Text style={[appStyles.subtitle, { color: theme.text }]}>привет, {app.displayName.toLowerCase()}</Text>
-            ) : null}
+      <View style={appStyles.headerIdentityRow}>
+        {app.avatarUri ? (
+          <Image source={{ uri: app.avatarUri }} style={appStyles.headerAvatarImage} />
+        ) : (
+          <View
+            style={[
+              appStyles.headerAvatarBubble,
+              { backgroundColor: app.themeMode === "dark" ? theme.surfaceMuted : "#F4F4F4", borderColor: theme.border },
+            ]}
+          >
+            <Text style={appStyles.headerAvatarEmoji}>{app.headerAvatarEmoji}</Text>
           </View>
-        </View>
-      ) : (
-        <>
+        )}
+        <View style={appStyles.headerIdentityText}>
           <Text style={[appStyles.brand, { color: theme.text }]}>everyyou</Text>
           {app.hasCustomName ? (
             <Text style={[appStyles.subtitle, { color: theme.text }]}>привет, {app.displayName.toLowerCase()}</Text>
           ) : null}
-        </>
-      )}
+        </View>
+      </View>
       <Text style={[appStyles.syncText, { color: theme.mutedText }]}>
         синхронизация: {app.syncStatus === "online" ? "онлайн" : app.syncStatus === "syncing" ? "обновляем" : "офлайн"} ·{" "}
         {app.syncMessage}
