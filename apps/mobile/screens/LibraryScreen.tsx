@@ -182,12 +182,16 @@ const DayDetailCard = memo(function DayDetailCard({
         <View style={appStyles.typeBadge}>
           <Text style={appStyles.typeBadgeText}>{TYPE_LABEL[item.type]}</Text>
         </View>
-        <Text style={appStyles.metaDate}>{formatFullDate(getConsumptionDate(item) as number)}</Text>
+        <Text style={[appStyles.metaDate, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>
+          {formatFullDate(getConsumptionDate(item) as number)}
+        </Text>
       </View>
       <Text style={appStyles.itemTitle}>{item.title}</Text>
       <Text style={appStyles.itemMeta}>{item.authorOrArtist || "без автора"}</Text>
       {getTimeOriginLabel(item.timeOrigin) ? (
-        <Text style={[appStyles.metaText, { color: theme.mutedText }]}>{getTimeOriginLabel(item.timeOrigin)}</Text>
+        <Text style={[appStyles.metaText, { color: themeMode === "dark" ? theme.accentMutedText : theme.mutedText }]}>
+          {getTimeOriginLabel(item.timeOrigin)}
+        </Text>
       ) : null}
     </Pressable>
   );
@@ -297,17 +301,17 @@ export function LibraryScreen({
       <View style={appStyles.libraryListTop}>
         <View style={[appStyles.card, appStyles.cardAccentPink]}>
           <Text style={appStyles.sectionTitle}>библиотека</Text>
-          <Text style={[appStyles.helper, { color: theme.text }]}>
+          <Text style={[appStyles.helper, { color: themeMode === "dark" ? theme.accentText : theme.text }]}>
             смотри все вместе или раскладывай по типам. в карточках видна дата, чтобы библиотека ощущалась как личная история, а не архив.
           </Text>
 
-          <Text style={[appStyles.label, { color: themeMode === "dark" ? theme.mutedText : undefined }]}>режим</Text>
+          <Text style={[appStyles.label, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>режим</Text>
           <View style={appStyles.row}>
             <PillButton themeMode={themeMode} label="плитки" active={viewMode === "tiles"} onPress={() => setViewMode("tiles")} />
             <PillButton themeMode={themeMode} label="календарь" active={viewMode === "calendar"} onPress={() => setViewMode("calendar")} />
           </View>
 
-          <Text style={[appStyles.label, { color: themeMode === "dark" ? theme.mutedText : undefined }]}>тип контента</Text>
+          <Text style={[appStyles.label, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>тип контента</Text>
           <View style={appStyles.row}>
             {(["all", "music", "book", "film"] as TypeFilter[]).map((value) => (
               <PillButton
@@ -320,7 +324,7 @@ export function LibraryScreen({
             ))}
           </View>
 
-          <Text style={[appStyles.label, { color: themeMode === "dark" ? theme.mutedText : undefined }]}>дата</Text>
+          <Text style={[appStyles.label, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>дата</Text>
           <View style={appStyles.row}>
             {(
               [
@@ -345,7 +349,7 @@ export function LibraryScreen({
         {timelinePromptVisible && undatedVisibleLibrary.length > 0 ? (
           <View style={[appStyles.card, themeMode === "dark" ? { backgroundColor: theme.accentGreen, borderColor: theme.border } : appStyles.cardAccentGreen]}>
             <Text style={appStyles.sectionTitle}>когда это было?</Text>
-            <Text style={[appStyles.helper, { color: theme.text }]}>
+            <Text style={[appStyles.helper, { color: themeMode === "dark" ? theme.accentText : theme.text }]}>
               мы добавили {undatedVisibleLibrary.length} импортированн{undatedVisibleLibrary.length === 1 ? "ую карточку" : "ых карточек"} без времени. выбери, как это примерно разложить по твоей линии времени.
             </Text>
             <View style={appStyles.row}>
@@ -370,7 +374,7 @@ export function LibraryScreen({
               <View style={appStyles.typeBadge}>
                 <Text style={appStyles.typeBadgeText}>{TYPE_LABEL[selectedItem.type]}</Text>
               </View>
-              <Text style={appStyles.metaDate}>
+              <Text style={[appStyles.metaDate, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>
                 {getConsumptionDate(selectedItem)
                   ? formatFullDate(getConsumptionDate(selectedItem) as number)
                   : "выбери время"}
@@ -379,11 +383,11 @@ export function LibraryScreen({
             <Text style={appStyles.itemTitle}>{selectedItem.title}</Text>
             <Text style={appStyles.itemMeta}>{selectedItem.authorOrArtist || "без автора"}</Text>
             {getTimeOriginLabel(selectedItem.timeOrigin) ? (
-              <Text style={appStyles.metaText}>{getTimeOriginLabel(selectedItem.timeOrigin)}</Text>
+              <Text style={[appStyles.metaText, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>{getTimeOriginLabel(selectedItem.timeOrigin)}</Text>
             ) : null}
             {!getConsumptionDate(selectedItem) ? (
               <View style={appStyles.stack}>
-                <Text style={[appStyles.metaText, { color: theme.mutedText }]}>когда это было примерно?</Text>
+                <Text style={[appStyles.metaText, { color: themeMode === "dark" ? theme.accentMutedText : theme.mutedText }]}>когда это было примерно?</Text>
                 <View style={appStyles.row}>
                   <PillButton themeMode={themeMode} label="недавно" onPress={onAssignSelectedThisMonth} disabled={timelineSpreading} />
                   <PillButton themeMode={themeMode} label="прошлый месяц" onPress={onAssignSelectedLastMonth} disabled={timelineSpreading} />
@@ -411,7 +415,7 @@ export function LibraryScreen({
           <View style={appStyles.typeBadge}>
             <Text style={appStyles.typeBadgeText}>{TYPE_LABEL[item.type]}</Text>
           </View>
-          <Text style={appStyles.metaDate}>
+          <Text style={[appStyles.metaDate, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>
             {getConsumptionDate(item) ? formatFullDate(getConsumptionDate(item) as number) : "без времени"}
           </Text>
         </View>
@@ -421,7 +425,7 @@ export function LibraryScreen({
           <Text style={appStyles.itemTitle}>{item.title}</Text>
         </View>
         {getTimeOriginLabel(item.timeOrigin) ? (
-          <Text style={appStyles.metaText}>{getTimeOriginLabel(item.timeOrigin)}</Text>
+          <Text style={[appStyles.metaText, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>{getTimeOriginLabel(item.timeOrigin)}</Text>
         ) : null}
 
         {!getConsumptionDate(item) ? (

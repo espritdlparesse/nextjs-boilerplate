@@ -167,11 +167,11 @@ function BrandImportButton({
   const theme = getTheme(themeMode);
   return (
     <Pressable
-      style={[appStyles.brandButton, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}
+      style={[appStyles.brandButton, { backgroundColor: theme.brandButtonBg, borderColor: theme.brandButtonBorder }]}
       onPress={onPress}
     >
       <BrandLogo brand={brand} />
-      <Text style={[appStyles.brandHint, { color: theme.mutedText }]}>{hint}</Text>
+      <Text style={[appStyles.brandHint, { color: theme.brandHintText }]}>{hint}</Text>
     </Pressable>
   );
 }
@@ -277,7 +277,7 @@ export function AddScreen({
     <View style={appStyles.screen}>
       <View style={[appStyles.card, themeMode === "dark" ? { backgroundColor: theme.accentPink, borderColor: theme.border } : appStyles.cardAccentPink]}>
         <Text style={appStyles.sectionTitle}>{editingId ? "редактировать" : "добавить"}</Text>
-        <Text style={appStyles.helper}>
+        <Text style={[appStyles.helper, { color: theme.accentText }]}>
           {pendingImageItems.length > 0
             ? "ткни на карточку, если хочешь поправить ее до сохранения."
             : "импортируй из сервисов, кидай скриншот или добавляй вручную. все должно ощущаться как один культурный таймлайн, а не куча отдельных списков."}
@@ -399,9 +399,9 @@ export function AddScreen({
 
         {guide ? (
           <View style={[appStyles.instructionCard, themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-            <Text style={appStyles.itemTitle}>{guides[guide].logo}</Text>
+            <Text style={[appStyles.itemTitle, { color: theme.text }]}>{guides[guide].logo}</Text>
             {guides[guide].steps.map((step) => (
-              <Text key={step} style={[appStyles.metaText, { color: theme.mutedText }]}>
+              <Text key={step} style={[appStyles.metaText, { color: theme.text }]}>
                 • {step}
               </Text>
             ))}
@@ -426,7 +426,7 @@ export function AddScreen({
       </View>
 
       <View style={[appStyles.card, themeMode === "dark" ? { backgroundColor: theme.accentBlue, borderColor: theme.border } : appStyles.cardAccentBlue]}>
-        <Text style={appStyles.label}>добавить вручную</Text>
+        <Text style={[appStyles.label, { color: theme.accentMutedText }]}>добавить вручную</Text>
         <View style={appStyles.row}>
           {(["music", "book", "film"] as ContentType[]).map((value) => (
             <PillButton
@@ -500,7 +500,7 @@ export function AddScreen({
       </View>
 
       <View style={[appStyles.card, themeMode === "dark" ? { backgroundColor: theme.accentGreen, borderColor: theme.border } : appStyles.cardAccentGreen, appStyles.compactCard]}>
-        <Text style={appStyles.label}>обновить spotify</Text>
+        <Text style={[appStyles.label, { color: theme.accentMutedText }]}>обновить spotify</Text>
         <View style={appStyles.row}>
           <PillButton themeMode={themeMode} label="обновить" onPress={onSpotifyRefreshPress} />
           <PillButton
