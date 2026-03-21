@@ -24,43 +24,47 @@ export function AnalysisScreen({
   onOpenResult,
 }: AnalysisScreenProps) {
   return (
-    <View style={appStyles.card}>
-      <Text style={appStyles.sectionTitle}>analysis</Text>
-      <Text style={appStyles.helper}>
-        всего {counters.total}: музыка {counters.byType.music}, книги {counters.byType.book}, фильмы {counters.byType.film}.
-      </Text>
-      <PillButton
-        label={analysisRunning ? "думаем..." : "провести вайбчек"}
-        variant="primary"
-        disabled={analysisRunning}
-        onPress={onRunPress}
-      />
+    <View style={appStyles.screen}>
+      <View style={[appStyles.sectionHero, appStyles.sectionHeroAlt]}>
+        <Text style={appStyles.sectionTitle}>вайбчек</Text>
+        <Text style={appStyles.helper}>
+          сейчас в библиотеке {counters.total}: музыка {counters.byType.music}, книги {counters.byType.book}, фильмы{" "}
+          {counters.byType.film}.
+        </Text>
+        <Text style={appStyles.metaText}>здесь должен быть не сухой summary, а короткая прожарка вкуса с наблюдениями, паттернами и нормальными реками.</Text>
+        <PillButton
+          label={analysisRunning ? "думаем..." : "провести вайбчек"}
+          variant="primary"
+          disabled={analysisRunning}
+          onPress={onRunPress}
+        />
+      </View>
 
-      {analysisResult && (
-        <View style={appStyles.tile}>
-          <Text style={appStyles.itemTitle}>результат</Text>
+      {analysisResult ? (
+        <View style={[appStyles.tile, appStyles.tilePink]}>
+          <Text style={appStyles.itemTitle}>свежая прожарка</Text>
           <Text style={appStyles.helper}>{analysisResult.summary}</Text>
           {analysisResult.highlights.map((item) => (
             <Text key={item} style={appStyles.metaText}>
               • {item}
             </Text>
           ))}
-          <Text style={appStyles.metaText}>{formatFullDate(analysisResult.createdAt)}</Text>
+          <Text style={appStyles.metaDate}>{formatFullDate(analysisResult.createdAt)}</Text>
         </View>
-      )}
+      ) : null}
 
-      {analysisHistory.length > 0 && (
+      {analysisHistory.length > 0 ? (
         <View style={appStyles.stack}>
           {analysisHistory.map((item) => (
-            <View key={item.id} style={appStyles.tile}>
+            <View key={item.id} style={[appStyles.tile, appStyles.tileYellow]}>
               <Text style={appStyles.itemTitle}>{item.itemCount} айтемов</Text>
               <Text style={appStyles.helper}>{item.summary}</Text>
-              <Text style={appStyles.metaText}>{formatFullDate(item.createdAt)}</Text>
+              <Text style={appStyles.metaDate}>{formatFullDate(item.createdAt)}</Text>
               <PillButton label="открыть" onPress={() => onOpenResult(item)} />
             </View>
           ))}
         </View>
-      )}
+      ) : null}
     </View>
   );
 }
