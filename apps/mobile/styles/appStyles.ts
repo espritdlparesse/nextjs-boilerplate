@@ -575,7 +575,12 @@ export const appStyles = StyleSheet.create({
     width: "48%",
     minHeight: 228,
     justifyContent: "space-between",
-    gap: 12,
+    paddingTop: 14,
+    paddingBottom: 16,
+    gap: 10,
+  },
+  homeTileTextBlock: {
+    gap: 10,
   },
   homeTileEyebrow: {
     fontSize: 12,
@@ -595,6 +600,7 @@ export const appStyles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     textTransform: "lowercase",
+    maxWidth: "94%",
   },
   timelineCard: {
     gap: 14,

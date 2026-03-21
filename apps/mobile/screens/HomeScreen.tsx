@@ -94,34 +94,42 @@ export function HomeScreen({
       <View style={appStyles.tileGrid}>
         <Pressable style={[appStyles.tile, appStyles.homeFeatureTile, appStyles.tilePink]} onPress={() => onOpenLibraryType("music")}>
           <Text style={[appStyles.homeTileEyebrow, { color: theme.accentMutedText }]}>музыка</Text>
-          <Text style={appStyles.homeTileTitle}>всё, что ты слушаешь</Text>
-          <Text style={[appStyles.homeTileBody, { color: theme.accentMutedText }]}>
-            подключи спотифай, импортируй из last.fm, загрузи по скриншоту или впиши вручную.
-          </Text>
+          <View style={appStyles.homeTileTextBlock}>
+            <Text style={appStyles.homeTileTitle}>всё, что ты слушаешь</Text>
+            <Text style={[appStyles.homeTileBody, { color: theme.accentMutedText }]}>
+              подключи спотифай, импортируй из last.fm, загрузи по скриншоту или впиши вручную.
+            </Text>
+          </View>
         </Pressable>
 
         <Pressable style={[appStyles.tile, appStyles.homeFeatureTile, appStyles.tileGreen]} onPress={() => onOpenLibraryType("book")}>
           <Text style={[appStyles.homeTileEyebrow, { color: theme.accentMutedText }]}>книги</Text>
-          <Text style={appStyles.homeTileTitle}>книжная полка</Text>
-          <Text style={[appStyles.homeTileBody, { color: theme.accentMutedText }]}>
-            скинь фотку книги или книжной полки, загрузи статистику из livelib или другого сервиса и посмотри, что будет.
-          </Text>
+          <View style={appStyles.homeTileTextBlock}>
+            <Text style={appStyles.homeTileTitle}>книжная полка</Text>
+            <Text style={[appStyles.homeTileBody, { color: theme.accentMutedText }]}>
+              скинь фотку книги или книжной полки, загрузи статистику из livelib или другого сервиса и посмотри, что будет.
+            </Text>
+          </View>
         </Pressable>
 
         <Pressable style={[appStyles.tile, appStyles.homeFeatureTile, appStyles.tileBlue]} onPress={() => onOpenLibraryType("film")}>
           <Text style={[appStyles.homeTileEyebrow, { color: theme.accentMutedText }]}>фильмы</Text>
-          <Text style={appStyles.homeTileTitle}>все просмотры</Text>
-          <Text style={[appStyles.homeTileBody, { color: theme.accentMutedText }]}>
-            импортируй контент из letterboxd, кинопоиска, mubi и других уже подключенных площадок.
-          </Text>
+          <View style={appStyles.homeTileTextBlock}>
+            <Text style={appStyles.homeTileTitle}>все просмотры</Text>
+            <Text style={[appStyles.homeTileBody, { color: theme.accentMutedText }]}>
+              импортируй контент из letterboxd, кинопоиска, mubi и других уже подключенных площадок.
+            </Text>
+          </View>
         </Pressable>
 
         <Pressable style={[appStyles.tile, appStyles.homeFeatureTile, appStyles.tileYellow]} onPress={onOpenVibeCheck}>
           <Text style={[appStyles.homeTileEyebrow, { color: theme.accentMutedText }]}>вайбчек</Text>
-          <Text style={appStyles.homeTileTitle}>узнай себя получше</Text>
-          <Text style={[appStyles.homeTileBody, { color: theme.accentMutedText }]}>
-            когда будешь готов — нажми кнопку «вайбчек» и сам всё поймешь.
-          </Text>
+          <View style={appStyles.homeTileTextBlock}>
+            <Text style={appStyles.homeTileTitle}>узнай себя получше</Text>
+            <Text style={[appStyles.homeTileBody, { color: theme.accentMutedText }]}>
+              когда будешь готов — нажми кнопку «вайбчек» и сам всё поймешь.
+            </Text>
+          </View>
         </Pressable>
       </View>
     </View>
