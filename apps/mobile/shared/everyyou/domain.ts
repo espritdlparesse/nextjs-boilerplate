@@ -15,6 +15,7 @@ export type LibraryItem = {
   title: string;
   authorOrArtist: string;
   createdAt?: number;
+  consumedAt?: number;
 };
 
 export type Tab = "home" | "add" | "library" | "analysis";
@@ -129,11 +130,19 @@ export function normalizeLibrary(raw: unknown[]): LibraryItem[] {
 
     const createdAt =
       typeof item.createdAt === "number" && Number.isFinite(item.createdAt) ? item.createdAt : undefined;
+    const consumedAt =
+      typeof item.consumedAt === "number" && Number.isFinite(item.consumedAt) ? item.consumedAt : undefined;
 
-    out.push({ id, type, source, title, authorOrArtist, createdAt });
+    out.push({ id, type, source, title, authorOrArtist, createdAt, consumedAt });
   }
 
   return out;
+}
+
+export function getConsumptionDate(item: Pick<LibraryItem, "consumedAt">) {
+  return typeof item.consumedAt === "number" && Number.isFinite(item.consumedAt)
+    ? item.consumedAt
+    : undefined;
 }
 
 export function getDisplayName(user: TgUser | null) {

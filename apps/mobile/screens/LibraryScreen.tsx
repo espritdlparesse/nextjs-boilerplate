@@ -1,6 +1,14 @@
 import { useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { formatFullDate, SOURCE_LABEL, TYPE_LABEL, type ContentType, type LibraryItem, type SourceType } from "../shared/everyyou/domain";
+import {
+  formatFullDate,
+  getConsumptionDate,
+  SOURCE_LABEL,
+  TYPE_LABEL,
+  type ContentType,
+  type LibraryItem,
+  type SourceType,
+} from "../shared/everyyou/domain";
 import { PillButton } from "../components/PillButton";
 import { appStyles } from "../styles/appStyles";
 
@@ -26,9 +34,9 @@ function typeTileStyle(type: LibraryItem["type"]) {
   return appStyles.tileYellow;
 }
 
-function monthLabel(createdAt?: number) {
-  if (!createdAt) return "без даты";
-  return new Date(createdAt)
+function monthLabel(consumedAt?: number) {
+  if (!consumedAt) return "без даты";
+  return new Date(consumedAt)
     .toLocaleString("ru-RU", {
       month: "long",
       year: "numeric",
@@ -52,7 +60,7 @@ export function LibraryScreen({
     const groups = new Map<string, LibraryItem[]>();
 
     for (const item of visibleLibrary) {
-      const key = monthLabel(item.createdAt);
+      const key = monthLabel(getConsumptionDate(item));
       const bucket = groups.get(key) ?? [];
       bucket.push(item);
       groups.set(key, bucket);
@@ -93,7 +101,9 @@ export function LibraryScreen({
               <Text style={appStyles.typeBadgeText}>{TYPE_LABEL[selectedItem.type]}</Text>
             </View>
             <Text style={appStyles.metaDate}>
-              {selectedItem.createdAt ? formatFullDate(selectedItem.createdAt) : "дата неизвестна"}
+              {getConsumptionDate(selectedItem)
+                ? formatFullDate(getConsumptionDate(selectedItem) as number)
+                : "дата не указана"}
             </Text>
           </View>
           <Text style={appStyles.itemTitle}>{selectedItem.title}</Text>
@@ -121,7 +131,9 @@ export function LibraryScreen({
                       <View style={appStyles.timelineHeader}>
                         <Text style={appStyles.timelineType}>{TYPE_LABEL[item.type]}</Text>
                         <Text style={appStyles.metaDate}>
-                          {item.createdAt ? formatFullDate(item.createdAt) : "без даты"}
+                          {getConsumptionDate(item)
+                            ? formatFullDate(getConsumptionDate(item) as number)
+                            : "дата не указана"}
                         </Text>
                       </View>
                       <Text style={appStyles.itemMeta}>{item.authorOrArtist || TYPE_LABEL[item.type]}</Text>
@@ -146,7 +158,9 @@ export function LibraryScreen({
                   <Text style={appStyles.typeBadgeText}>{TYPE_LABEL[item.type]}</Text>
                 </View>
                 <Text style={appStyles.metaDate}>
-                  {item.createdAt ? formatFullDate(item.createdAt) : "без даты"}
+                  {getConsumptionDate(item)
+                    ? formatFullDate(getConsumptionDate(item) as number)
+                    : "дата не указана"}
                 </Text>
               </View>
 

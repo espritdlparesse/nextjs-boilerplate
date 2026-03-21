@@ -10,6 +10,7 @@ type ItemBody = {
   source?: string;
   title?: string;
   creator?: string | null;
+  consumedAt?: number | null;
 };
 
 function badRequest(message: string) {
@@ -59,11 +60,35 @@ async function updateLegacyTelegramItem(
       creator: body.creator ?? null,
       owner_key: auth.ownerKey,
       owner_kind: auth.ownerKind,
+      consumed_at:
+        typeof body.consumedAt === "number" && Number.isFinite(body.consumedAt)
+          ? new Date(body.consumedAt).toISOString()
+          : null,
     })
     .eq("id", body.id)
     .eq("tg_user_id", auth.legacyTgUserId)
     .select("*")
     .single();
+
+  if (error && isMissingConsumedAtColumn(error)) {
+    const retry = await sb
+      .from("items")
+      .update({
+        type: body.type,
+        source: body.source,
+        title: body.title,
+        creator: body.creator ?? null,
+        owner_key: auth.ownerKey,
+        owner_kind: auth.ownerKind,
+      })
+      .eq("id", body.id)
+      .eq("tg_user_id", auth.legacyTgUserId)
+      .select("*")
+      .single();
+
+    if (retry.error) return NextResponse.json({ error: retry.error.message }, { status: 500 });
+    return NextResponse.json({ item: retry.data, legacy: true });
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ item: data, legacy: true });
@@ -74,28 +99,37 @@ function isMissingOwnerColumns(error: { message?: string | null } | null) {
   return message.includes("owner_key") || message.includes("owner_kind");
 }
 
+function isMissingConsumedAtColumn(error: { message?: string | null } | null) {
+  const message = error?.message?.toLowerCase() ?? "";
+  return message.includes("consumed_at");
+}
+
+async function selectItemsForOwner(
+  sb: ReturnType<typeof supabaseAdmin>,
+  auth: Extract<ReturnType<typeof resolveApiIdentity>, { ok: true }>
+) {
+  const baseQuery =
+    auth.authType === "telegram"
+      ? sb
+          .from("items")
+          .select("*")
+          .or(`owner_key.eq.${auth.ownerKey},tg_user_id.eq.${auth.legacyTgUserId}`)
+      : sb.from("items").select("*").eq("owner_key", auth.ownerKey);
+
+  let response = await baseQuery.order("consumed_at", { ascending: false, nullsFirst: false });
+  if (response.error && isMissingConsumedAtColumn(response.error)) {
+    response = await baseQuery.order("created_at", { ascending: false });
+  }
+
+  return response;
+}
+
 export async function GET(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
 
   const sb = supabaseAdmin();
-
-  if (auth.authType === "telegram") {
-    const { data, error } = await sb
-      .from("items")
-      .select("*")
-      .or(`owner_key.eq.${auth.ownerKey},tg_user_id.eq.${auth.legacyTgUserId}`)
-      .order("created_at", { ascending: false });
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ items: data ?? [] });
-  }
-
-  const { data, error } = await sb
-    .from("items")
-    .select("*")
-    .eq("owner_key", auth.ownerKey)
-    .order("created_at", { ascending: false });
+  const { data, error } = await selectItemsForOwner(sb, auth);
 
   if (error && isMissingOwnerColumns(error)) {
     return NextResponse.json({
@@ -144,6 +178,10 @@ export async function POST(req: NextRequest) {
     source,
     title,
     creator: creator ?? null,
+    consumed_at:
+      typeof body.consumedAt === "number" && Number.isFinite(body.consumedAt)
+        ? new Date(body.consumedAt).toISOString()
+        : null,
   };
 
   if (auth.authType === "telegram") {
@@ -153,7 +191,14 @@ export async function POST(req: NextRequest) {
     insertPayload.tg_user_id = legacyNativeTgUserId(auth.ownerKey);
   }
 
-  const { data, error } = await sb.from("items").insert(insertPayload).select("*").single();
+  let { data, error } = await sb.from("items").insert(insertPayload).select("*").single();
+
+  if (error && isMissingConsumedAtColumn(error)) {
+    const { consumed_at, ...legacyPayload } = insertPayload;
+    const retry = await sb.from("items").insert(legacyPayload).select("*").single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error && isMissingOwnerColumns(error)) {
     return NextResponse.json(
@@ -186,11 +231,36 @@ export async function PATCH(req: NextRequest) {
       source: body.source,
       title: body.title,
       creator: body.creator ?? null,
+      consumed_at:
+        typeof body.consumedAt === "number" && Number.isFinite(body.consumedAt)
+          ? new Date(body.consumedAt).toISOString()
+          : null,
     })
     .eq("id", body.id)
     .eq("owner_key", auth.ownerKey)
     .select("*")
     .single();
+
+  if (error && isMissingConsumedAtColumn(error)) {
+    const retry = await sb
+      .from("items")
+      .update({
+        type: body.type,
+        source: body.source,
+        title: body.title,
+        creator: body.creator ?? null,
+      })
+      .eq("id", body.id)
+      .eq("owner_key", auth.ownerKey)
+      .select("*")
+      .single();
+
+    if (!retry.error) return NextResponse.json({ item: retry.data });
+    if (auth.authType === "telegram" && retry.error.code === "PGRST116") {
+      return updateLegacyTelegramItem(req, body, "update");
+    }
+    return NextResponse.json({ error: retry.error.message }, { status: 500 });
+  }
 
   if (!error) return NextResponse.json({ item: data });
 

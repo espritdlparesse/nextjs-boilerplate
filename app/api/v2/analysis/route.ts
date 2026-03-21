@@ -32,20 +32,23 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
 
   const sb = supabaseAdmin();
-  const query =
+  const baseQuery =
     auth.authType === "telegram"
       ? sb
           .from("items")
           .select("type, title, creator")
           .or(`owner_key.eq.${auth.ownerKey},tg_user_id.eq.${auth.legacyTgUserId}`)
-          .order("created_at", { ascending: false })
-      : sb
-          .from("items")
-          .select("type, title, creator")
-          .eq("owner_key", auth.ownerKey)
-          .order("created_at", { ascending: false });
+      : sb.from("items").select("type, title, creator").eq("owner_key", auth.ownerKey);
 
-  const { data: items, error } = await query.limit(300);
+  let { data: items, error } = await baseQuery
+    .order("consumed_at", { ascending: false, nullsFirst: false })
+    .limit(300);
+
+  if (error?.message?.toLowerCase().includes("consumed_at")) {
+    const fallback = await baseQuery.order("created_at", { ascending: false }).limit(300);
+    items = fallback.data;
+    error = fallback.error;
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!items || items.length === 0) {
     return NextResponse.json({

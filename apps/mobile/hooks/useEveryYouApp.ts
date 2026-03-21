@@ -48,7 +48,10 @@ type SpotifyPlaylist = {
   name: string;
   trackCount: number;
 };
-type PendingImageItem = Pick<LibraryItem, "id" | "type" | "source" | "title" | "authorOrArtist" | "createdAt">;
+type PendingImageItem = Pick<
+  LibraryItem,
+  "id" | "type" | "source" | "title" | "authorOrArtist" | "createdAt" | "consumedAt"
+>;
 
 const NAME_PLACEHOLDERS = [
   "лил пип",
@@ -310,6 +313,7 @@ export function useEveryYouApp() {
       title: clampText(title).toLowerCase(),
       authorOrArtist: clampText(authorOrArtist).toLowerCase(),
       createdAt: Date.now(),
+      consumedAt: Date.now(),
     };
 
     if (apiToken) {
@@ -360,6 +364,9 @@ export function useEveryYouApp() {
       source: (source || "manual") as SourceType,
       title: clampText(title).toLowerCase(),
       authorOrArtist: clampText(authorOrArtist).toLowerCase(),
+      consumedAt:
+        library.find((item) => item.id === editingId)?.consumedAt ??
+        ((source || "manual") === "manual" ? Date.now() : undefined),
     };
 
     if (apiToken) {
@@ -494,6 +501,7 @@ export function useEveryYouApp() {
         title: item.title,
         authorOrArtist: item.authorOrArtist,
         createdAt: Date.now(),
+        consumedAt: undefined,
       }));
       setPendingImageItems(importedItems);
       setScreenshotStatus(`нашли ${importedItems.length} айтем(ов), проверь перед сохранением`);
@@ -569,6 +577,7 @@ export function useEveryYouApp() {
         title: item.title,
         authorOrArtist: item.authorOrArtist,
         createdAt: Date.now(),
+        consumedAt: undefined,
       }));
 
       if (apiToken) {
@@ -639,6 +648,7 @@ export function useEveryYouApp() {
             id: uid(),
             ...item,
             createdAt: Date.now(),
+            consumedAt: undefined,
           })),
           ...current,
         ]);

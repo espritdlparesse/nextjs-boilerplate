@@ -23,6 +23,8 @@ type ItemsResponse = {
     creator?: string | null;
     created_at?: string | null;
     createdAt?: number | null;
+    consumed_at?: string | null;
+    consumedAt?: number | null;
   }>;
 };
 
@@ -35,6 +37,8 @@ type ItemResponse = {
     creator?: string | null;
     created_at?: string | null;
     createdAt?: number | null;
+    consumed_at?: string | null;
+    consumedAt?: number | null;
   };
 };
 
@@ -117,6 +121,12 @@ function mapServerItem(item: ItemsResponse["items"][number]): LibraryItem {
       : item.created_at
         ? new Date(item.created_at).getTime()
         : undefined;
+  const consumedAt =
+    typeof item.consumedAt === "number"
+      ? item.consumedAt
+      : item.consumed_at
+        ? new Date(item.consumed_at).getTime()
+        : undefined;
 
   return {
     id: item.id,
@@ -125,6 +135,7 @@ function mapServerItem(item: ItemsResponse["items"][number]): LibraryItem {
     title: item.title,
     authorOrArtist: item.creator ?? "",
     createdAt: Number.isFinite(createdAt) ? createdAt : undefined,
+    consumedAt: Number.isFinite(consumedAt) ? consumedAt : undefined,
   };
 }
 
@@ -199,7 +210,7 @@ export async function fetchItems(token: string) {
 
 export async function createItem(
   token: string,
-  input: Pick<LibraryItem, "type" | "source" | "title" | "authorOrArtist">
+  input: Pick<LibraryItem, "type" | "source" | "title" | "authorOrArtist" | "consumedAt">
 ) {
   const data = await fetchJson<ItemResponse>("/api/v2/items", {
     method: "POST",
@@ -209,6 +220,7 @@ export async function createItem(
       source: input.source,
       title: input.title,
       creator: input.authorOrArtist,
+      consumedAt: input.consumedAt ?? null,
     }),
   });
 
@@ -217,7 +229,7 @@ export async function createItem(
 
 export async function updateItem(
   token: string,
-  input: Pick<LibraryItem, "id" | "type" | "source" | "title" | "authorOrArtist">
+  input: Pick<LibraryItem, "id" | "type" | "source" | "title" | "authorOrArtist" | "consumedAt">
 ) {
   const data = await fetchJson<ItemResponse>("/api/v2/items", {
     method: "PATCH",
@@ -228,6 +240,7 @@ export async function updateItem(
       source: input.source,
       title: input.title,
       creator: input.authorOrArtist,
+      consumedAt: input.consumedAt ?? null,
     }),
   });
 
