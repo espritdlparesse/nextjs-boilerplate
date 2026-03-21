@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { Linking } from "react-native";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   clampText,
   getDisplayName,
@@ -163,6 +163,7 @@ export function useEveryYouApp() {
   const [spotifyOAuthLoading, setSpotifyOAuthLoading] = useState(false);
   const [spotifyPlaylistLoading, setSpotifyPlaylistLoading] = useState(false);
   const [fileImportStatus, setFileImportStatus] = useState<string | null>(null);
+  const filePickerBusyRef = useRef(false);
   const [analysisRunning, setAnalysisRunning] = useState(false);
   const [analysisHistory, setAnalysisHistory] = useState<AnalysisRun[]>([]);
   const [analysisResult, setAnalysisResult] = useState<AnalysisRun | null>(null);
@@ -977,6 +978,12 @@ export function useEveryYouApp() {
   async function importPlatformFile(
     platform: "livelib" | "goodreads" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi"
   ) {
+    if (filePickerBusyRef.current) {
+      setFileImportStatus("уже открыт выбор файла");
+      return;
+    }
+
+    filePickerBusyRef.current = true;
     try {
       setFileImportStatus("открываем файлы...");
       setFileImportDateInsight(null);
@@ -1038,6 +1045,10 @@ export function useEveryYouApp() {
     } catch (error) {
       const message = error instanceof Error ? error.message : "file import failed";
       setFileImportStatus(message);
+    } finally {
+      setTimeout(() => {
+        filePickerBusyRef.current = false;
+      }, 350);
     }
   }
 
