@@ -12,6 +12,15 @@ type SpotifyTrackShape = {
   artists?: Array<{ name: string }>;
 };
 
+type SpotifyTrackPage = {
+  items?: Array<{ track?: SpotifyTrackShape | null }>;
+  next?: string | null;
+};
+
+type SpotifyRecentlyPlayedPage = {
+  items?: Array<{ track?: SpotifyTrackShape | null }>;
+};
+
 function legacyNativeTgUserId(ownerKey: string) {
   let hash = 0;
   for (let i = 0; i < ownerKey.length; i += 1) {
@@ -73,10 +82,7 @@ async function loadSpotifyItems(
   if (mode === "liked") {
     let nextUrl: string | null = "https://api.spotify.com/v1/me/tracks?limit=50";
     while (nextUrl) {
-      const page = await fetchSpotify<{
-        items?: Array<{ track?: SpotifyTrackShape | null }>;
-        next?: string | null;
-      }>(nextUrl, accessToken);
+      const page: SpotifyTrackPage = await fetchSpotify<SpotifyTrackPage>(nextUrl, accessToken);
       for (const item of page.items ?? []) {
         const mapped = trackToItem(item.track);
         if (mapped) items.push(mapped);
@@ -87,9 +93,10 @@ async function loadSpotifyItems(
   }
 
   if (mode === "recently_played") {
-    const page = await fetchSpotify<{
-      items?: Array<{ track?: SpotifyTrackShape | null }>;
-    }>("https://api.spotify.com/v1/me/player/recently-played?limit=50", accessToken);
+    const page: SpotifyRecentlyPlayedPage = await fetchSpotify<SpotifyRecentlyPlayedPage>(
+      "https://api.spotify.com/v1/me/player/recently-played?limit=50",
+      accessToken
+    );
     for (const item of page.items ?? []) {
       const mapped = trackToItem(item.track);
       if (mapped) items.push(mapped);
@@ -101,10 +108,7 @@ async function loadSpotifyItems(
 
   let nextUrl: string | null = `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100&market=US`;
   while (nextUrl) {
-    const page = await fetchSpotify<{
-      items?: Array<{ track?: SpotifyTrackShape | null }>;
-      next?: string | null;
-    }>(nextUrl, accessToken);
+    const page: SpotifyTrackPage = await fetchSpotify<SpotifyTrackPage>(nextUrl, accessToken);
     for (const item of page.items ?? []) {
       const mapped = trackToItem(item.track);
       if (mapped) items.push(mapped);
