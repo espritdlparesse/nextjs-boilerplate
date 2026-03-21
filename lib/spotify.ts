@@ -136,7 +136,10 @@ export async function importSpotifyMedia(parsed: { kind: "track" | "album" | "pl
 
     let playlistNextUrl: string | null = `https://api.spotify.com/v1/playlists/${parsed.id}/tracks?limit=100&market=US`;
     while (playlistNextUrl) {
-      const page = await spotifyFetch<SpotifyPlaylistTracksResponse>(playlistNextUrl, token);
+      const page: SpotifyPlaylistTracksResponse = await spotifyFetch<SpotifyPlaylistTracksResponse>(
+        playlistNextUrl,
+        token
+      );
       for (const item of page.items ?? []) {
         const track = item.track;
         const title = track?.name?.trim().toLowerCase() ?? "";
@@ -156,7 +159,10 @@ export async function importSpotifyMedia(parsed: { kind: "track" | "album" | "pl
   }
 
   while (nextUrl) {
-    const page = await spotifyFetch<SpotifyAlbumTracksResponse>(nextUrl, token);
+    const page: SpotifyAlbumTracksResponse = await spotifyFetch<SpotifyAlbumTracksResponse>(
+      nextUrl,
+      token
+    );
     for (const track of page.items ?? []) {
       const title = track.name.trim().toLowerCase();
       const authorOrArtist = artistNames(track.artists);
