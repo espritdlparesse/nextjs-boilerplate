@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { Linking } from "react-native";
+import QRCode from "qrcode";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   clampText,
@@ -35,6 +36,7 @@ import {
   fetchSpotifyConnectionStatus,
   fetchSpotifyPlaylists,
   fetchTelegramLinkStatus,
+  getStoredOnboardingDone,
   getStoredAvatarUri,
   getStoredGuestName,
   getStoredThemeMode,
@@ -49,6 +51,7 @@ import {
   startTelegramLink,
   setStoredAvatarUri,
   setStoredGuestName,
+  setStoredOnboardingDone,
   setStoredThemeMode,
   trackAnalyticsEvent,
   updateItem,
@@ -222,7 +225,11 @@ export function useEveryYouApp() {
   });
   const [telegramLinkLoading, setTelegramLinkLoading] = useState(false);
   const [telegramLinkStatus, setTelegramLinkStatus] = useState<string | null>(null);
+  const [telegramLinkQrDataUrl, setTelegramLinkQrDataUrl] = useState<string | null>(null);
   const telegramLinkWasLinkedRef = useRef(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
+  const [onboardingVariant, setOnboardingVariant] = useState<"fresh" | "linked">("fresh");
   const [timelineSpreading, setTimelineSpreading] = useState(false);
   const [timelinePromptVisible, setTimelinePromptVisible] = useState(false);
   const [screenshotDateInsight, setScreenshotDateInsight] = useState<DateInsight | null>(null);
@@ -251,6 +258,7 @@ export function useEveryYouApp() {
       const storedGuestName = await getStoredGuestName("ios friend");
       const storedAvatarUri = await getStoredAvatarUri();
       const storedThemeMode = await getStoredThemeMode();
+      const onboardingDone = await getStoredOnboardingDone();
 
       try {
         if (mounted) {
@@ -300,6 +308,11 @@ export function useEveryYouApp() {
       setApiToken(nextToken);
       setSyncStatus(nextSyncStatus);
       setSyncMessage(nextSyncMessage);
+      if (!onboardingDone) {
+        setOnboardingVariant(nextLibrary.length > 0 ? "linked" : "fresh");
+        setShowOnboarding(true);
+        setOnboardingStep(0);
+      }
       setLoaded(true);
     }
 
@@ -406,6 +419,22 @@ export function useEveryYouApp() {
       clearInterval(intervalId);
     };
   }, [apiToken, telegramLink.code, telegramLink.linked]);
+
+  useEffect(() => {
+    if (!telegramLink.code) {
+      setTelegramLinkQrDataUrl(null);
+      return;
+    }
+
+    const deepLink = `https://t.me/every_you_bot?startapp=link_${telegramLink.code}`;
+    QRCode.toDataURL(deepLink, {
+      margin: 1,
+      width: 480,
+      color: { dark: "#111111", light: "#FFFFFF" },
+    })
+      .then((uri: string) => setTelegramLinkQrDataUrl(uri))
+      .catch(() => setTelegramLinkQrDataUrl(null));
+  }, [telegramLink.code]);
 
   useEffect(() => {
     if (!loaded || avatarUri || tab !== "home") return;
@@ -1693,6 +1722,41 @@ export function useEveryYouApp() {
     }
   }
 
+  async function openTelegramLinkFlow() {
+    const code = telegramLink.code?.trim().toUpperCase();
+    if (!code) {
+      setTelegramLinkStatus("сначала подготовь код для Telegram");
+      return;
+    }
+
+    try {
+      await Linking.openURL(`https://t.me/every_you_bot?startapp=link_${code}`);
+    } catch {
+      setTelegramLinkStatus("не получилось открыть Telegram автоматически");
+    }
+  }
+
+  async function finishOnboarding() {
+    await setStoredOnboardingDone(true);
+    setShowOnboarding(false);
+    setOnboardingStep(0);
+  }
+
+  function nextOnboardingStep() {
+    const lastStep = onboardingVariant === "linked" ? 1 : 2;
+    if (onboardingStep >= lastStep) {
+      void finishOnboarding();
+      return;
+    }
+    setOnboardingStep((current) => current + 1);
+  }
+
+  async function skipOnboarding() {
+    await setStoredOnboardingDone(true);
+    setShowOnboarding(false);
+    setOnboardingStep(0);
+  }
+
   return {
     tab,
     setTab,
@@ -1705,6 +1769,7 @@ export function useEveryYouApp() {
     telegramLink,
     telegramLinkLoading,
     telegramLinkStatus,
+    telegramLinkQrDataUrl,
     namePlaceholder,
     syncStatus,
     syncMessage,
@@ -1762,6 +1827,7 @@ export function useEveryYouApp() {
     clearAvatar,
     setThemeMode: updateThemeMode,
     createTelegramLinkCode,
+    openTelegramLinkFlow,
     setType,
     setSource,
     setTitle,
@@ -1837,6 +1903,12 @@ export function useEveryYouApp() {
     dismissTimelinePrompt: () => setTimelinePromptVisible(false),
     promptTimelinePlacement,
     openAnalysisResult: setAnalysisResult,
+    showOnboarding,
+    onboardingStep,
+    onboardingVariant,
+    nextOnboardingStep,
+    skipOnboarding,
+    finishOnboarding,
   };
 }
 

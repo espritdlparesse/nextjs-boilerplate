@@ -204,6 +204,23 @@ export default function Page() {
   }, []);
 
   useEffect(() => {
+    if (autoLinkHandledRef.current) return;
+    const tg = (window as any).Telegram?.WebApp;
+    const startParam = tg?.initDataUnsafe?.start_param;
+    const url = typeof window !== "undefined" ? new URL(window.location.href) : null;
+    const fallbackParam = url?.searchParams.get("tgWebAppStartParam") ?? url?.searchParams.get("startapp") ?? "";
+    const raw = `${startParam ?? fallbackParam}`.trim();
+    const match = raw.match(/^link[_: -]?([A-Z0-9]+)$/i);
+    if (!match?.[1]) return;
+
+    autoLinkHandledRef.current = true;
+    const code = match[1].toUpperCase();
+    setTelegramLinkCode(code);
+    setTelegramLinkStatus("код из qr уже подставили");
+    void linkMobileAccount(code);
+  }, []);
+
+  useEffect(() => {
     if (!tgUserId) return;
     fireAnalytics("app_open", {
       librarySize: items.length,
@@ -233,6 +250,7 @@ export default function Page() {
   const [telegramLinkLoading, setTelegramLinkLoading] = useState(false);
   const [telegramLinkStatus, setTelegramLinkStatus] = useState("");
   const [telegramLinkSuccess, setTelegramLinkSuccess] = useState(false);
+  const autoLinkHandledRef = useRef(false);
 
   function fireAnalytics(event: string, properties?: Record<string, unknown>) {
     fetch("/api/v2/analytics", {
@@ -829,8 +847,8 @@ export default function Page() {
   function buyDeepVibeOnce() { openDeepVibePurchase("deep_vibe_once"); }
   function buyDeepVibeForever() { openDeepVibePurchase("deep_vibe_forever"); }
 
-  async function linkMobileAccount() {
-    const code = telegramLinkCode.trim().toUpperCase();
+  async function linkMobileAccount(prefilledCode?: string) {
+    const code = (prefilledCode ?? telegramLinkCode).trim().toUpperCase();
     if (!code) {
       setTelegramLinkStatus("введи код из мобильного приложения");
       setTelegramLinkSuccess(false);
@@ -2020,7 +2038,7 @@ export default function Page() {
             <div className="card">
               <div className="card-title">перенести в приложение</div>
               <p className="card-text">
-                если у тебя уже есть библиотека в приложении на айфоне, введи код оттуда и мы свяжем аккаунты.
+                если у тебя уже есть библиотека в приложении на айфоне, введи код оттуда или открой mini app по qr — и мы свяжем аккаунты.
               </p>
               <div className="input-group" style={{ marginTop: 16 }}>
                 <div className="input-label">код из mobile</div>
@@ -2036,7 +2054,7 @@ export default function Page() {
               <button
                 className="btn"
                 style={{ marginTop: 4 }}
-                onClick={linkMobileAccount}
+                onClick={() => void linkMobileAccount()}
                 disabled={telegramLinkLoading}
               >
                 {telegramLinkLoading ? "связываем..." : "связать с приложением"}

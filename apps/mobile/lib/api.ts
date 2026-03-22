@@ -6,6 +6,7 @@ const STORAGE_KEY_TOKEN = "everyyou.mobile.token";
 const STORAGE_KEY_USER_NAME = "everyyou.mobile.userName";
 const STORAGE_KEY_AVATAR_URI = "everyyou.mobile.avatarUri";
 const STORAGE_KEY_THEME_MODE = "everyyou.mobile.themeMode";
+const STORAGE_KEY_ONBOARDING_DONE = "everyyou.mobile.onboardingDone";
 
 type GuestAuthResponse = {
   token: string;
@@ -259,6 +260,18 @@ export async function getStoredThemeMode(): Promise<ThemeMode> {
 
 export async function setStoredThemeMode(mode: ThemeMode) {
   await AsyncStorage.setItem(STORAGE_KEY_THEME_MODE, mode);
+}
+
+export async function getStoredOnboardingDone() {
+  return (await AsyncStorage.getItem(STORAGE_KEY_ONBOARDING_DONE)) === "true";
+}
+
+export async function setStoredOnboardingDone(done: boolean) {
+  if (done) {
+    await AsyncStorage.setItem(STORAGE_KEY_ONBOARDING_DONE, "true");
+    return;
+  }
+  await AsyncStorage.removeItem(STORAGE_KEY_ONBOARDING_DONE);
 }
 
 export async function fetchBackendHealth() {

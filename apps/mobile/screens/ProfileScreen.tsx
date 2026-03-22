@@ -17,6 +17,7 @@ type ProfileScreenProps = {
   };
   telegramLinkLoading: boolean;
   telegramLinkStatus: string | null;
+  telegramLinkQrDataUrl: string | null;
   totalItems: number;
   musicCount: number;
   bookCount: number;
@@ -31,6 +32,7 @@ type ProfileScreenProps = {
   onClearAvatarPress: () => void;
   onThemeChange: (mode: ThemeMode) => void;
   onCreateTelegramLinkCode: () => void;
+  onOpenTelegramLinkFlow: () => void;
 };
 
 function initialsFromName(name: string) {
@@ -51,6 +53,7 @@ export function ProfileScreen({
   telegramLink,
   telegramLinkLoading,
   telegramLinkStatus,
+  telegramLinkQrDataUrl,
   totalItems,
   musicCount,
   bookCount,
@@ -65,6 +68,7 @@ export function ProfileScreen({
   onClearAvatarPress,
   onThemeChange,
   onCreateTelegramLinkCode,
+  onOpenTelegramLinkFlow,
 }: ProfileScreenProps) {
   const theme = getTheme(themeMode);
 
@@ -184,8 +188,16 @@ export function ProfileScreen({
           <View>
             <Text style={[appStyles.itemTitle, { color: theme.text, marginBottom: 8 }]}>{telegramLink.code}</Text>
             <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
-              открой mini app в Telegram и введи этот код в блоке переноса.
+              можно открыть mini app сразу или отсканировать qr с другого устройства.
             </Text>
+            {telegramLinkQrDataUrl ? (
+              <View style={appStyles.telegramQrCard}>
+                <Image source={{ uri: telegramLinkQrDataUrl }} style={appStyles.telegramQrImage} />
+                <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
+                  qr откроет Telegram уже с подставленным кодом.
+                </Text>
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -193,12 +205,17 @@ export function ProfileScreen({
           <Text style={[appStyles.metaText, { color: theme.mutedText }]}>{telegramLinkStatus}</Text>
         ) : null}
 
-        <PillButton
-          label={telegramLinkLoading ? "готовим код..." : telegramLink.linked ? "обновить код" : "подключить Telegram"}
-          onPress={onCreateTelegramLinkCode}
-          themeMode={themeMode}
-          disabled={telegramLinkLoading}
-        />
+        <View style={appStyles.row}>
+          <PillButton
+            label={telegramLinkLoading ? "готовим код..." : telegramLink.linked ? "обновить код" : "подключить Telegram"}
+            onPress={onCreateTelegramLinkCode}
+            themeMode={themeMode}
+            disabled={telegramLinkLoading}
+          />
+          {telegramLink.code ? (
+            <PillButton label="открыть Telegram" onPress={onOpenTelegramLinkFlow} themeMode={themeMode} />
+          ) : null}
+        </View>
       </View>
     </View>
   );

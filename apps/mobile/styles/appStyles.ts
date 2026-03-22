@@ -296,6 +296,19 @@ export const appStyles = StyleSheet.create({
     fontWeight: "900",
     color: colors.white,
   },
+  telegramQrCard: {
+    marginTop: 10,
+    gap: 10,
+    alignItems: "center",
+  },
+  telegramQrImage: {
+    width: 176,
+    height: 176,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.white,
+  },
   profileHeroText: {
     flex: 1,
     gap: 4,
