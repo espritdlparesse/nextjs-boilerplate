@@ -258,6 +258,7 @@ export default function Page() {
   const csvImportRef = useRef<HTMLInputElement | null>(null);
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState("");
+  const [importStatus, setImportStatus] = useState("");
   const [imported, setImported] = useState<ImportedItem[]>([]);
   const [selectedIdx, setSelectedIdx] = useState<Set<number>>(new Set());
   const [savingImported, setSavingImported] = useState(false);
@@ -491,7 +492,9 @@ export default function Page() {
     }
     setImportLoading(true);
     setImportError("");
+    setImportStatus("смотрим профиль last.fm...");
     try {
+      setImportStatus("тянем recent tracks...");
       const res = await fetch("/api/lastfm/import-profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -514,6 +517,11 @@ export default function Page() {
       setSelectedIdx(new Set(result.map((_: ImportedItem, i: number) => i)));
       setSelectedImportService(null);
       setLastfmProfileInput("");
+      setImportStatus(
+        result.length > 0
+          ? `готово: нашли ${result.length} трек(ов) в last.fm`
+          : "ничего не нашли в этом профиле"
+      );
     } catch (e: any) {
       setImportError(e?.message ?? "не удалось импортировать профиль last.fm");
     } finally {
@@ -528,7 +536,9 @@ export default function Page() {
     }
     setImportLoading(true);
     setImportError("");
+    setImportStatus("смотрим public profile letterboxd...");
     try {
+      setImportStatus("читаем diary и watched...");
       const res = await fetch("/api/letterboxd/import-profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -551,6 +561,11 @@ export default function Page() {
       setSelectedIdx(new Set(result.map((_: ImportedItem, i: number) => i)));
       setSelectedImportService(null);
       setLetterboxdProfileInput("");
+      setImportStatus(
+        result.length > 0
+          ? `готово: нашли ${result.length} фильм(ов) в letterboxd`
+          : "ничего не нашли в этом профиле"
+      );
     } catch (e: any) {
       setImportError(e?.message ?? "не удалось импортировать profile Letterboxd");
     } finally {
@@ -2285,6 +2300,9 @@ export default function Page() {
                   {importLoading ? "разбираю изображения..." : "загрузить изображения →"}
                 </button>
 
+                {importStatus && !importError && (
+                  <div style={{marginTop:12,fontSize:13,color:"#6f6a63"}}>{importStatus}</div>
+                )}
                 {importError && <div className="error">{importError}</div>}
 
                 {imported.length > 0 && (
@@ -2706,6 +2724,11 @@ export default function Page() {
                   <div style={{ marginTop: 8, fontSize: 13, color: "rgba(255,255,255,0.84)", lineHeight: 1.5 }}>
                     импортируем recent tracks из публичного last.fm профиля
                   </div>
+                  {importLoading ? (
+                    <div style={{ marginTop: 8, fontSize: 13, color: "rgba(255,255,255,0.84)", lineHeight: 1.5 }}>
+                      {importStatus || "смотрим профиль..."}
+                    </div>
+                  ) : null}
                 </div>
               )}
 
@@ -2721,6 +2744,11 @@ export default function Page() {
                   <div style={{ marginTop: 8, fontSize: 13, color: "rgba(255,255,255,0.84)", lineHeight: 1.5 }}>
                     public profile beta: лучше всего работает с открытым профилем
                   </div>
+                  {importLoading ? (
+                    <div style={{ marginTop: 8, fontSize: 13, color: "rgba(255,255,255,0.84)", lineHeight: 1.5 }}>
+                      {importStatus || "смотрим профиль..."}
+                    </div>
+                  ) : null}
                 </div>
               )}
 

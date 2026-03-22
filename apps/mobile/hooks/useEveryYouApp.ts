@@ -1299,8 +1299,9 @@ export function useEveryYouApp() {
     }
 
     try {
-      setFileImportStatus("тянем recent tracks из last.fm...");
+      setFileImportStatus("смотрим профиль last.fm...");
       setFileImportDateInsight(null);
+      setFileImportStatus("тянем recent tracks...");
       const items = await importFromLastfmProfile(normalizedUsername);
       await persistImportedLibraryItems(
         items.map((item) => ({
@@ -1317,6 +1318,11 @@ export function useEveryYouApp() {
         dateInsightSetter: setFileImportDateInsight,
         }
       );
+      setFileImportStatus(
+        items.length > 0
+          ? `готово: нашли ${items.length} трек(ов) в last.fm`
+          : "ничего не нашли в этом профиле"
+      );
       setLastfmUsername("");
     } catch (error) {
       const message = error instanceof Error ? error.message : "не удалось импортировать профиль last.fm";
@@ -1332,8 +1338,9 @@ export function useEveryYouApp() {
     }
 
     try {
-      setFileImportStatus("читаем public profile letterboxd...");
+      setFileImportStatus("смотрим public profile letterboxd...");
       setFileImportDateInsight(null);
+      setFileImportStatus("читаем diary и watched...");
       const items = await importFromLetterboxdProfile(normalizedProfile);
       await persistImportedLibraryItems(
         items.map((item) => ({
@@ -1349,6 +1356,11 @@ export function useEveryYouApp() {
         statusSetter: setFileImportStatus,
         dateInsightSetter: setFileImportDateInsight,
         }
+      );
+      setFileImportStatus(
+        items.length > 0
+          ? `готово: нашли ${items.length} фильм(ов) в letterboxd`
+          : "ничего не нашли в этом профиле"
       );
       setLetterboxdProfile("");
     } catch (error) {
