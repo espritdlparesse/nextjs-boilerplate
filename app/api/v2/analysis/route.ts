@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { resolveApiIdentity } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { getEffectiveOwner } from "@/lib/ownerLinks";
+import { buildOwnerReadFilter, getOwnerScope } from "@/lib/ownerLinks";
 
 export const runtime = "nodejs";
 
@@ -31,16 +31,10 @@ function extractJson(text: string) {
 export async function POST(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
-  const owner = await getEffectiveOwner(auth);
+  const scope = await getOwnerScope(auth);
 
   const sb = supabaseAdmin();
-  const baseQuery =
-    owner.ownerKind === "telegram" && owner.legacyTgUserId
-      ? sb
-          .from("items")
-          .select("type, title, creator")
-          .or(`owner_key.eq.${owner.ownerKey},tg_user_id.eq.${owner.legacyTgUserId}`)
-      : sb.from("items").select("type, title, creator").eq("owner_key", owner.ownerKey);
+  const baseQuery = sb.from("items").select("type, title, creator").or(buildOwnerReadFilter(scope));
 
   let { data: items, error } = await baseQuery
     .order("consumed_at", { ascending: false, nullsFirst: false })

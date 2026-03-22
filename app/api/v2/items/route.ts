@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { resolveApiIdentity } from "@/lib/auth";
-import { getEffectiveOwner, type EffectiveOwner } from "@/lib/ownerLinks";
+import { buildOwnerReadFilter, getOwnerScope, type EffectiveOwner, type OwnerScope } from "@/lib/ownerLinks";
 
 export const runtime = "nodejs";
 
@@ -114,15 +114,9 @@ function isMissingTimeOriginColumn(error: { message?: string | null } | null) {
 
 async function selectItemsForOwner(
   sb: ReturnType<typeof supabaseAdmin>,
-  owner: EffectiveOwner
+  scope: OwnerScope
 ) {
-  const baseQuery =
-    owner.ownerKind === "telegram" && owner.legacyTgUserId
-      ? sb
-          .from("items")
-          .select("*")
-          .or(`owner_key.eq.${owner.ownerKey},tg_user_id.eq.${owner.legacyTgUserId}`)
-      : sb.from("items").select("*").eq("owner_key", owner.ownerKey);
+  const baseQuery = sb.from("items").select("*").or(buildOwnerReadFilter(scope));
 
   let response = await baseQuery.order("consumed_at", { ascending: false, nullsFirst: false });
   if (response.error && isMissingConsumedAtColumn(response.error)) {
@@ -135,10 +129,10 @@ async function selectItemsForOwner(
 export async function GET(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
-  const owner = await getEffectiveOwner(auth);
+  const scope = await getOwnerScope(auth);
 
   const sb = supabaseAdmin();
-  const { data, error } = await selectItemsForOwner(sb, owner);
+  const { data, error } = await selectItemsForOwner(sb, scope);
 
   if (error && isMissingOwnerColumns(error)) {
     return NextResponse.json({
@@ -154,7 +148,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
-  const owner = await getEffectiveOwner(auth);
+  const scope = await getOwnerScope(auth);
+  const owner = scope.primaryOwner;
 
   const body = (await req.json().catch(() => null)) as ItemBody | null;
   if (!body) return badRequest("bad json");
@@ -169,7 +164,7 @@ export async function POST(req: NextRequest) {
     const { data: existing } = await sb
       .from("items")
       .select("*")
-      .eq("owner_key", owner.ownerKey)
+      .or(buildOwnerReadFilter(scope))
       .eq("source", "import_spotify")
       .eq("title", title)
       .eq("creator", creator ?? null)
@@ -228,7 +223,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
-  const owner = await getEffectiveOwner(auth);
+  const scope = await getOwnerScope(auth);
 
   const body = (await req.json().catch(() => null)) as ItemBody | null;
   if (!body) return badRequest("bad json");
@@ -250,7 +245,7 @@ export async function PATCH(req: NextRequest) {
       time_origin: body.timeOrigin ?? null,
     })
     .eq("id", body.id)
-    .eq("owner_key", owner.ownerKey)
+    .or(buildOwnerReadFilter(scope))
     .select("*")
     .single();
 
@@ -264,7 +259,7 @@ export async function PATCH(req: NextRequest) {
         creator: body.creator ?? null,
       })
       .eq("id", body.id)
-      .eq("owner_key", owner.ownerKey)
+      .or(buildOwnerReadFilter(scope))
       .select("*")
       .single();
 
@@ -296,13 +291,13 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
-  const owner = await getEffectiveOwner(auth);
+  const scope = await getOwnerScope(auth);
 
   const body = (await req.json().catch(() => null)) as ItemBody | null;
   if (!body?.id) return badRequest("id is required");
 
   const sb = supabaseAdmin();
-  const { error } = await sb.from("items").delete().eq("id", body.id).eq("owner_key", owner.ownerKey);
+  const { error } = await sb.from("items").delete().eq("id", body.id).or(buildOwnerReadFilter(scope));
 
   if (!error) return NextResponse.json({ ok: true });
 

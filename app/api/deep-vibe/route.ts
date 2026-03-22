@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { resolveApiIdentity } from "@/lib/auth";
+import { buildOwnerReadFilter, getOwnerScope } from "@/lib/ownerLinks";
 import { verifyTelegramInitData } from "@/lib/telegram";
 
 export const runtime = "nodejs";
@@ -87,6 +89,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const tgUserId = getTgUserOrThrow(req);
+    const auth = resolveApiIdentity(req);
+    if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
+    const scope = await getOwnerScope(auth);
     const sb = supabaseAdmin();
 
     const body = await req.json().catch(() => ({}));
@@ -136,7 +141,7 @@ export async function POST(req: NextRequest) {
     const { data: items, error } = await sb
       .from("items")
       .select("type, title, creator")
-      .eq("tg_user_id", tgUserId)
+      .or(buildOwnerReadFilter(scope))
       .order("created_at", { ascending: false });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });

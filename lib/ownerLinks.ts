@@ -7,7 +7,14 @@ type EffectiveOwner = {
   legacyTgUserId?: number;
 };
 
+type OwnerScope = {
+  primaryOwner: EffectiveOwner;
+  readOwnerKeys: string[];
+  legacyTgUserId?: number;
+};
+
 export type { EffectiveOwner };
+export type { OwnerScope };
 
 function parseTelegramOwnerKey(ownerKey: string) {
   if (!ownerKey.startsWith("tg:")) return null;
@@ -48,6 +55,46 @@ export async function getEffectiveOwner(auth: Extract<ApiIdentity, { ok: true }>
     ownerKind: "telegram",
     legacyTgUserId,
   };
+}
+
+export async function getOwnerScope(auth: Extract<ApiIdentity, { ok: true }>): Promise<OwnerScope> {
+  if (auth.authType === "telegram") {
+    const sb = supabaseAdmin();
+    const { data } = await sb
+      .from("owner_links")
+      .select("app_owner_key")
+      .eq("telegram_owner_key", auth.ownerKey)
+      .not("claimed_at", "is", null);
+
+    const linkedAppOwnerKeys = (data ?? [])
+      .map((row) => row.app_owner_key)
+      .filter((value): value is string => typeof value === "string" && value.length > 0);
+
+    return {
+      primaryOwner: {
+        ownerKey: auth.ownerKey,
+        ownerKind: auth.ownerKind,
+        legacyTgUserId: auth.legacyTgUserId,
+      },
+      readOwnerKeys: Array.from(new Set([auth.ownerKey, ...linkedAppOwnerKeys])),
+      legacyTgUserId: auth.legacyTgUserId,
+    };
+  }
+
+  const primaryOwner = await getEffectiveOwner(auth);
+  return {
+    primaryOwner,
+    readOwnerKeys: Array.from(new Set([auth.ownerKey, primaryOwner.ownerKey])),
+    legacyTgUserId: primaryOwner.legacyTgUserId,
+  };
+}
+
+export function buildOwnerReadFilter(scope: OwnerScope) {
+  const filters = scope.readOwnerKeys.map((ownerKey) => `owner_key.eq.${ownerKey}`);
+  if (scope.legacyTgUserId) {
+    filters.push(`tg_user_id.eq.${scope.legacyTgUserId}`);
+  }
+  return filters.join(",");
 }
 
 export function generateLinkCode() {

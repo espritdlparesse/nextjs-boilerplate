@@ -358,6 +358,21 @@ export function AddScreen({
 
         {pendingImageItems.length > 0 ? (
           <View style={appStyles.stack}>
+            <View style={appStyles.row}>
+              <PillButton
+                label={confirmingPendingImageImport ? "сохраняем..." : `сохранить ${pendingImageItems.length}`}
+                variant="primary"
+                themeMode={themeMode}
+                disabled={confirmingPendingImageImport}
+                onPress={onConfirmPendingImageImport}
+              />
+              <PillButton
+                label="отмена"
+                themeMode={themeMode}
+                disabled={confirmingPendingImageImport}
+                onPress={onCancelPendingImageImport}
+              />
+            </View>
             <View style={appStyles.previewGrid}>
               {pendingImageItems.map((item) => (
                 <Pressable
@@ -639,6 +654,9 @@ export function AddScreen({
                           autoCapitalize="none"
                           autoCorrect={false}
                         />
+                        <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
+                          импортируем recent tracks из публичного last.fm профиля
+                        </Text>
                         <PillButton label="импортировать профиль" themeMode={themeMode} onPress={() => confirmProfileImport("lastfm")} />
                         <PillButton label="или выбрать csv" themeMode={themeMode} onPress={confirmGuideAction} />
                       </>
@@ -654,6 +672,9 @@ export function AddScreen({
                           autoCapitalize="none"
                           autoCorrect={false}
                         />
+                        <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
+                          public profile beta: лучше всего работает с открытым профилем
+                        </Text>
                         <PillButton label="импортировать профиль" themeMode={themeMode} onPress={() => confirmProfileImport("letterboxd")} />
                         <PillButton label="или выбрать csv" themeMode={themeMode} onPress={confirmGuideAction} />
                       </>

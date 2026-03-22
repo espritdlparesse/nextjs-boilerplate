@@ -2291,6 +2291,25 @@ export default function Page() {
                   <>
                     <hr className="divider" />
                     <div className="section-label">найдено {imported.length} айтемов</div>
+                    <div
+                      style={{
+                        position: "sticky",
+                        top: 12,
+                        zIndex: 5,
+                        background: "#faf8f3",
+                        paddingBottom: 10,
+                        marginBottom: 6,
+                      }}
+                    >
+                      <button
+                        className="btn"
+                        style={{ marginBottom: 0 }}
+                        onClick={saveSelectedImported}
+                        disabled={savingImported}
+                      >
+                        {savingImported ? "сохраняю..." : `сохранить выбранное (${selectedIdx.size}) →`}
+                      </button>
+                    </div>
 
                   {imported.map((it, i) => (
                       <div
@@ -2684,6 +2703,9 @@ export default function Page() {
                     value={lastfmProfileInput}
                     onChange={(e) => setLastfmProfileInput(e.target.value)}
                   />
+                  <div style={{ marginTop: 8, fontSize: 13, color: "#666", lineHeight: 1.5 }}>
+                    импортируем recent tracks из публичного last.fm профиля
+                  </div>
                 </div>
               )}
 
@@ -2696,6 +2718,9 @@ export default function Page() {
                     value={letterboxdProfileInput}
                     onChange={(e) => setLetterboxdProfileInput(e.target.value)}
                   />
+                  <div style={{ marginTop: 8, fontSize: 13, color: "#666", lineHeight: 1.5 }}>
+                    public profile beta: лучше всего работает с открытым профилем
+                  </div>
                 </div>
               )}
 

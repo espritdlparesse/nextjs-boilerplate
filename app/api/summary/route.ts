@@ -1,36 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { verifyTelegramInitData } from "@/lib/telegram";
+import { resolveApiIdentity } from "@/lib/auth";
+import { buildOwnerReadFilter, getOwnerScope } from "@/lib/ownerLinks";
 
 export const runtime = "nodejs";
-
-function getTgUserIdOrThrow(req: NextRequest) {
-  const initData = req.headers.get("x-telegram-init-data") ?? "";
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-
-  if (process.env.NODE_ENV === "production") {
-    if (!botToken) throw new Error("TELEGRAM_BOT_TOKEN missing");
-    const verified = verifyTelegramInitData(initData, botToken);
-    if (!verified.ok) throw new Error(`tg auth failed: ${verified.reason}`);
-    const tgUserId = verified.user?.id;
-    if (!tgUserId) throw new Error("tg user missing");
-    return Number(tgUserId);
-  }
-
-  if (initData && botToken) {
-    const verified = verifyTelegramInitData(initData, botToken);
-    if (verified.ok && verified.user?.id) return Number(verified.user.id);
-  }
-
-  const devId = process.env.DEV_TG_USER_ID;
-  if (!devId) {
-    throw new Error(
-      "No Telegram init data. Set DEV_TG_USER_ID in .env.local to test locally."
-    );
-  }
-  return Number(devId);
-}
 
 function buildProfessorPrompt(items: Array<any>) {
   const lines = items.slice(0, 80).map((it) => {
@@ -68,14 +42,19 @@ function buildProfessorPrompt(items: Array<any>) {
 
 export async function POST(req: NextRequest) {
   try {
-    const tgUserId = getTgUserIdOrThrow(req);
+    const auth = resolveApiIdentity(req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.message }, { status: auth.status });
+    }
+    const scope = await getOwnerScope(auth);
 
     const sb = supabaseAdmin();
-    const { data: items, error } = await sb
+    const query = sb
       .from("items")
-      .select("id,tg_user_id,type,source,title,creator,created_at,updated_at")
-      .eq("tg_user_id", tgUserId)
-      .order("created_at", { ascending: false });
+      .select("id,tg_user_id,type,source,title,creator,created_at,updated_at,owner_key")
+      .or(buildOwnerReadFilter(scope));
+
+    const { data: items, error } = await query.order("created_at", { ascending: false });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
