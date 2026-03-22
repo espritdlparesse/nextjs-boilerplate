@@ -178,8 +178,8 @@ export function ProfileScreen({
         <Text style={[appStyles.label, { color: theme.mutedText }]}>telegram</Text>
         <Text style={[appStyles.helper, { color: theme.text }]}>
           {telegramLink.linked
-            ? "аккаунты уже связаны. библиотека в Telegram и mobile теперь общая."
-            : "свяжи mobile с mini app, чтобы библиотека, spotify и вайбчеки жили как один аккаунт."}
+            ? "аккаунты уже связаны. теперь библиотека в Telegram и на айфоне общая."
+            : "свяжи mini app и приложение на айфоне, чтобы библиотека, спотифай и вайбчеки жили как один аккаунт."}
         </Text>
 
         {telegramLink.linked ? (
@@ -188,13 +188,14 @@ export function ProfileScreen({
           <View>
             <Text style={[appStyles.itemTitle, { color: theme.text, marginBottom: 8 }]}>{telegramLink.code}</Text>
             <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
-              можно открыть mini app сразу или отсканировать qr с другого устройства.
+              можешь сразу открыть mini app или показать qr на другом устройстве.
             </Text>
             {telegramLinkQrDataUrl ? (
               <View style={appStyles.telegramQrCard}>
                 <Image source={{ uri: telegramLinkQrDataUrl }} style={appStyles.telegramQrImage} />
+                <Text style={[appStyles.label, { color: theme.text }]}>qr для Telegram</Text>
                 <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
-                  qr откроет Telegram уже с подставленным кодом.
+                  qr сам откроет mini app и уже подставит код.
                 </Text>
               </View>
             ) : null}
@@ -213,7 +214,7 @@ export function ProfileScreen({
             disabled={telegramLinkLoading}
           />
           {telegramLink.code ? (
-            <PillButton label="открыть Telegram" onPress={onOpenTelegramLinkFlow} themeMode={themeMode} />
+            <PillButton label="открыть mini app" onPress={onOpenTelegramLinkFlow} themeMode={themeMode} />
           ) : null}
         </View>
       </View>

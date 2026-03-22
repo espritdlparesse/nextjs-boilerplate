@@ -300,6 +300,7 @@ export const appStyles = StyleSheet.create({
     marginTop: 10,
     gap: 10,
     alignItems: "center",
+    paddingVertical: 8,
   },
   telegramQrImage: {
     width: 176,

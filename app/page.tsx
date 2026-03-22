@@ -2038,7 +2038,7 @@ export default function Page() {
             <div className="card">
               <div className="card-title">перенести в приложение</div>
               <p className="card-text">
-                если у тебя уже есть библиотека в приложении на айфоне, введи код оттуда или открой mini app по qr — и мы свяжем аккаунты.
+                если у тебя уже есть библиотека в приложении на айфоне, открой этот же mini app по qr или просто введи код оттуда — и мы свяжем аккаунты.
               </p>
               <div className="input-group" style={{ marginTop: 16 }}>
                 <div className="input-label">код из mobile</div>
