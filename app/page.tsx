@@ -311,15 +311,15 @@ export default function Page() {
     {
       id: "lastfm",
       title: "last.fm",
-      subtitle: "по username",
+      subtitle: "recent tracks beta",
       icon: "♪",
       kind: "profile",
       actionLabel: "импортировать профиль",
       instructions: [
-        "можно без csv",
+        "recent tracks beta",
         "введи username last.fm и мы попробуем забрать recent tracks через api",
         "если у треков есть scrobble time, они сразу лягут в календарь по дням",
-        "если тебе удобнее через файл — csv тоже остается как запасной путь",
+        "если на сервере еще не настроен ключ last.fm — просто вернись к csv",
       ],
     },
     {
@@ -1604,9 +1604,9 @@ export default function Page() {
           width: 28px;
           height: 28px;
           border-radius: 999px;
-          border: 1px solid #e7e2d9;
+          border: 1px solid #dcd4c6;
           background: #fff;
-          color: #666;
+          color: #111;
           font-size: 15px;
           font-weight: 900;
           display: flex;
@@ -1699,7 +1699,7 @@ export default function Page() {
         .service-modal-copy {
           font-size: 14px;
           line-height: 1.65;
-          color: rgba(255,255,255,0.82);
+          color: rgba(255,255,255,0.94);
           text-transform: lowercase;
         }
 
@@ -1919,7 +1919,7 @@ export default function Page() {
         .vibe-helper {
           font-size: 15px;
           line-height: 1.55;
-          color: rgba(17,17,17,0.78);
+          color: rgba(17,17,17,0.88);
           text-transform: lowercase;
           margin-bottom: 12px;
         }
@@ -1927,7 +1927,7 @@ export default function Page() {
         .vibe-meta {
           font-size: 12px;
           line-height: 1.5;
-          color: rgba(17,17,17,0.55);
+          color: rgba(17,17,17,0.68);
           text-transform: lowercase;
           margin-bottom: 12px;
         }
@@ -2703,7 +2703,7 @@ export default function Page() {
                     value={lastfmProfileInput}
                     onChange={(e) => setLastfmProfileInput(e.target.value)}
                   />
-                  <div style={{ marginTop: 8, fontSize: 13, color: "#666", lineHeight: 1.5 }}>
+                  <div style={{ marginTop: 8, fontSize: 13, color: "rgba(255,255,255,0.84)", lineHeight: 1.5 }}>
                     импортируем recent tracks из публичного last.fm профиля
                   </div>
                 </div>
@@ -2718,7 +2718,7 @@ export default function Page() {
                     value={letterboxdProfileInput}
                     onChange={(e) => setLetterboxdProfileInput(e.target.value)}
                   />
-                  <div style={{ marginTop: 8, fontSize: 13, color: "#666", lineHeight: 1.5 }}>
+                  <div style={{ marginTop: 8, fontSize: 13, color: "rgba(255,255,255,0.84)", lineHeight: 1.5 }}>
                     public profile beta: лучше всего работает с открытым профилем
                   </div>
                 </div>
@@ -2983,17 +2983,9 @@ function MarkdownText({ text }: { text: string }) {
 }
 
 function VibeResult({ summary }: { summary: string }) {
-  const idx = summary.indexOf("\n→");
-  const roast = idx !== -1 ? summary.slice(0, idx).trim() : summary.trim();
-  const recs = idx !== -1 ? summary.slice(idx + 2).trim() : "";
   return (
     <div>
-      <div className="vibe-text">{roast}</div>
-      {recs && (
-        <div style={{marginTop:16,padding:"14px 16px",background:"#f0ede6",borderRadius:12,fontSize:14,lineHeight:1.6,color:"#555"}}>
-          <span style={{fontWeight:600,color:"#1a1a1a"}}>→ </span>{recs}
-        </div>
-      )}
+      <div className="vibe-text">{summary.trim()}</div>
     </div>
   );
 }

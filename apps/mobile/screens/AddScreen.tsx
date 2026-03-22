@@ -148,11 +148,11 @@ const guides: Record<
   },
   lastfm: {
     logo: "last.fm",
-    title: "можно без csv",
+    title: "recent tracks beta",
     steps: [
       "введи username last.fm и мы попробуем забрать recent tracks через api",
       "если у треков есть scrobble time, они сразу лягут в календарь по дням",
-      "если тебе удобнее через файл — csv тоже остается как запасной путь",
+      "если на сервере еще не настроен ключ last.fm — просто вернись к csv",
     ],
     actionLabel: "импортировать профиль",
   },
@@ -471,7 +471,7 @@ export function AddScreen({
           <BrandImportButton brand="livelib" hint="книги csv" themeMode={themeMode} onPress={() => runGuideAction("livelib")} onHelpPress={() => setGuide("livelib")} />
           <BrandImportButton brand="goodreads" hint="книги csv" themeMode={themeMode} onPress={() => runGuideAction("goodreads")} onHelpPress={() => setGuide("goodreads")} />
           <BrandImportButton brand="letterboxd" hint="public profile beta" themeMode={themeMode} onPress={() => setGuide("letterboxd")} onHelpPress={() => setGuide("letterboxd")} />
-          <BrandImportButton brand="lastfm" hint="по username" themeMode={themeMode} onPress={() => setGuide("lastfm")} onHelpPress={() => setGuide("lastfm")} />
+          <BrandImportButton brand="lastfm" hint="recent tracks beta" themeMode={themeMode} onPress={() => setGuide("lastfm")} onHelpPress={() => setGuide("lastfm")} />
           <BrandImportButton brand="kinopoisk" hint="просмотры csv" themeMode={themeMode} onPress={() => runGuideAction("kinopoisk")} onHelpPress={() => setGuide("kinopoisk")} />
           <BrandImportButton brand="mubi" hint="фильмы csv" themeMode={themeMode} onPress={() => runGuideAction("mubi")} onHelpPress={() => setGuide("mubi")} />
         </View>
@@ -654,7 +654,7 @@ export function AddScreen({
                           autoCapitalize="none"
                           autoCorrect={false}
                         />
-                        <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
+                        <Text style={[appStyles.metaText, { color: theme.text }]}>
                           импортируем recent tracks из публичного last.fm профиля
                         </Text>
                         <PillButton label="импортировать профиль" themeMode={themeMode} onPress={() => confirmProfileImport("lastfm")} />
@@ -672,7 +672,7 @@ export function AddScreen({
                           autoCapitalize="none"
                           autoCorrect={false}
                         />
-                        <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
+                        <Text style={[appStyles.metaText, { color: theme.text }]}>
                           public profile beta: лучше всего работает с открытым профилем
                         </Text>
                         <PillButton label="импортировать профиль" themeMode={themeMode} onPress={() => confirmProfileImport("letterboxd")} />

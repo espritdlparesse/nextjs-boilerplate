@@ -18,7 +18,11 @@ export async function POST(req: NextRequest) {
     const items = await importLastfmProfile(body.username, body.limit ?? 200);
     return NextResponse.json({ items });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "last.fm import failed";
+    const rawMessage = error instanceof Error ? error.message : "last.fm import failed";
+    const message =
+      rawMessage === "LASTFM_API_KEY missing"
+        ? "last.fm по username пока не настроен на сервере. пока что используй csv"
+        : rawMessage;
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

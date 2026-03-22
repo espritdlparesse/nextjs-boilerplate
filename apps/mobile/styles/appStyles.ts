@@ -1064,6 +1064,9 @@ export const appStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     zIndex: 2,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: colors.line,
   },
   brandHelpButtonText: {
     fontSize: 15,
