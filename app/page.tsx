@@ -1703,7 +1703,7 @@ export default function Page() {
           border-radius: 28px;
           padding: 20px 18px;
           border: 1px solid rgba(17,17,17,0.08);
-          margin-bottom: 16px;
+          margin-bottom: 20px;
         }
 
         .vibe-blue { background: #38C0FF; }
@@ -2260,14 +2260,7 @@ export default function Page() {
         {/* VIBE */}
         {tab === "vibe" && (
           <div className="card">
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div className="card-title">вайбчек</div>
-              <button
-                style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#888",padding:"0 4px"}}
-                title="поделиться"
-                onClick={() => openSharePicker(summary || undefined, summary ? "vibe" : undefined)}
-              >↗</button>
-            </div>
+            <div className="card-title">вайбчек</div>
             <div className="vibe-section vibe-blue">
               <div className="vibe-helper">
                 сейчас в библиотеке {counts.total}: музыка {counts.music}, книги {counts.books}, фильмы {counts.movies}.
