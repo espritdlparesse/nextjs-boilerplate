@@ -1366,12 +1366,20 @@ export function useEveryYouApp() {
         return;
       }
 
+      const friendlySummary =
+        message.includes("404")
+          ? "глубокий вайбчек пока не доехал до сервера. попробуй еще раз чуть позже, когда обновится backend."
+          : `не удалось провести глубокий вайбчек: ${message}`;
+      const friendlyHighlights = message.includes("404")
+        ? ["это похоже на старый деплой сервера", "не твоя ошибка — просто повтори попытку позже"]
+        : ["проверь OPENAI_API_KEY на backend", "и повтори попытку"];
+
       const fallback: AnalysisRun = {
         id: uid(),
         createdAt: Date.now(),
         itemCount: counters.total,
-        summary: `не удалось провести глубокий вайбчек: ${message}`,
-        highlights: ["проверь OPENAI_API_KEY на backend", "и повтори попытку"],
+        summary: friendlySummary,
+        highlights: friendlyHighlights,
         recommendations: [],
         usesLeft: deepAnalysisUsesLeft,
       };
