@@ -116,14 +116,41 @@ async function selectItemsForOwner(
   sb: ReturnType<typeof supabaseAdmin>,
   scope: OwnerScope
 ) {
-  const baseQuery = sb.from("items").select("*").or(buildOwnerReadFilter(scope));
+  const pageSize = 1000;
+  const rows: any[] = [];
+  let from = 0;
+  let orderBy: "consumed_at" | "created_at" = "consumed_at";
 
-  let response = await baseQuery.order("consumed_at", { ascending: false, nullsFirst: false });
-  if (response.error && isMissingConsumedAtColumn(response.error)) {
-    response = await baseQuery.order("created_at", { ascending: false });
+  while (true) {
+    let response = await sb
+      .from("items")
+      .select("*")
+      .or(buildOwnerReadFilter(scope))
+      .order(orderBy, { ascending: false, nullsFirst: false })
+      .range(from, from + pageSize - 1);
+
+    if (response.error && orderBy === "consumed_at" && isMissingConsumedAtColumn(response.error)) {
+      orderBy = "created_at";
+      from = 0;
+      rows.length = 0;
+      response = await sb
+        .from("items")
+        .select("*")
+        .or(buildOwnerReadFilter(scope))
+        .order("created_at", { ascending: false })
+        .range(0, pageSize - 1);
+    }
+
+    if (response.error) {
+      return response;
+    }
+
+    rows.push(...(response.data ?? []));
+    if (!response.data || response.data.length < pageSize) break;
+    from += pageSize;
   }
 
-  return response;
+  return { data: rows, error: null };
 }
 
 export async function GET(req: NextRequest) {

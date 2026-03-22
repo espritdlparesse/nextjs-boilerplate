@@ -24,12 +24,28 @@ async function selectItemsForOwner(
   sb: ReturnType<typeof supabaseAdmin>,
   scope: OwnerScope
 ) {
-  const baseQuery = sb
-    .from("items")
-    .select("*, custom_categories!custom_category_id(name, emoji)")
-    .or(buildOwnerReadFilter(scope));
+  const pageSize = 1000;
+  const rows: any[] = [];
+  let from = 0;
 
-  return baseQuery.order("created_at", { ascending: false });
+  while (true) {
+    const { data, error } = await sb
+      .from("items")
+      .select("*, custom_categories!custom_category_id(name, emoji)")
+      .or(buildOwnerReadFilter(scope))
+      .order("created_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      return { data: null, error };
+    }
+
+    rows.push(...(data ?? []));
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return { data: rows, error: null };
 }
 
 export async function GET(req: NextRequest) {
