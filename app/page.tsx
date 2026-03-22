@@ -320,7 +320,7 @@ export default function Page() {
         "recent tracks beta",
         "введи username last.fm и мы попробуем забрать recent tracks через api",
         "если у треков есть scrobble time, они сразу лягут в календарь по дням",
-        "если на сервере еще не настроен ключ last.fm — просто вернись к csv",
+        "если этот способ не сработает, всегда можно загрузить csv",
       ],
     },
     {
@@ -1995,7 +1995,7 @@ export default function Page() {
             <div className="card">
               <div className="card-title">перенести в приложение</div>
               <p className="card-text">
-                если у тебя уже есть библиотека в iPhone-приложении, введи код оттуда и мы свяжем аккаунты.
+                если у тебя уже есть библиотека в приложении на айфоне, введи код оттуда и мы свяжем аккаунты.
               </p>
               <div className="input-group" style={{ marginTop: 16 }}>
                 <div className="input-label">код из mobile</div>
@@ -2569,7 +2569,7 @@ export default function Page() {
                 сейчас в библиотеке {counts.total}: музыка {counts.music}, книги {counts.books}, фильмы {counts.movies}.
               </div>
               <div className="vibe-meta">
-                быстрый вайбчек — это короткая прожарка вкуса, без глубокого анализа состояния.
+                быстрый вайбчек — это короткий культурный срез без глубокого анализа состояния.
               </div>
               <button
                 className="btn btn-outline"
@@ -2584,7 +2584,7 @@ export default function Page() {
             {vibeError && <div className="error">{vibeError}</div>}
             {summary && (
               <div className="vibe-section vibe-pink">
-                <div className="card-title" style={{ marginBottom: 10 }}>свежая прожарка</div>
+                <div className="card-title" style={{ marginBottom: 10 }}>свежий срез</div>
                 <VibeResult summary={summary} />
                 <button
                   className="btn btn-outline"
@@ -2722,7 +2722,7 @@ export default function Page() {
                     onChange={(e) => setLastfmProfileInput(e.target.value)}
                   />
                   <div style={{ marginTop: 8, fontSize: 13, color: "rgba(255,255,255,0.84)", lineHeight: 1.5 }}>
-                    импортируем recent tracks из публичного last.fm профиля
+                    импортируем recent tracks из публичного профиля last.fm
                   </div>
                   {importLoading ? (
                     <div style={{ marginTop: 8, fontSize: 13, color: "rgba(255,255,255,0.84)", lineHeight: 1.5 }}>

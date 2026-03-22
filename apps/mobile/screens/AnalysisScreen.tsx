@@ -50,7 +50,7 @@ export function AnalysisScreen({
           {counters.byType.film}.
         </Text>
         <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
-          быстрый вайбчек — это короткая прожарка вкуса, без глубокого анализа состояния.
+          быстрый вайбчек — это короткий культурный срез без глубокого анализа состояния.
         </Text>
         <PillButton
           label={analysisRunning ? "думаем..." : "провести вайбчек"}
@@ -63,7 +63,7 @@ export function AnalysisScreen({
 
       {analysisResult ? (
         <View style={[appStyles.tile, themeMode === "dark" ? { backgroundColor: theme.accentPink, borderColor: theme.border } : appStyles.tilePink]}>
-          <Text style={appStyles.itemTitle}>свежая прожарка</Text>
+          <Text style={appStyles.itemTitle}>свежий срез</Text>
           <Text style={[appStyles.helper, { color: theme.accentText }]}>{analysisResult.summary}</Text>
           {analysisResult.highlights.map((item) => (
             <Text key={item} style={[appStyles.metaText, { color: theme.accentMutedText }]}>

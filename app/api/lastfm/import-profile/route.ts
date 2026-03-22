@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     const rawMessage = error instanceof Error ? error.message : "last.fm import failed";
     const message =
       rawMessage === "LASTFM_API_KEY missing"
-        ? "last.fm по username пока не настроен на сервере. пока что используй csv"
+        ? "этот способ пока не настроен на сервере. пока что можно загрузить csv"
         : rawMessage;
     return NextResponse.json({ error: message }, { status: 500 });
   }

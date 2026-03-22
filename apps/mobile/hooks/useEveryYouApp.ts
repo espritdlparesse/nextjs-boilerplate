@@ -1540,7 +1540,7 @@ export function useEveryYouApp() {
             : [
                 "вкусу явно нравится ходить между поп-крючками и вещами посложнее",
                 "повторяющиеся имена и настроения быстро выдают твой текущий эмоциональный коридор",
-                "это быстрый вайбчек: он скорее подмигивает, чем копает глубоко",
+                "это быстрый вайбчек: он скорее намечает настроение, чем копает глубоко",
               ],
       };
 
@@ -1553,7 +1553,7 @@ export function useEveryYouApp() {
         createdAt: Date.now(),
         itemCount: counters.total,
         summary: `не удалось провести серверный вайбчек: ${message}`,
-        highlights: ["проверь OPENAI_API_KEY на backend", "и повтори попытку"],
+        highlights: ["проверь настройки сервера", "и попробуй еще раз"],
       };
       setAnalysisResult(fallback);
       setAnalysisHistory([fallback]);
@@ -1611,7 +1611,7 @@ export function useEveryYouApp() {
           : `не удалось провести глубокий вайбчек: ${message}`;
       const friendlyHighlights = message.includes("404")
         ? ["это похоже на старый деплой сервера", "не твоя ошибка — просто повтори попытку позже"]
-        : ["проверь OPENAI_API_KEY на backend", "и повтори попытку"];
+        : ["проверь настройки сервера", "и попробуй еще раз"];
 
       const fallback: AnalysisRun = {
         id: uid(),
