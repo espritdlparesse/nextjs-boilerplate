@@ -467,7 +467,7 @@ export function AddScreen({
           можно выбирать файлы из «файлы», icloud drive и других подключенных источников.
         </Text>
         <View style={appStyles.row}>
-          <BrandImportButton brand="spotify" hint="музыка сама" themeMode={themeMode} onPress={() => runGuideAction("spotify")} onHelpPress={() => setGuide("spotify")} />
+          <BrandImportButton brand="spotify" hint="музыка" themeMode={themeMode} onPress={() => runGuideAction("spotify")} onHelpPress={() => setGuide("spotify")} />
           <BrandImportButton brand="livelib" hint="книги csv" themeMode={themeMode} onPress={() => runGuideAction("livelib")} onHelpPress={() => setGuide("livelib")} />
           <BrandImportButton brand="goodreads" hint="книги csv" themeMode={themeMode} onPress={() => runGuideAction("goodreads")} onHelpPress={() => setGuide("goodreads")} />
           <BrandImportButton brand="letterboxd" hint="public profile beta" themeMode={themeMode} onPress={() => setGuide("letterboxd")} onHelpPress={() => setGuide("letterboxd")} />

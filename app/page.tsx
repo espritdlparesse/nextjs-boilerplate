@@ -267,7 +267,7 @@ export default function Page() {
   const [letterboxdProfileInput, setLetterboxdProfileInput] = useState("");
 
   const importServices: ImportService[] = [
-    { id: "spotify", title: "Spotify", subtitle: "музыка сама", icon: "◉", kind: "oauth", actionLabel: "подключить spotify" },
+    { id: "spotify", title: "Spotify", subtitle: "музыка", icon: "◉", kind: "oauth", actionLabel: "подключить spotify" },
     {
       id: "livelib",
       title: "LiveLib",
@@ -2085,7 +2085,7 @@ export default function Page() {
                 className={`mode-btn${!manualMode ? " active" : ""}`}
                 onClick={() => setManualMode(false)}
               >
-                📷 импорт скрина
+                импорт изображения
               </button>
               <button
                 className={`mode-btn${manualMode ? " active" : ""}`}
