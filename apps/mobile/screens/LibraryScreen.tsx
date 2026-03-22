@@ -336,7 +336,7 @@ export function LibraryScreen({
           </View>
 
           <Text style={[appStyles.helper, appStyles.libraryIntroCompact, { color: themeMode === "dark" ? theme.accentText : theme.text }]}>
-            смотри все вместе или раскладывай по типам и качеству даты.
+            смотри все вместе или раскладывай по типам и по тому, как проставлены даты.
           </Text>
 
           <View style={appStyles.compactFilterSection}>
@@ -367,7 +367,7 @@ export function LibraryScreen({
 
           <View style={appStyles.compactFilterSection}>
             <Pressable style={appStyles.compactAccordionHeader} onPress={() => setDateFiltersExpanded((current) => !current)}>
-              <Text style={[appStyles.compactFilterHeader, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>дата</Text>
+              <Text style={[appStyles.compactFilterHeader, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>как проставлена дата</Text>
               <View style={appStyles.compactAccordionMeta}>
                 <Text style={[appStyles.compactAccordionValue, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>{timeQualitySummary}</Text>
                 <Text style={[appStyles.compactAccordionChevron, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>

@@ -207,9 +207,6 @@ export default function App() {
                     <Text style={[appStyles.screenshotSheetTitle, { color: theme.text }]}>
                       скриншот готов
                     </Text>
-                    <Text style={[appStyles.screenshotSheetText, { color: theme.mutedText }]}>
-                      можно поделиться им или сразу отправить в everyyou
-                    </Text>
                   </View>
                   <Pressable
                     style={[
