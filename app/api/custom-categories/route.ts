@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 function getTgUserId(req: NextRequest): number | null {
   try {
@@ -25,6 +27,7 @@ function getTgUserId(req: NextRequest): number | null {
 export async function GET(req: NextRequest) {
   const tgUserId = getTgUserId(req);
   if (!tgUserId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const supabase = getSupabase();
 
   const { data, error } = await supabase
     .from("custom_categories")
@@ -40,6 +43,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const tgUserId = getTgUserId(req);
   if (!tgUserId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const supabase = getSupabase();
 
   // Проверяем что у пользователя есть покупка deep_vibe_forever
   const { data: purchase } = await supabase
@@ -87,6 +91,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const tgUserId = getTgUserId(req);
   if (!tgUserId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const supabase = getSupabase();
 
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
