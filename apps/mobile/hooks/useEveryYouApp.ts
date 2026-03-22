@@ -42,6 +42,7 @@ import {
   importFromSpotifyUrl,
   runDeepVibeCheck,
   runVibeCheck,
+  resetGuestSession,
   setStoredAvatarUri,
   setStoredGuestName,
   setStoredThemeMode,
@@ -78,6 +79,17 @@ const NAME_PLACEHOLDERS = [
   "случайный набор букв",
 ];
 const HEADER_AVATAR_EMOJIS = ["🐸", "😈", "👹", "👀", "🫀", "🐽", "🐣", "🦆", "🐳", "🦦"];
+
+function isGuestSessionError(message: string) {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("bad signature") ||
+    normalized.includes("missing auth") ||
+    normalized.includes("expired") ||
+    normalized.includes("invalid token") ||
+    normalized.includes("401")
+  );
+}
 
 function splitDisplayName(name: string): TgUser {
   const normalized = clampText(name);
@@ -229,8 +241,20 @@ export function useEveryYouApp() {
           throw new Error("backend reachable, but EVERYYOU_APP_AUTH_SECRET is missing");
         }
 
-        const session = await ensureGuestSession(storedGuestName);
-        const remoteLibrary = await fetchItems(session.token);
+        let session = await ensureGuestSession(storedGuestName);
+        let remoteLibrary: LibraryItem[];
+        try {
+          remoteLibrary = await fetchItems(session.token);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "";
+          if (!isGuestSessionError(message)) {
+            throw error;
+          }
+
+          await resetGuestSession();
+          session = await ensureGuestSession(storedGuestName);
+          remoteLibrary = await fetchItems(session.token);
+        }
         nextLibrary = remoteLibrary;
         nextToken = session.token;
         nextUser = splitDisplayName(session.name ?? storedGuestName);

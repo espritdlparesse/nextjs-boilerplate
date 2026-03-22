@@ -2323,9 +2323,6 @@ export default function Page() {
               <div className="vibe-helper">
                 серьезный срез периода: что у тебя сейчас по темам, эмоциональному фону и куда все это движется.
               </div>
-              <div className="vibe-meta">
-                2 раза бесплатно. потом сюда можно аккуратно поставить оплату.
-              </div>
 
               {/* Кнопка запуска — если есть доступ */}
               {(deepVibeAccess === "free" || deepVibeAccess === "forever" || deepVibeAccess === "paid") && (

@@ -202,6 +202,10 @@ export async function ensureGuestSession(name = "ios friend") {
   return { token: data.token, name: data.user.name ?? existingName };
 }
 
+export async function resetGuestSession() {
+  await AsyncStorage.removeItem(STORAGE_KEY_TOKEN);
+}
+
 export async function getStoredGuestName(fallback = "ios friend") {
   return (await AsyncStorage.getItem(STORAGE_KEY_USER_NAME)) ?? fallback;
 }
