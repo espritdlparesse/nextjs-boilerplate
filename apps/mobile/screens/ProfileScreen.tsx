@@ -33,6 +33,7 @@ type ProfileScreenProps = {
   onThemeChange: (mode: ThemeMode) => void;
   onCreateTelegramLinkCode: () => void;
   onOpenTelegramLinkFlow: () => void;
+  onReplayOnboarding: () => void;
 };
 
 function initialsFromName(name: string) {
@@ -69,6 +70,7 @@ export function ProfileScreen({
   onThemeChange,
   onCreateTelegramLinkCode,
   onOpenTelegramLinkFlow,
+  onReplayOnboarding,
 }: ProfileScreenProps) {
   const theme = getTheme(themeMode);
 
@@ -172,6 +174,7 @@ export function ProfileScreen({
         <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
           потом сюда можно будет добавить еще темную тему, аватарку, анамнез вкуса и другие тихие настройки профиля.
         </Text>
+        <PillButton label="посмотреть онбординг еще раз" onPress={onReplayOnboarding} themeMode={themeMode} />
       </View>
 
       <View style={[appStyles.card, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>

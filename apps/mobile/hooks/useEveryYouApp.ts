@@ -1757,6 +1757,12 @@ export function useEveryYouApp() {
     setOnboardingStep(0);
   }
 
+  function replayOnboarding() {
+    setOnboardingVariant(library.length > 0 ? "linked" : "fresh");
+    setOnboardingStep(0);
+    setShowOnboarding(true);
+  }
+
   return {
     tab,
     setTab,
@@ -1909,6 +1915,7 @@ export function useEveryYouApp() {
     nextOnboardingStep,
     skipOnboarding,
     finishOnboarding,
+    replayOnboarding,
   };
 }
 

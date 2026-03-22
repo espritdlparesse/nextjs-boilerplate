@@ -6,7 +6,7 @@ const STORAGE_KEY_TOKEN = "everyyou.mobile.token";
 const STORAGE_KEY_USER_NAME = "everyyou.mobile.userName";
 const STORAGE_KEY_AVATAR_URI = "everyyou.mobile.avatarUri";
 const STORAGE_KEY_THEME_MODE = "everyyou.mobile.themeMode";
-const STORAGE_KEY_ONBOARDING_DONE = "everyyou.mobile.onboardingDone";
+const STORAGE_KEY_ONBOARDING_DONE = "everyyou.mobile.onboardingDone.v2";
 
 type GuestAuthResponse = {
   token: string;

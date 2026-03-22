@@ -604,6 +604,7 @@ export default function App() {
                   onThemeChange={app.setThemeMode}
                   onCreateTelegramLinkCode={app.createTelegramLinkCode}
                   onOpenTelegramLinkFlow={app.openTelegramLinkFlow}
+                  onReplayOnboarding={app.replayOnboarding}
                 />
               )}
             </ScrollView>
