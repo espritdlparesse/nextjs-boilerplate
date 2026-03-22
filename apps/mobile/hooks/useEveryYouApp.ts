@@ -218,6 +218,7 @@ export function useEveryYouApp() {
   });
   const [telegramLinkLoading, setTelegramLinkLoading] = useState(false);
   const [telegramLinkStatus, setTelegramLinkStatus] = useState<string | null>(null);
+  const telegramLinkWasLinkedRef = useRef(false);
   const [timelineSpreading, setTimelineSpreading] = useState(false);
   const [timelinePromptVisible, setTimelinePromptVisible] = useState(false);
   const [screenshotDateInsight, setScreenshotDateInsight] = useState<DateInsight | null>(null);
@@ -348,6 +349,7 @@ export function useEveryYouApp() {
       .then((status) => {
         if (cancelled) return;
         setTelegramLink(status);
+        telegramLinkWasLinkedRef.current = status.linked;
       })
       .catch(() => undefined);
 
@@ -355,6 +357,51 @@ export function useEveryYouApp() {
       cancelled = true;
     };
   }, [apiToken]);
+
+  useEffect(() => {
+    if (!apiToken || telegramLink.linked || !telegramLink.code) return;
+
+    let cancelled = false;
+    const intervalId = setInterval(async () => {
+      try {
+        const status = await fetchTelegramLinkStatus(apiToken);
+        if (cancelled) return;
+
+        const justLinked = status.linked && !telegramLinkWasLinkedRef.current;
+        telegramLinkWasLinkedRef.current = status.linked;
+        setTelegramLink(status);
+
+        if (justLinked) {
+          setTelegramLinkStatus("готово — Telegram и приложение теперь связаны");
+          setToastMessage("Telegram подключен");
+
+          const remoteLibrary = await fetchItems(apiToken);
+          if (!cancelled) {
+            setLibrary(remoteLibrary);
+            setSyncStatus("online");
+            setSyncMessage("данные синхронизируются с сервером");
+          }
+
+          try {
+            const spotifyStatus = await fetchSpotifyConnectionStatus(apiToken);
+            if (!cancelled) {
+              setSpotifyConnected(spotifyStatus.connected);
+              setSpotifyProfileName(spotifyStatus.profile?.displayName ?? null);
+            }
+          } catch {
+            // ignore spotify refresh errors here
+          }
+        }
+      } catch {
+        // ignore background link polling errors
+      }
+    }, 4000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [apiToken, telegramLink.code, telegramLink.linked]);
 
   useEffect(() => {
     if (!loaded || avatarUri || tab !== "home") return;
@@ -1498,6 +1545,7 @@ export function useEveryYouApp() {
         code: data.code,
         expiresAt: data.expiresAt,
       });
+      telegramLinkWasLinkedRef.current = false;
       setTelegramLinkStatus("код готов — введи его в mini app");
       setToastMessage("код для Telegram готов");
       fireAnalytics("telegram_link_code_created");

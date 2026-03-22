@@ -214,6 +214,7 @@ export default function Page() {
   const [telegramLinkCode, setTelegramLinkCode] = useState("");
   const [telegramLinkLoading, setTelegramLinkLoading] = useState(false);
   const [telegramLinkStatus, setTelegramLinkStatus] = useState("");
+  const [telegramLinkSuccess, setTelegramLinkSuccess] = useState(false);
 
   async function loadLibrary() {
     setLibraryLoading(true);
@@ -696,11 +697,13 @@ export default function Page() {
     const code = telegramLinkCode.trim().toUpperCase();
     if (!code) {
       setTelegramLinkStatus("введи код из мобильного приложения");
+      setTelegramLinkSuccess(false);
       return;
     }
 
     setTelegramLinkLoading(true);
     setTelegramLinkStatus("");
+    setTelegramLinkSuccess(false);
     try {
       const res = await fetch("/api/telegram/link", {
         method: "POST",
@@ -716,6 +719,7 @@ export default function Page() {
         return;
       }
       setTelegramLinkStatus("готово — Telegram и мобильное приложение теперь связаны");
+      setTelegramLinkSuccess(true);
       setTelegramLinkCode("");
       await loadLibrary();
     } catch (e: any) {
@@ -1872,6 +1876,22 @@ export default function Page() {
               >
                 {telegramLinkLoading ? "связываем..." : "связать с приложением"}
               </button>
+              {telegramLinkSuccess ? (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: "12px 14px",
+                    borderRadius: 16,
+                    background: "#dff7d9",
+                    color: "#1f5a24",
+                    fontSize: 14,
+                    lineHeight: 1.5,
+                    fontWeight: 600,
+                  }}
+                >
+                  готово — теперь Telegram и приложение смотрят на одну библиотеку
+                </div>
+              ) : null}
               {telegramLinkStatus ? (
                 <div style={{ marginTop: 10, fontSize: 13, color: "#666" }}>{telegramLinkStatus}</div>
               ) : null}
