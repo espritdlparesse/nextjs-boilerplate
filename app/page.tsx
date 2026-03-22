@@ -2116,7 +2116,7 @@ export default function Page() {
                 className={`mode-btn${manualMode ? " active" : ""}`}
                 onClick={() => setManualMode(true)}
               >
-                ✏️ вручную
+                вручную
               </button>
             </div>
 
@@ -2627,7 +2627,7 @@ export default function Page() {
               onClick={runMentalAge}
               disabled={mentalAgeLoading || counts.total === 0}
             >
-              {mentalAgeLoading ? "считаю..." : "🧠 рассчитать ментальный возраст"}
+              {mentalAgeLoading ? "считаю..." : "рассчитать ментальный возраст"}
             </button>
 
             {mentalAge && (
@@ -2662,7 +2662,7 @@ export default function Page() {
                   )}
                   {deepVibeAccess === "forever" && (
                     <div style={{textAlign:"center",fontSize:12,color:"#aaa",marginBottom:10}}>
-                      ✦ вечный доступ
+                      вечный доступ
                     </div>
                   )}
                   <button
@@ -2671,7 +2671,7 @@ export default function Page() {
                     onClick={runDeepVibe}
                     disabled={deepVibeLoading || counts.total === 0}
                   >
-                    ✦ {deepVibeLoading ? "анализирую..." : "вайбчек без прикола →"}
+                    {deepVibeLoading ? "анализирую..." : "глубокий вайбчек"}
                   </button>
                 </div>
               )}
