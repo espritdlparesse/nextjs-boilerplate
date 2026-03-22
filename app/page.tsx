@@ -828,6 +828,7 @@ export default function Page() {
   const [libFilter, setLibFilter] = useState<ItemType | "all" | string>("all");
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
+  const [dayModalOpen, setDayModalOpen] = useState(false);
   const filteredItems = useMemo(() => {
     if (libFilter === "all") return items;
     if (libFilter === "music" || libFilter === "book" || libFilter === "movie") return items.filter(i => i.type === libFilter);
@@ -866,7 +867,7 @@ export default function Page() {
 
   const selectedDay = useMemo(() => {
     if (selectedDayKey) return calendarDays.find((entry) => entry.key === selectedDayKey) ?? null;
-    return calendarDays.find((entry) => entry.inMonth && entry.items.length > 0) ?? null;
+    return null;
   }, [calendarDays, selectedDayKey]);
 
   return (
@@ -1778,20 +1779,6 @@ export default function Page() {
               <p className="card-text" style={{ marginTop: 10 }}>
                 Когда накопится достаточно, жми вайбчек — получишь короткий портрет периода от не очень объективного, но довольно проницательного алгоритма.
               </p>
-              <div className="actions">
-                <button className="btn" onClick={() => setTab("add")}>добавить контент →</button>
-                <button className="btn btn-outline" onClick={() => setTab("library")}>библиотека →</button>
-                <button className="btn btn-outline" onClick={() => setTab("vibe")}>вайбчек →</button>
-                <button
-                  className="btn btn-outline"
-                  style={{display:"flex",alignItems:"center",gap:6}}
-                  onClick={async () => {
-                    openSharePicker();
-                  }}
-                >
-                  ↗ поделиться
-                </button>
-              </div>
             </div>
 
             <div className="home-tiles">
@@ -2158,7 +2145,10 @@ export default function Page() {
                       <button
                         key={day.key}
                         className={`calendar-day${!day.inMonth ? " muted" : ""}${selectedDay?.key === day.key ? " selected" : ""}`}
-                        onClick={() => setSelectedDayKey(day.key)}
+                        onClick={() => {
+                          setSelectedDayKey(day.key);
+                          setDayModalOpen(true);
+                        }}
                       >
                         <div className="calendar-day-head">
                           <span className="calendar-day-number">{day.date.getDate()}</span>
@@ -2175,8 +2165,8 @@ export default function Page() {
                   </div>
                 </div>
 
-                {selectedDay ? (
-                  <div className="day-modal-backdrop" onClick={() => setSelectedDayKey(null)}>
+                {dayModalOpen && selectedDay ? (
+                  <div className="day-modal-backdrop" onClick={() => setDayModalOpen(false)}>
                     <div className="day-modal" onClick={(e) => e.stopPropagation()}>
                       <div className="day-modal-head">
                         <div className="card-title" style={{ marginBottom: 0 }}>
@@ -2184,7 +2174,7 @@ export default function Page() {
                             .toLocaleString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
                             .replace(/^./, (char) => char.toUpperCase())}
                         </div>
-                        <button className="btn btn-outline btn-sm" onClick={() => setSelectedDayKey(null)}>закрыть</button>
+                        <button className="btn btn-outline btn-sm" onClick={() => setDayModalOpen(false)}>закрыть</button>
                       </div>
 
                       <div className="day-week-strip">
@@ -2196,7 +2186,10 @@ export default function Page() {
                             <button
                               key={key}
                               className={`day-week-pill${key === selectedDay.key ? " active" : ""}`}
-                              onClick={() => setSelectedDayKey(key)}
+                              onClick={() => {
+                                setSelectedDayKey(key);
+                                setDayModalOpen(true);
+                              }}
                             >
                               <div className="day-week-name">{date.toLocaleString("ru-RU", { weekday: "short" })}</div>
                               <div className="day-week-number">{date.getDate()}</div>
@@ -2621,31 +2614,6 @@ export default function Page() {
         </div>
       )}
 
-      {/* Плавающая кнопка шаринга */}
-      <button
-        onClick={() => openSharePicker()}
-        style={{
-          position: "fixed",
-          bottom: 80,
-          right: 16,
-          width: 44,
-          height: 44,
-          borderRadius: "50%",
-          background: "#1a1a1a",
-          color: "#fff",
-          border: "none",
-          fontSize: 18,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: "0 2px 12px rgba(0,0,0,0.2)",
-          cursor: "pointer",
-          zIndex: 100,
-        }}
-        title="поделиться"
-      >
-        ↗
-      </button>
     </>
   );
 }
