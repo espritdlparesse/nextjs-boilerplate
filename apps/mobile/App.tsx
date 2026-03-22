@@ -294,6 +294,74 @@ export default function App() {
                         : "из этого собираются библиотека, календарь и вайбчек, который начинает замечать темы, периоды и сдвиги в настроении."}
                 </Text>
 
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+                  {app.onboardingVariant === "linked" ? (
+                    <>
+                      <View
+                        style={{
+                          flexBasis: "48%",
+                          borderRadius: 22,
+                          padding: 14,
+                          backgroundColor: theme.accentBlue,
+                          borderWidth: 1,
+                          borderColor: theme.border,
+                          gap: 4,
+                        }}
+                      >
+                        <Text style={{ color: theme.accentMutedText, fontSize: 11, fontWeight: "800", textTransform: "lowercase" }}>библиотека</Text>
+                        <Text style={{ color: theme.accentText, fontSize: 18, fontWeight: "900", textTransform: "lowercase" }}>{app.counters.total}</Text>
+                        <Text style={{ color: theme.accentMutedText, fontSize: 12 }}>уже на месте</Text>
+                      </View>
+                      <View
+                        style={{
+                          flexBasis: "48%",
+                          borderRadius: 22,
+                          padding: 14,
+                          backgroundColor: theme.accentGreen,
+                          borderWidth: 1,
+                          borderColor: theme.border,
+                          gap: 4,
+                        }}
+                      >
+                        <Text style={{ color: theme.accentMutedText, fontSize: 11, fontWeight: "800", textTransform: "lowercase" }}>дальше</Text>
+                        <Text style={{ color: theme.accentText, fontSize: 18, fontWeight: "900", textTransform: "lowercase" }}>календарь и вайбчек</Text>
+                        <Text style={{ color: theme.accentMutedText, fontSize: 12 }}>теперь уже на айфоне</Text>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <View
+                        style={{
+                          flexBasis: "48%",
+                          borderRadius: 22,
+                          padding: 14,
+                          backgroundColor: theme.accentPink,
+                          borderWidth: 1,
+                          borderColor: theme.border,
+                          gap: 4,
+                        }}
+                      >
+                        <Text style={{ color: theme.accentMutedText, fontSize: 11, fontWeight: "800", textTransform: "lowercase" }}>музыка</Text>
+                        <Text style={{ color: theme.accentText, fontSize: 18, fontWeight: "900", textTransform: "lowercase" }}>спотифай и last.fm</Text>
+                      </View>
+                      <View
+                        style={{
+                          flexBasis: "48%",
+                          borderRadius: 22,
+                          padding: 14,
+                          backgroundColor: theme.accentGreen,
+                          borderWidth: 1,
+                          borderColor: theme.border,
+                          gap: 4,
+                        }}
+                      >
+                        <Text style={{ color: theme.accentMutedText, fontSize: 11, fontWeight: "800", textTransform: "lowercase" }}>книги и фильмы</Text>
+                        <Text style={{ color: theme.accentText, fontSize: 18, fontWeight: "900", textTransform: "lowercase" }}>фото, csv и ручной импорт</Text>
+                      </View>
+                    </>
+                  )}
+                </View>
+
                 <View style={{ flexDirection: "row", gap: 8 }}>
                   {[0, 1, ...(app.onboardingVariant === "fresh" ? [2] : [])].map((step) => (
                     <View

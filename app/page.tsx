@@ -2123,16 +2123,26 @@ export default function Page() {
           <div className="card">
             <div className="card-title">добавить</div>
 
-            <div className="mode-toggle">
+            <div
+              className="mode-toggle"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 10,
+                marginBottom: 16,
+              }}
+            >
               <button
                 className={`mode-btn${!manualMode ? " active" : ""}`}
                 onClick={() => setManualMode(false)}
+                style={{ width: "100%" }}
               >
                 импорт изображения
               </button>
               <button
                 className={`mode-btn${manualMode ? " active" : ""}`}
                 onClick={() => setManualMode(true)}
+                style={{ width: "100%" }}
               >
                 вручную
               </button>
