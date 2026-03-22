@@ -22,11 +22,24 @@ export async function POST(req: NextRequest) {
   }
 
   const sb = supabaseAdmin();
+  const identityProperties =
+    auth.authType === "telegram"
+      ? {
+          tgUserId: auth.legacyTgUserId,
+          tgUsername: auth.tgUsername ?? null,
+          tgFirstName: auth.tgFirstName ?? null,
+          tgLastName: auth.tgLastName ?? null,
+        }
+      : {
+          appUserId: auth.appUserId,
+          deviceId: auth.deviceId,
+          appName: auth.name ?? null,
+        };
   const { error } = await sb.from("app_events").insert({
     owner_key: owner.ownerKey,
     owner_kind: owner.ownerKind,
     event_name: event,
-    properties: body?.properties ?? {},
+    properties: { ...identityProperties, ...(body?.properties ?? {}) },
   });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

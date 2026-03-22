@@ -203,6 +203,20 @@ export default function Page() {
     if (uid) setTgUserId(Number(uid));
   }, []);
 
+  useEffect(() => {
+    if (!tgUserId) return;
+    fireAnalytics("app_open", {
+      librarySize: items.length,
+      hasCustomName: Boolean(helloName.replace(/^привет,?\s*/i, "").trim()),
+      themeMode: "light",
+    });
+  }, [tgUserId]);
+
+  useEffect(() => {
+    if (!tgUserId) return;
+    fireAnalytics("screen_view", { screen: tab });
+  }, [tab, tgUserId]);
+
   // ===== Library =====
   const [items, setItems] = useState<DbItem[]>([]);
   const [libraryLoading, setLibraryLoading] = useState(false);
@@ -219,6 +233,17 @@ export default function Page() {
   const [telegramLinkLoading, setTelegramLinkLoading] = useState(false);
   const [telegramLinkStatus, setTelegramLinkStatus] = useState("");
   const [telegramLinkSuccess, setTelegramLinkSuccess] = useState(false);
+
+  function fireAnalytics(event: string, properties?: Record<string, unknown>) {
+    fetch("/api/v2/analytics", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-telegram-init-data": getTgInitData(),
+      },
+      body: JSON.stringify({ event, properties: properties ?? {} }),
+    }).catch(() => undefined);
+  }
 
   async function loadLibrary() {
     setLibraryLoading(true);

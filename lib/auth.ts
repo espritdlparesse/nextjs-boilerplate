@@ -9,6 +9,9 @@ export type ApiIdentity =
       ownerKey: string;
       ownerKind: "telegram";
       legacyTgUserId: number;
+      tgUsername?: string | null;
+      tgFirstName?: string | null;
+      tgLastName?: string | null;
     }
   | {
       ok: true;
@@ -57,6 +60,9 @@ function getTelegramIdentity(req: NextRequest): ApiIdentity | null {
     ownerKind: "telegram",
     ownerKey: `tg:${Number(tgUserId)}`,
     legacyTgUserId: Number(tgUserId),
+    tgUsername: verified.user?.username ?? null,
+    tgFirstName: verified.user?.first_name ?? null,
+    tgLastName: verified.user?.last_name ?? null,
   };
 }
 
