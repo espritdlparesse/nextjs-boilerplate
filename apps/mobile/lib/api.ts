@@ -69,6 +69,19 @@ type SpotifyImportResponse = {
     source: LibraryItem["source"];
     title: string;
     authorOrArtist: string;
+    consumedAt?: number | null;
+    timeOrigin?: LibraryItem["timeOrigin"] | null;
+  }>;
+};
+
+type ProfileImportResponse = {
+  items: Array<{
+    type: LibraryItem["type"];
+    source: LibraryItem["source"];
+    title: string;
+    authorOrArtist: string;
+    consumedAt?: number | null;
+    timeOrigin?: LibraryItem["timeOrigin"] | null;
   }>;
 };
 
@@ -331,6 +344,24 @@ export async function importFromSpotifyUrl(url: string) {
   const data = await fetchJson<SpotifyImportResponse>("/api/spotify/import", {
     method: "POST",
     body: JSON.stringify({ url }),
+  });
+
+  return data.items;
+}
+
+export async function importFromLastfmProfile(username: string) {
+  const data = await fetchJson<ProfileImportResponse>("/api/lastfm/import-profile", {
+    method: "POST",
+    body: JSON.stringify({ username }),
+  });
+
+  return data.items;
+}
+
+export async function importFromLetterboxdProfile(profile: string) {
+  const data = await fetchJson<ProfileImportResponse>("/api/letterboxd/import-profile", {
+    method: "POST",
+    body: JSON.stringify({ profile }),
   });
 
   return data.items;

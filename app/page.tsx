@@ -14,6 +14,8 @@ type ItemSource =
   | "manual"
   | "livelib"
   | "import_spotify"
+  | "import_lastfm"
+  | "import_letterboxd"
   | "lastfm"
   | "kinopoisk"
   | "mubi";
@@ -23,6 +25,8 @@ type ImportedItem = {
   source: ItemSource;
   title: string;
   creator?: string | null;
+  consumedAt?: number | null;
+  timeOrigin?: "exact" | "imported" | "estimated" | null;
   custom_category_id?: string | null;
   custom_category_name?: string | null;
   custom_category_emoji?: string | null;
@@ -48,7 +52,7 @@ type ImportService = {
   title: string;
   subtitle: string;
   icon: string;
-  kind: "oauth" | "csv";
+  kind: "oauth" | "csv" | "profile";
   instructions?: string[];
   actionLabel?: string;
 };
@@ -258,6 +262,8 @@ export default function Page() {
   const [selectedIdx, setSelectedIdx] = useState<Set<number>>(new Set());
   const [savingImported, setSavingImported] = useState(false);
   const [selectedImportService, setSelectedImportService] = useState<ImportService | null>(null);
+  const [lastfmProfileInput, setLastfmProfileInput] = useState("");
+  const [letterboxdProfileInput, setLetterboxdProfileInput] = useState("");
 
   const importServices: ImportService[] = [
     { id: "spotify", title: "Spotify", subtitle: "музыка сама", icon: "◉", kind: "oauth", actionLabel: "подключить spotify" },
@@ -270,8 +276,9 @@ export default function Page() {
       actionLabel: "выбрать файл",
       instructions: [
         "нужен csv",
-        "сделай экспорт через livelib-backup или другой удобный способ",
-        "потом просто выбери csv-файл из «файлов»",
+        "у livelib нет одного понятного официального экспорта для нас, поэтому сейчас нужен уже готовый csv",
+        "подойдет выгрузка через livelib-backup или любой csv, где есть название и автор",
+        "потом просто выбери этот файл из «файлов»",
       ],
     },
     {
@@ -284,33 +291,35 @@ export default function Page() {
       instructions: [
         "нужен csv",
         "в goodreads открой my books → import and export",
-        "нажми export library и загрузи сюда csv-файл",
+        "нажми export library и потом загрузи сюда получившийся csv-файл",
       ],
     },
     {
       id: "letterboxd",
       title: "Letterboxd",
-      subtitle: "фильмы csv",
+      subtitle: "public profile beta",
       icon: "◌",
-      kind: "csv",
-      actionLabel: "выбрать файл",
+      kind: "profile",
+      actionLabel: "импортировать профиль",
       instructions: [
-        "нужен csv",
-        "в profile → settings → import & export нажми export your data",
-        "из архива загрузи watched.csv",
+        "можно без csv",
+        "вставь username или ссылку на публичный profile letterboxd",
+        "мы попробуем забрать recent diary / watched через public rss",
+        "если профиль закрыт или rss не поможет — всегда можно вернуться к watched.csv",
       ],
     },
     {
       id: "lastfm",
       title: "last.fm",
-      subtitle: "история треков",
+      subtitle: "по username",
       icon: "♪",
-      kind: "csv",
-      actionLabel: "выбрать файл",
+      kind: "profile",
+      actionLabel: "импортировать профиль",
       instructions: [
-        "нужен csv",
-        "подготовь экспорт скробблов или историю треков в csv",
-        "если в файле есть даты, мы раскидаем их сами",
+        "можно без csv",
+        "введи username last.fm и мы попробуем забрать recent tracks через api",
+        "если у треков есть scrobble time, они сразу лягут в календарь по дням",
+        "если тебе удобнее через файл — csv тоже остается как запасной путь",
       ],
     },
     {
@@ -322,8 +331,9 @@ export default function Page() {
       actionLabel: "выбрать файл",
       instructions: [
         "нужен csv",
-        "выгрузи историю просмотров или оценок в csv",
-        "если в файле есть watched / watched date, возьмем только просмотренное",
+        "если у тебя уже есть csv с просмотрами или оценками из кинопоиска, можно загрузить его сюда",
+        "если в файле есть watched / isWatched / watched date, возьмем только просмотренное",
+        "дальше просто выбери файл из «файлов»",
       ],
     },
     {
@@ -335,8 +345,9 @@ export default function Page() {
       actionLabel: "выбрать файл",
       instructions: [
         "нужен csv",
-        "подойдет экспорт со списком просмотренных фильмов",
-        "если в csv есть дата просмотра, она тоже подтянется",
+        "если у тебя уже есть csv с просмотренными фильмами из mubi, можно загрузить его сюда",
+        "лучше всего подходят колонки title или name, а еще year, director и дата просмотра, если она есть",
+        "дальше просто выбери файл из «файлов»",
       ],
     },
   ];
@@ -352,6 +363,8 @@ export default function Page() {
         source: platform,
         title: item.title,
         creator: item.authorOrArtist || undefined,
+        consumedAt: item.consumedAt ?? undefined,
+        timeOrigin: item.timeOrigin ?? undefined,
       }));
       if (result.length === 0) {
         setImportError("ничего не нашли в этом файле");
@@ -426,7 +439,16 @@ export default function Page() {
         "Content-Type": "application/json",
         "x-telegram-init-data": getTgInitData(),
       },
-      body: JSON.stringify({ items: itemsToSave.map((it) => ({ type: it.type, source: it.source, title: it.title, creator: it.creator ?? null })) }),
+      body: JSON.stringify({
+        items: itemsToSave.map((it) => ({
+          type: it.type,
+          source: it.source,
+          title: it.title,
+          creator: it.creator ?? null,
+          consumedAt: it.consumedAt ?? null,
+          timeOrigin: it.timeOrigin ?? null,
+        })),
+      }),
       cache: "no-store",
     });
     const json = await safeJson(res);
@@ -460,6 +482,80 @@ export default function Page() {
       return;
     }
     setSelectedImportService(service);
+  }
+
+  async function importLastfmProfileWeb() {
+    if (!lastfmProfileInput.trim()) {
+      setImportError("введи username last.fm");
+      return;
+    }
+    setImportLoading(true);
+    setImportError("");
+    try {
+      const res = await fetch("/api/lastfm/import-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: lastfmProfileInput.trim() }),
+      });
+      const json = await safeJson(res);
+      if (!res.ok) {
+        setImportError(json?.error ?? "не удалось импортировать профиль last.fm");
+        return;
+      }
+      const result: ImportedItem[] = (json?.items ?? []).map((item: any) => ({
+        type: item.type === "film" ? "movie" : item.type,
+        source: item.source ?? "lastfm",
+        title: item.title,
+        creator: item.authorOrArtist ?? "",
+        consumedAt: typeof item.consumedAt === "number" ? item.consumedAt : undefined,
+        timeOrigin: item.timeOrigin ?? undefined,
+      }));
+      setImported(result);
+      setSelectedIdx(new Set(result.map((_: ImportedItem, i: number) => i)));
+      setSelectedImportService(null);
+      setLastfmProfileInput("");
+    } catch (e: any) {
+      setImportError(e?.message ?? "не удалось импортировать профиль last.fm");
+    } finally {
+      setImportLoading(false);
+    }
+  }
+
+  async function importLetterboxdProfileWeb() {
+    if (!letterboxdProfileInput.trim()) {
+      setImportError("вставь username или ссылку на profile letterboxd");
+      return;
+    }
+    setImportLoading(true);
+    setImportError("");
+    try {
+      const res = await fetch("/api/letterboxd/import-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile: letterboxdProfileInput.trim() }),
+      });
+      const json = await safeJson(res);
+      if (!res.ok) {
+        setImportError(json?.error ?? "не удалось импортировать profile Letterboxd");
+        return;
+      }
+      const result: ImportedItem[] = (json?.items ?? []).map((item: any) => ({
+        type: item.type === "film" ? "movie" : item.type,
+        source: item.source ?? "letterboxd",
+        title: item.title,
+        creator: item.authorOrArtist ?? "",
+        consumedAt: typeof item.consumedAt === "number" ? item.consumedAt : undefined,
+        timeOrigin: item.timeOrigin ?? undefined,
+      }));
+      setImported(result);
+      setSelectedIdx(new Set(result.map((_: ImportedItem, i: number) => i)));
+      setSelectedImportService(null);
+      setLetterboxdProfileInput("");
+    } catch (e: any) {
+      setImportError(e?.message ?? "не удалось импортировать profile Letterboxd");
+    } finally {
+      setImportLoading(false);
+    }
   }
 
   function confirmCsvImport() {
@@ -1493,12 +1589,41 @@ export default function Page() {
           border-radius: 28px;
           padding: 18px 16px;
           text-align: left;
-          cursor: pointer;
           min-height: 118px;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
           gap: 12px;
+          position: relative;
+        }
+
+        .import-service-help {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          width: 28px;
+          height: 28px;
+          border-radius: 999px;
+          border: 1px solid #e7e2d9;
+          background: #fff;
+          color: #666;
+          font-size: 15px;
+          font-weight: 900;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          z-index: 2;
+        }
+
+        .import-service-main {
+          all: unset;
+          cursor: pointer;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          gap: 12px;
+          flex: 1;
         }
 
         .import-service-title {
@@ -2097,23 +2222,33 @@ export default function Page() {
             {!manualMode && (
               <>
                 <p className="card-text" style={{ marginBottom: 6 }}>
-                  Загрузи до 10 изображений: скриншоты, фото книжного шкафа, обложек в магазине, постеров или экранов сервисов. ИИ постарается разобрать что там.
+                  Загрузи до 10 изображений: скриншоты откуда угодно, фото книжной полки, обложек в магазине, постеров или экранов сервисов. ИИ постарается разобрать, что там, и собрать это в таймлайн.
                 </p>
                 <div className="import-service-grid">
                   {importServices.map((service) => (
-                    <button
-                      key={service.id}
-                      type="button"
-                      className="import-service"
-                      onClick={() => startImportService(service)}
-                      disabled={importLoading || savingImported || spotifySyncing}
-                    >
-                      <div className="import-service-head">
-                        <div className="import-service-icon">{service.icon}</div>
-                        <div className="import-service-title">{service.title}</div>
-                      </div>
-                      <div className="import-service-subtitle">{service.subtitle}</div>
-                    </button>
+                    <div key={service.id} className="import-service">
+                      <button
+                        type="button"
+                        className="import-service-help"
+                        onClick={() => setSelectedImportService(service)}
+                        disabled={importLoading || savingImported || spotifySyncing}
+                        aria-label={`инструкция ${service.title}`}
+                      >
+                        ?
+                      </button>
+                      <button
+                        type="button"
+                        className="import-service-main"
+                        onClick={() => startImportService(service)}
+                        disabled={importLoading || savingImported || spotifySyncing}
+                      >
+                        <div className="import-service-head">
+                          <div className="import-service-icon">{service.icon}</div>
+                          <div className="import-service-title">{service.title}</div>
+                        </div>
+                        <div className="import-service-subtitle">{service.subtitle}</div>
+                      </button>
+                    </div>
                   ))}
                 </div>
 
@@ -2540,14 +2675,78 @@ export default function Page() {
                 </div>
               )}
 
-              <button
-                className="btn"
-                style={{ marginTop: 16 }}
-                onClick={confirmCsvImport}
-                disabled={importLoading}
-              >
-                {selectedImportService.actionLabel ?? "выбрать файл"}
-              </button>
+              {selectedImportService.id === "lastfm" && (
+                <div className="input-group" style={{ marginTop: 12 }}>
+                  <div className="input-label">username last.fm</div>
+                  <input
+                    className="input"
+                    placeholder="например: nastyad"
+                    value={lastfmProfileInput}
+                    onChange={(e) => setLastfmProfileInput(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {selectedImportService.id === "letterboxd" && (
+                <div className="input-group" style={{ marginTop: 12 }}>
+                  <div className="input-label">username или ссылка на profile</div>
+                  <input
+                    className="input"
+                    placeholder="например: letterboxd.com/nastyad/"
+                    value={letterboxdProfileInput}
+                    onChange={(e) => setLetterboxdProfileInput(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {selectedImportService.id === "lastfm" ? (
+                <>
+                  <button
+                    className="btn"
+                    style={{ marginTop: 16 }}
+                    onClick={importLastfmProfileWeb}
+                    disabled={importLoading}
+                  >
+                    импортировать профиль
+                  </button>
+                  <button
+                    className="btn btn-outline"
+                    style={{ marginTop: 12 }}
+                    onClick={confirmCsvImport}
+                    disabled={importLoading}
+                  >
+                    или выбрать csv
+                  </button>
+                </>
+              ) : selectedImportService.id === "letterboxd" ? (
+                <>
+                  <button
+                    className="btn"
+                    style={{ marginTop: 16 }}
+                    onClick={importLetterboxdProfileWeb}
+                    disabled={importLoading}
+                  >
+                    импортировать профиль
+                  </button>
+                  <button
+                    className="btn btn-outline"
+                    style={{ marginTop: 12 }}
+                    onClick={confirmCsvImport}
+                    disabled={importLoading}
+                  >
+                    или выбрать csv
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="btn"
+                  style={{ marginTop: 16 }}
+                  onClick={confirmCsvImport}
+                  disabled={importLoading}
+                >
+                  {selectedImportService.actionLabel ?? "выбрать файл"}
+                </button>
+              )}
             </div>
           </div>
         )}

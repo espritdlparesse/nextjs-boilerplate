@@ -6,7 +6,7 @@ export type TgUser = {
 };
 
 export type ContentType = "music" | "book" | "film";
-export type SourceType = "manual" | "import_spotify";
+export type SourceType = "manual" | "import_spotify" | "import_lastfm" | "import_letterboxd";
 export type TimeOrigin = "exact" | "imported" | "estimated";
 export type ThemeMode = "light" | "dark";
 
@@ -42,6 +42,8 @@ export const TYPE_LABEL: Record<ContentType, string> = {
 export const SOURCE_LABEL: Record<SourceType, string> = {
   manual: "сами добавили",
   import_spotify: "импорт",
+  import_lastfm: "импорт",
+  import_letterboxd: "импорт",
 };
 
 export const PLACEHOLDERS: Record<ContentType, Array<{ title: string; authorOrArtist: string }>> = {

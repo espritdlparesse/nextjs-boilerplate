@@ -63,6 +63,11 @@ export async function POST(req: NextRequest) {
       source: it?.source,
       title: it?.title,
       creator: it?.creator ?? null,
+      consumed_at:
+        typeof it?.consumedAt === "number" && Number.isFinite(it.consumedAt)
+          ? new Date(it.consumedAt).toISOString()
+          : null,
+      time_origin: typeof it?.timeOrigin === "string" ? it.timeOrigin : null,
     }));
 
     for (const r of rows) {

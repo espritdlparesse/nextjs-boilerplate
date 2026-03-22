@@ -39,6 +39,8 @@ import {
   getStoredGuestName,
   getStoredThemeMode,
   getSpotifyOAuthUrl,
+  importFromLastfmProfile,
+  importFromLetterboxdProfile,
   importFromSpotifyUser,
   importFromSpotifyUrl,
   runDeepVibeCheck,
@@ -186,6 +188,8 @@ export function useEveryYouApp() {
   const [spotifyPlaylists, setSpotifyPlaylists] = useState<SpotifyPlaylist[]>([]);
   const [spotifyOAuthLoading, setSpotifyOAuthLoading] = useState(false);
   const [spotifyPlaylistLoading, setSpotifyPlaylistLoading] = useState(false);
+  const [lastfmUsername, setLastfmUsername] = useState("");
+  const [letterboxdProfile, setLetterboxdProfile] = useState("");
   const [fileImportStatus, setFileImportStatus] = useState<string | null>(null);
   const [fileImportBusy, setFileImportBusy] = useState(false);
   const [fileImportCanCancel, setFileImportCanCancel] = useState(false);
@@ -1234,6 +1238,125 @@ export function useEveryYouApp() {
     setFileImportStatus("пока не открываем файлы");
   }
 
+  async function persistImportedLibraryItems(
+    items: Array<
+      Pick<LibraryItem, "type" | "source" | "title" | "authorOrArtist" | "consumedAt" | "timeOrigin">
+    >,
+    options: {
+      successLabel: string;
+      successToast: string;
+      analyticsEvent: string;
+      analyticsProperties?: Record<string, unknown>;
+      statusSetter: (message: string | null) => void;
+      dateInsightSetter: (value: DateInsight | null) => void;
+    }
+  ) {
+    if (items.length === 0) {
+      options.statusSetter("ничего не нашли");
+      return;
+    }
+
+    if (apiToken) {
+      let created = 0;
+      for (const item of items) {
+        await createItem(apiToken, item);
+        created += 1;
+      }
+      const remoteLibrary = await fetchItems(apiToken);
+      setLibrary(remoteLibrary);
+      setSyncStatus("online");
+      setSyncMessage("данные синхронизируются с сервером");
+      const coverage = describeDateCoverage(items);
+      options.dateInsightSetter(buildDateInsight(items));
+      options.statusSetter(`${options.successLabel}${coverage ? ` · ${coverage}` : ""}`);
+      setToastMessage(options.successToast);
+      fireAnalytics(options.analyticsEvent, { count: created, ...(options.analyticsProperties ?? {}) });
+    } else {
+      setLibrary((current) => [
+        ...items.map((item) => ({
+          id: uid(),
+          ...item,
+          createdAt: Date.now(),
+        })),
+        ...current,
+      ]);
+      const coverage = describeDateCoverage(items);
+      options.dateInsightSetter(buildDateInsight(items));
+      options.statusSetter(`${options.successLabel}${coverage ? ` · ${coverage}` : ""}`);
+      setToastMessage(options.successToast);
+      fireAnalytics(options.analyticsEvent, { count: items.length, mode: "local", ...(options.analyticsProperties ?? {}) });
+    }
+
+    setTab("library");
+    setTimelinePromptVisible(items.some((item) => item.consumedAt == null));
+  }
+
+  async function importLastfmProfileByUsername() {
+    const normalizedUsername = clampText(lastfmUsername);
+    if (!normalizedUsername) {
+      setFileImportStatus("введи username last.fm");
+      return;
+    }
+
+    try {
+      setFileImportStatus("тянем recent tracks из last.fm...");
+      setFileImportDateInsight(null);
+      const items = await importFromLastfmProfile(normalizedUsername);
+      await persistImportedLibraryItems(
+        items.map((item) => ({
+          ...item,
+          consumedAt: item.consumedAt ?? undefined,
+          timeOrigin: item.timeOrigin ?? undefined,
+        })),
+        {
+        successLabel: `добавили ${items.length} трек(ов) из last.fm`,
+        successToast: `импортировали ${items.length} трек(ов)`,
+        analyticsEvent: "lastfm_profile_import_completed",
+        analyticsProperties: { username: normalizedUsername },
+        statusSetter: setFileImportStatus,
+        dateInsightSetter: setFileImportDateInsight,
+        }
+      );
+      setLastfmUsername("");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "не удалось импортировать профиль last.fm";
+      setFileImportStatus(message);
+    }
+  }
+
+  async function importLetterboxdPublicProfile() {
+    const normalizedProfile = clampText(letterboxdProfile);
+    if (!normalizedProfile) {
+      setFileImportStatus("вставь username или ссылку на profile letterboxd");
+      return;
+    }
+
+    try {
+      setFileImportStatus("читаем public profile letterboxd...");
+      setFileImportDateInsight(null);
+      const items = await importFromLetterboxdProfile(normalizedProfile);
+      await persistImportedLibraryItems(
+        items.map((item) => ({
+          ...item,
+          consumedAt: item.consumedAt ?? undefined,
+          timeOrigin: item.timeOrigin ?? undefined,
+        })),
+        {
+        successLabel: `добавили ${items.length} фильм(ов) из Letterboxd`,
+        successToast: `импортировали ${items.length} фильм(ов)`,
+        analyticsEvent: "letterboxd_profile_import_completed",
+        analyticsProperties: { profile: normalizedProfile },
+        statusSetter: setFileImportStatus,
+        dateInsightSetter: setFileImportDateInsight,
+        }
+      );
+      setLetterboxdProfile("");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "не удалось импортировать profile Letterboxd";
+      setFileImportStatus(message);
+    }
+  }
+
   async function refreshSpotifyConnection(showSuccessMessage = false) {
     if (!apiToken) {
       setSpotifyStatus("backend token missing");
@@ -1591,6 +1714,8 @@ export function useEveryYouApp() {
     spotifyPlaylists,
     spotifyOAuthLoading,
     spotifyPlaylistLoading,
+    lastfmUsername,
+    letterboxdProfile,
     fileImportStatus,
     fileImportBusy,
     fileImportCanCancel,
@@ -1655,6 +1780,10 @@ export function useEveryYouApp() {
       importSpotifyAccountSource({ mode: "recently_played" }, "recently played"),
     importSpotifyPlaylist: (playlistId: string, playlistName: string) =>
       importSpotifyAccountSource({ mode: "playlist", playlistId }, `playlist ${playlistName}`),
+    setLastfmUsername,
+    setLetterboxdProfile,
+    importLastfmProfileByUsername,
+    importLetterboxdPublicProfile,
     importLivelibFile: () => importPlatformFile("livelib"),
     importGoodreadsFile: () => importPlatformFile("goodreads"),
     importLetterboxdFile: () => importPlatformFile("letterboxd"),

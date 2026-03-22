@@ -48,6 +48,8 @@ type AddScreenProps = {
   spotifyPlaylists: SpotifyPlaylist[];
   spotifyOAuthLoading: boolean;
   spotifyPlaylistLoading: boolean;
+  lastfmUsername: string;
+  letterboxdProfile: string;
   fileImportStatus: string | null;
   fileImportDateInsight: { title: string; body: string; meta?: string } | null;
   type: ContentType | "";
@@ -82,6 +84,10 @@ type AddScreenProps = {
   onSpotifyLikedSongsPress: () => void;
   onSpotifyRecentlyPlayedPress: () => void;
   onSpotifyPlaylistImportPress: (playlistId: string, playlistName: string) => void;
+  onLastfmUsernameChange: (value: string) => void;
+  onLetterboxdProfileChange: (value: string) => void;
+  onLastfmProfileImportPress: () => void;
+  onLetterboxdProfileImportPress: () => void;
   onLivelibImportPress: () => void;
   onGoodreadsImportPress: () => void;
   onLetterboxdImportPress: () => void;
@@ -114,9 +120,9 @@ const guides: Record<
     logo: "livelib",
     title: "нужен csv",
     steps: [
-      "экспортируй свою библиотеку в csv через livelib-backup",
-      "убедись, что в файле есть название и автор",
-      "потом просто выбери csv из файлов",
+      "у livelib нет одного понятного официального экспорта для нас, поэтому сейчас нужен уже готовый csv",
+      "подойдет выгрузка через livelib-backup или любой csv, где есть название и автор",
+      "потом просто выбери этот файл из «файлов»",
     ],
     actionLabel: "выбрать файл",
   },
@@ -132,40 +138,43 @@ const guides: Record<
   },
   letterboxd: {
     logo: "letterboxd",
-    title: "нужен csv",
+    title: "можно без csv",
     steps: [
-      "в профиле letterboxd зайди в settings -> import & export",
-      "скачай экспорт и найди watched.csv",
-      "потом просто загрузи этот csv",
+      "вставь username или ссылку на публичный profile letterboxd",
+      "мы попробуем забрать recent diary / watched через public rss",
+      "если профиль закрыт или rss не поможет — всегда можно вернуться к watched.csv",
     ],
-    actionLabel: "выбрать файл",
+    actionLabel: "импортировать профиль",
   },
   lastfm: {
     logo: "last.fm",
+    title: "можно без csv",
     steps: [
-      "подготовь csv со столбцами трека и исполнителя",
-      "если это экспорт скробблов, мы сами уберем дубли по треку и исполнителю",
-      "потом просто выбери файл в файловом менеджере",
+      "введи username last.fm и мы попробуем забрать recent tracks через api",
+      "если у треков есть scrobble time, они сразу лягут в календарь по дням",
+      "если тебе удобнее через файл — csv тоже остается как запасной путь",
     ],
-    actionLabel: "ок, импортировать last.fm",
+    actionLabel: "импортировать профиль",
   },
   kinopoisk: {
     logo: "кинопоиск",
+    title: "нужен csv",
     steps: [
-      "выгрузи список просмотров или оценок в csv",
-      "если в файле есть watched/isWatched, мы возьмем только просмотренное",
-      "затем выбери файл здесь",
+      "если у тебя уже есть csv с просмотрами или оценками из кинопоиска, можно загрузить его сюда",
+      "если в файле есть watched / isWatched / watched date, мы возьмем только просмотренное",
+      "дальше просто выбери файл из «файлов»",
     ],
-    actionLabel: "ок, импортировать кинопоиск",
+    actionLabel: "выбрать файл",
   },
   mubi: {
     logo: "mubi",
+    title: "нужен csv",
     steps: [
-      "подготовь csv с колонками title или name, можно с year и director",
-      "если это файл из community export tool, он тоже должен подойти",
-      "потом просто выбери его в files",
+      "если у тебя уже есть csv с просмотренными фильмами из mubi, можно загрузить его сюда",
+      "лучше всего подходят колонки title или name, а еще year, director и дата просмотра, если она есть",
+      "дальше просто выбери файл из «файлов»",
     ],
-    actionLabel: "ок, импортировать mubi",
+    actionLabel: "выбрать файл",
   },
 };
 
@@ -173,22 +182,26 @@ function BrandImportButton({
   brand,
   hint,
   onPress,
+  onHelpPress,
   themeMode,
 }: {
   brand: Exclude<GuideKey, null>;
   hint: string;
   onPress: () => void;
+  onHelpPress: () => void;
   themeMode: ThemeMode;
 }) {
   const theme = getTheme(themeMode);
   return (
-    <Pressable
-      style={[appStyles.brandButton, { backgroundColor: theme.brandButtonBg, borderColor: theme.brandButtonBorder }]}
-      onPress={onPress}
-    >
-      <BrandLogo brand={brand} />
-      <Text style={[appStyles.brandHint, { color: theme.brandHintText }]}>{hint}</Text>
-    </Pressable>
+    <View style={[appStyles.brandButton, { backgroundColor: theme.brandButtonBg, borderColor: theme.brandButtonBorder }]}>
+      <Pressable style={appStyles.brandHelpButton} onPress={onHelpPress}>
+        <Text style={[appStyles.brandHelpButtonText, { color: theme.brandHintText }]}>?</Text>
+      </Pressable>
+      <Pressable style={appStyles.brandButtonMain} onPress={onPress}>
+        <BrandLogo brand={brand} />
+        <Text style={[appStyles.brandHint, { color: theme.brandHintText }]}>{hint}</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -228,6 +241,8 @@ export function AddScreen({
   spotifyPlaylists,
   spotifyOAuthLoading,
   spotifyPlaylistLoading,
+  lastfmUsername,
+  letterboxdProfile,
   fileImportStatus,
   fileImportDateInsight,
   type,
@@ -254,6 +269,10 @@ export function AddScreen({
   onSpotifyLikedSongsPress,
   onSpotifyRecentlyPlayedPress,
   onSpotifyPlaylistImportPress,
+  onLastfmUsernameChange,
+  onLetterboxdProfileChange,
+  onLastfmProfileImportPress,
+  onLetterboxdProfileImportPress,
   onLivelibImportPress,
   onLetterboxdImportPress,
   onGoodreadsImportPress,
@@ -300,6 +319,17 @@ export function AddScreen({
     }, 80);
   }
 
+  function confirmProfileImport(kind: "lastfm" | "letterboxd") {
+    setGuide(null);
+    setTimeout(() => {
+      if (kind === "lastfm") {
+        onLastfmProfileImportPress();
+      } else {
+        onLetterboxdProfileImportPress();
+      }
+    }, 80);
+  }
+
   return (
     <View style={appStyles.screen}>
       <View style={[appStyles.card, themeMode === "dark" ? { backgroundColor: theme.accentPink, borderColor: theme.border } : appStyles.cardAccentPink]}>
@@ -307,7 +337,10 @@ export function AddScreen({
         <Text style={[appStyles.helper, { color: theme.accentText }]}>
           {pendingImageItems.length > 0
             ? "ткни на карточку, если хочешь поправить ее до сохранения."
-            : "импортируй из сервисов, кидай скриншот или добавляй вручную. все должно ощущаться как один культурный таймлайн, а не куча отдельных списков."}
+            : "кидай скриншоты откуда угодно, фото книжной полки, обложки в магазине или добавляй вручную. мы попробуем собрать это в один культурный таймлайн."}
+        </Text>
+        <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
+          подойдут и скриншоты сервисов, и фото твоей книжной полки, и просто обложки книг, альбомов или постеров.
         </Text>
 
         <PillButton
@@ -419,13 +452,13 @@ export function AddScreen({
           можно выбирать файлы из «файлы», icloud drive и других подключенных источников.
         </Text>
         <View style={appStyles.row}>
-          <BrandImportButton brand="spotify" hint="музыка сама" themeMode={themeMode} onPress={() => setGuide("spotify")} />
-          <BrandImportButton brand="livelib" hint="книги csv" themeMode={themeMode} onPress={() => setGuide("livelib")} />
-          <BrandImportButton brand="goodreads" hint="книги csv" themeMode={themeMode} onPress={() => setGuide("goodreads")} />
-          <BrandImportButton brand="letterboxd" hint="фильмы csv" themeMode={themeMode} onPress={() => setGuide("letterboxd")} />
-          <BrandImportButton brand="lastfm" hint="история треков" themeMode={themeMode} onPress={() => setGuide("lastfm")} />
-          <BrandImportButton brand="kinopoisk" hint="просмотры csv" themeMode={themeMode} onPress={() => setGuide("kinopoisk")} />
-          <BrandImportButton brand="mubi" hint="фильмы csv" themeMode={themeMode} onPress={() => setGuide("mubi")} />
+          <BrandImportButton brand="spotify" hint="музыка сама" themeMode={themeMode} onPress={() => runGuideAction("spotify")} onHelpPress={() => setGuide("spotify")} />
+          <BrandImportButton brand="livelib" hint="книги csv" themeMode={themeMode} onPress={() => runGuideAction("livelib")} onHelpPress={() => setGuide("livelib")} />
+          <BrandImportButton brand="goodreads" hint="книги csv" themeMode={themeMode} onPress={() => runGuideAction("goodreads")} onHelpPress={() => setGuide("goodreads")} />
+          <BrandImportButton brand="letterboxd" hint="public profile beta" themeMode={themeMode} onPress={() => setGuide("letterboxd")} onHelpPress={() => setGuide("letterboxd")} />
+          <BrandImportButton brand="lastfm" hint="по username" themeMode={themeMode} onPress={() => setGuide("lastfm")} onHelpPress={() => setGuide("lastfm")} />
+          <BrandImportButton brand="kinopoisk" hint="просмотры csv" themeMode={themeMode} onPress={() => runGuideAction("kinopoisk")} onHelpPress={() => setGuide("kinopoisk")} />
+          <BrandImportButton brand="mubi" hint="фильмы csv" themeMode={themeMode} onPress={() => runGuideAction("mubi")} onHelpPress={() => setGuide("mubi")} />
         </View>
 
         <View style={appStyles.chipRow}>
@@ -595,12 +628,44 @@ export function AddScreen({
                         • {step}
                       </Text>
                     ))}
+                    {guide === "lastfm" ? (
+                      <>
+                        <TextInput
+                          style={[appStyles.input, appStyles.compactInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
+                          placeholder="username last.fm"
+                          placeholderTextColor={theme.inputPlaceholder}
+                          value={lastfmUsername}
+                          onChangeText={onLastfmUsernameChange}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                        />
+                        <PillButton label="импортировать профиль" themeMode={themeMode} onPress={() => confirmProfileImport("lastfm")} />
+                        <PillButton label="или выбрать csv" themeMode={themeMode} onPress={confirmGuideAction} />
+                      </>
+                    ) : null}
+                    {guide === "letterboxd" ? (
+                      <>
+                        <TextInput
+                          style={[appStyles.input, appStyles.compactInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
+                          placeholder="username или ссылка на profile"
+                          placeholderTextColor={theme.inputPlaceholder}
+                          value={letterboxdProfile}
+                          onChangeText={onLetterboxdProfileChange}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                        />
+                        <PillButton label="импортировать профиль" themeMode={themeMode} onPress={() => confirmProfileImport("letterboxd")} />
+                        <PillButton label="или выбрать csv" themeMode={themeMode} onPress={confirmGuideAction} />
+                      </>
+                    ) : null}
+                    {guide !== "lastfm" && guide !== "letterboxd" ? (
                     <PillButton
                       label={guides[guide].actionLabel}
                       themeMode={themeMode}
                       onPress={confirmGuideAction}
                       disabled={guide === "spotify" && spotifyOAuthLoading}
                     />
+                    ) : null}
                   </View>
                 </ScrollView>
               </>

@@ -1,7 +1,10 @@
 import "react-native-gesture-handler";
+import * as MediaLibrary from "expo-media-library";
+import * as ScreenCapture from "expo-screen-capture";
+import * as Sharing from "expo-sharing";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
-import { Image, Pressable, SafeAreaView, ScrollView, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Image, Pressable, SafeAreaView, ScrollView, Share, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
   Easing,
@@ -36,6 +39,11 @@ const navItems: NavItem[] = [
 export default function App() {
   const app = useEveryYouApp();
   const theme = getTheme(app.themeMode);
+  const [screenshotPromptVisible, setScreenshotPromptVisible] = useState(false);
+  const [latestScreenshotUri, setLatestScreenshotUri] = useState<string | null>(null);
+  const [screenshotActionLoading, setScreenshotActionLoading] = useState(false);
+  const [screenshotStatus, setScreenshotStatus] = useState<string | null>(null);
+  const screenshotEventRef = useRef<number>(0);
   const toastOpacity = useSharedValue(0);
   const toastTranslateY = useSharedValue(18);
   const toastScale = useSharedValue(0.96);
@@ -65,6 +73,92 @@ export default function App() {
     opacity: toastOpacity.value,
     transform: [{ translateY: toastTranslateY.value }, { scale: toastScale.value }],
   }));
+
+  async function findLatestScreenshotUri() {
+    const permission = await MediaLibrary.requestPermissionsAsync();
+    if (!permission.granted) {
+      throw new Error("разреши доступ к фото, чтобы поделиться скриншотом");
+    }
+
+    const result = await MediaLibrary.getAssetsAsync({
+      first: 12,
+      mediaType: MediaLibrary.MediaType.photo,
+      sortBy: [MediaLibrary.SortBy.creationTime],
+    });
+
+    if (!result.assets.length) {
+      throw new Error("не нашли недавние изображения");
+    }
+
+    const screenshotAt = screenshotEventRef.current || Date.now();
+
+    for (const asset of result.assets) {
+      const createdAtMs = asset.creationTime ? asset.creationTime * 1000 : Date.now();
+      const filename = `${asset.filename ?? ""}`.toLowerCase();
+      const nearScreenshotMoment = Math.abs(createdAtMs - screenshotAt) < 3 * 60 * 1000;
+      const looksLikeScreenshot =
+        filename.includes("screenshot") ||
+        filename.includes("screen shot") ||
+        filename.includes("img_");
+
+      if (!nearScreenshotMoment && !looksLikeScreenshot) continue;
+
+      const info = await MediaLibrary.getAssetInfoAsync(asset);
+      const localUri = info.localUri ?? info.uri ?? null;
+      if (localUri) return localUri;
+    }
+
+    const fallbackInfo = await MediaLibrary.getAssetInfoAsync(result.assets[0]);
+    return fallbackInfo.localUri ?? fallbackInfo.uri ?? null;
+  }
+
+  useEffect(() => {
+    const subscription = ScreenCapture.addScreenshotListener(() => {
+      screenshotEventRef.current = Date.now();
+      setScreenshotPromptVisible(true);
+      setScreenshotStatus(null);
+      setLatestScreenshotUri(null);
+
+      void findLatestScreenshotUri()
+        .then((uri) => setLatestScreenshotUri(uri))
+        .catch(() => undefined);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  async function shareLatestScreenshot() {
+    try {
+      setScreenshotActionLoading(true);
+      setScreenshotStatus("готовим скриншот к отправке...");
+      const screenshotUri = latestScreenshotUri ?? (await findLatestScreenshotUri());
+
+      if (!screenshotUri) {
+        throw new Error("не нашли скриншот для отправки");
+      }
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(screenshotUri);
+      } else {
+        await Share.share({
+          message: "скриншот уже готов — можно отправить его в Telegram, Instagram или куда угодно еще",
+        });
+      }
+
+      setScreenshotPromptVisible(false);
+      setScreenshotStatus(null);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "не удалось подготовить скриншот к отправке";
+      setScreenshotStatus(message);
+    } finally {
+      setScreenshotActionLoading(false);
+    }
+  }
 
   const headerBlock = (
     <View style={appStyles.appHeader}>
@@ -100,6 +194,67 @@ export default function App() {
       <SafeAreaView style={[appStyles.safeArea, { backgroundColor: theme.background }]}>
         <StatusBar style={app.themeMode === "dark" ? "light" : "dark"} />
         <View style={[appStyles.shell, { backgroundColor: theme.background }]}>
+          {screenshotPromptVisible ? (
+            <View style={[appStyles.screenshotSheetWrap, { backgroundColor: theme.overlay }]}>
+              <View
+                style={[
+                  appStyles.screenshotSheet,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <View style={appStyles.screenshotSheetTop}>
+                  <View style={appStyles.screenshotSheetHeading}>
+                    <Text style={[appStyles.screenshotSheetTitle, { color: theme.text }]}>
+                      скриншот готов
+                    </Text>
+                    <Text style={[appStyles.screenshotSheetText, { color: theme.mutedText }]}>
+                      можно поделиться им или сразу отправить в everyyou
+                    </Text>
+                  </View>
+                  <Pressable
+                    style={[
+                      appStyles.dayModalClose,
+                      { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                    ]}
+                    onPress={() => {
+                      setScreenshotPromptVisible(false);
+                      setScreenshotStatus(null);
+                    }}
+                  >
+                    <Text style={[appStyles.dayModalCloseText, { color: theme.text }]}>не сейчас</Text>
+                  </Pressable>
+                </View>
+
+                <View style={appStyles.row}>
+                  <Pressable
+                    style={[
+                      appStyles.pillButton,
+                      appStyles.primaryButton,
+                      appStyles.screenshotActionButtonSingle,
+                      screenshotActionLoading && appStyles.disabledButton,
+                      { backgroundColor: theme.buttonPrimaryBg, borderColor: theme.buttonPrimaryBorder },
+                    ]}
+                    disabled={screenshotActionLoading}
+                    onPress={shareLatestScreenshot}
+                  >
+                    <Text style={[appStyles.primaryText, { color: theme.buttonPrimaryText }]}>
+                      {screenshotActionLoading ? "готовим..." : "поделиться"}
+                    </Text>
+                  </Pressable>
+                </View>
+
+                <Text style={[appStyles.screenshotSheetMeta, { color: theme.mutedText }]}>
+                  можно отправить в Telegram, Instagram или куда угодно еще
+                </Text>
+                {screenshotStatus ? (
+                  <Text style={[appStyles.screenshotSheetStatus, { color: theme.mutedText }]}>
+                    {screenshotStatus}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
+
           {app.fileImportBusy ? (
             <View style={[appStyles.busyOverlay, { backgroundColor: theme.overlay }]}>
               <View
@@ -206,6 +361,8 @@ export default function App() {
                   spotifyPlaylists={app.spotifyPlaylists}
                   spotifyOAuthLoading={app.spotifyOAuthLoading}
                   spotifyPlaylistLoading={app.spotifyPlaylistLoading}
+                  lastfmUsername={app.lastfmUsername}
+                  letterboxdProfile={app.letterboxdProfile}
                   fileImportStatus={app.fileImportStatus}
                   fileImportDateInsight={app.fileImportDateInsight}
                   type={app.type}
@@ -232,6 +389,10 @@ export default function App() {
                   onSpotifyLikedSongsPress={app.importSpotifyLikedSongs}
                   onSpotifyRecentlyPlayedPress={app.importSpotifyRecentlyPlayed}
                   onSpotifyPlaylistImportPress={app.importSpotifyPlaylist}
+                  onLastfmUsernameChange={app.setLastfmUsername}
+                  onLetterboxdProfileChange={app.setLetterboxdProfile}
+                  onLastfmProfileImportPress={app.importLastfmProfileByUsername}
+                  onLetterboxdProfileImportPress={app.importLetterboxdPublicProfile}
                   onLivelibImportPress={app.importLivelibFile}
                   onGoodreadsImportPress={app.importGoodreadsFile}
                   onLetterboxdImportPress={app.importLetterboxdFile}
