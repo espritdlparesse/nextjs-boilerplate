@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveApiIdentity } from "@/lib/auth";
 import { createSpotifyOAuthState } from "@/lib/spotifyOAuth";
+import { getEffectiveOwner } from "@/lib/ownerLinks";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,7 @@ const SPOTIFY_SCOPES = [
 export async function GET(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
+  const owner = await getEffectiveOwner(auth);
 
   const clientId = process.env.SPOTIFY_CLIENT_ID;
   const redirectUri = process.env.SPOTIFY_REDIRECT_URI;
@@ -25,8 +27,8 @@ export async function GET(req: NextRequest) {
   }
 
   const state = createSpotifyOAuthState({
-    ownerKey: auth.ownerKey,
-    ownerKind: auth.ownerKind,
+    ownerKey: owner.ownerKey,
+    ownerKind: owner.ownerKind,
   });
 
   const authUrl = new URL("https://accounts.spotify.com/authorize");

@@ -9,6 +9,14 @@ type ProfileScreenProps = {
   displayName: string;
   nameDraft: string;
   avatarUri: string | null;
+  telegramLink: {
+    linked: boolean;
+    telegramOwnerKey: string | null;
+    code: string | null;
+    expiresAt: string | null;
+  };
+  telegramLinkLoading: boolean;
+  telegramLinkStatus: string | null;
   totalItems: number;
   musicCount: number;
   bookCount: number;
@@ -22,6 +30,7 @@ type ProfileScreenProps = {
   onPickAvatarPress: () => void;
   onClearAvatarPress: () => void;
   onThemeChange: (mode: ThemeMode) => void;
+  onCreateTelegramLinkCode: () => void;
 };
 
 function initialsFromName(name: string) {
@@ -39,6 +48,9 @@ export function ProfileScreen({
   displayName,
   nameDraft,
   avatarUri,
+  telegramLink,
+  telegramLinkLoading,
+  telegramLinkStatus,
   totalItems,
   musicCount,
   bookCount,
@@ -52,6 +64,7 @@ export function ProfileScreen({
   onPickAvatarPress,
   onClearAvatarPress,
   onThemeChange,
+  onCreateTelegramLinkCode,
 }: ProfileScreenProps) {
   const theme = getTheme(themeMode);
 
@@ -155,6 +168,37 @@ export function ProfileScreen({
         <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
           потом сюда можно будет добавить еще темную тему, аватарку, анамнез вкуса и другие тихие настройки профиля.
         </Text>
+      </View>
+
+      <View style={[appStyles.card, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <Text style={[appStyles.label, { color: theme.mutedText }]}>telegram</Text>
+        <Text style={[appStyles.helper, { color: theme.text }]}>
+          {telegramLink.linked
+            ? "аккаунты уже связаны. библиотека в Telegram и mobile теперь общая."
+            : "свяжи mobile с mini app, чтобы библиотека, spotify и вайбчеки жили как один аккаунт."}
+        </Text>
+
+        {telegramLink.linked ? (
+          <Text style={[appStyles.metaText, { color: theme.mutedText }]}>telegram подключен</Text>
+        ) : telegramLink.code ? (
+          <View>
+            <Text style={[appStyles.itemTitle, { color: theme.text, marginBottom: 8 }]}>{telegramLink.code}</Text>
+            <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
+              открой mini app в Telegram и введи этот код в блоке переноса.
+            </Text>
+          </View>
+        ) : null}
+
+        {telegramLinkStatus ? (
+          <Text style={[appStyles.metaText, { color: theme.mutedText }]}>{telegramLinkStatus}</Text>
+        ) : null}
+
+        <PillButton
+          label={telegramLinkLoading ? "готовим код..." : telegramLink.linked ? "обновить код" : "подключить Telegram"}
+          onPress={onCreateTelegramLinkCode}
+          themeMode={themeMode}
+          disabled={telegramLinkLoading}
+        />
       </View>
     </View>
   );

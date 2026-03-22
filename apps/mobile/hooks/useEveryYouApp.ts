@@ -34,6 +34,7 @@ import {
   fetchItems,
   fetchSpotifyConnectionStatus,
   fetchSpotifyPlaylists,
+  fetchTelegramLinkStatus,
   getStoredAvatarUri,
   getStoredGuestName,
   getStoredThemeMode,
@@ -43,6 +44,7 @@ import {
   runDeepVibeCheck,
   runVibeCheck,
   resetGuestSession,
+  startTelegramLink,
   setStoredAvatarUri,
   setStoredGuestName,
   setStoredThemeMode,
@@ -69,6 +71,13 @@ type DateInsight = {
   title: string;
   body: string;
   meta?: string;
+};
+
+type TelegramLinkState = {
+  linked: boolean;
+  telegramOwnerKey: string | null;
+  code: string | null;
+  expiresAt: string | null;
 };
 
 const NAME_PLACEHOLDERS = [
@@ -201,6 +210,14 @@ export function useEveryYouApp() {
   );
   const [themeMode, setThemeMode] = useState<ThemeMode>("light");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [telegramLink, setTelegramLink] = useState<TelegramLinkState>({
+    linked: false,
+    telegramOwnerKey: null,
+    code: null,
+    expiresAt: null,
+  });
+  const [telegramLinkLoading, setTelegramLinkLoading] = useState(false);
+  const [telegramLinkStatus, setTelegramLinkStatus] = useState<string | null>(null);
   const [timelineSpreading, setTimelineSpreading] = useState(false);
   const [timelinePromptVisible, setTimelinePromptVisible] = useState(false);
   const [screenshotDateInsight, setScreenshotDateInsight] = useState<DateInsight | null>(null);
@@ -321,6 +338,22 @@ export function useEveryYouApp() {
         setDeepAnalysisTotalFreeUses(data.totalFreeUses);
       })
       .catch(() => undefined);
+  }, [apiToken]);
+
+  useEffect(() => {
+    if (!apiToken) return;
+    let cancelled = false;
+
+    fetchTelegramLinkStatus(apiToken)
+      .then((status) => {
+        if (cancelled) return;
+        setTelegramLink(status);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
   }, [apiToken]);
 
   useEffect(() => {
@@ -1452,6 +1485,31 @@ export function useEveryYouApp() {
     fireAnalytics("theme_changed", { mode: nextMode });
   }
 
+  async function createTelegramLinkCode() {
+    if (!apiToken || telegramLinkLoading) return;
+
+    try {
+      setTelegramLinkLoading(true);
+      setTelegramLinkStatus("готовим код для Telegram...");
+      const data = await startTelegramLink(apiToken);
+      setTelegramLink({
+        linked: false,
+        telegramOwnerKey: null,
+        code: data.code,
+        expiresAt: data.expiresAt,
+      });
+      setTelegramLinkStatus("код готов — введи его в mini app");
+      setToastMessage("код для Telegram готов");
+      fireAnalytics("telegram_link_code_created");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "не удалось создать код";
+      setTelegramLinkStatus(message);
+      setToastMessage("не удалось создать код");
+    } finally {
+      setTelegramLinkLoading(false);
+    }
+  }
+
   return {
     tab,
     setTab,
@@ -1461,6 +1519,9 @@ export function useEveryYouApp() {
     avatarUri,
     headerAvatarEmoji: HEADER_AVATAR_EMOJIS[headerAvatarEmojiIndex],
     themeMode,
+    telegramLink,
+    telegramLinkLoading,
+    telegramLinkStatus,
     namePlaceholder,
     syncStatus,
     syncMessage,
@@ -1515,6 +1576,7 @@ export function useEveryYouApp() {
     pickAvatar,
     clearAvatar,
     setThemeMode: updateThemeMode,
+    createTelegramLinkCode,
     setType,
     setSource,
     setTitle,

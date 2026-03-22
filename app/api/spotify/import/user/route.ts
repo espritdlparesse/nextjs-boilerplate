@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveApiIdentity } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getSpotifyAccessTokenForOwner } from "@/lib/spotifyConnection";
+import { getEffectiveOwner } from "@/lib/ownerLinks";
 
 export const runtime = "nodejs";
 
@@ -152,6 +153,7 @@ async function loadSpotifyItems(
 export async function POST(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
+  const owner = await getEffectiveOwner(auth);
 
   const body = (await req.json().catch(() => null)) as
     | { mode?: ImportMode; playlistId?: string }
@@ -161,7 +163,7 @@ export async function POST(req: NextRequest) {
   if (!mode) return NextResponse.json({ error: "mode is required" }, { status: 400 });
 
   try {
-    const accessToken = await getSpotifyAccessTokenForOwner(auth.ownerKey);
+    const accessToken = await getSpotifyAccessTokenForOwner(owner.ownerKey);
     const spotifyItems = await loadSpotifyItems(accessToken, mode, body?.playlistId);
 
     if (spotifyItems.length === 0) {
@@ -178,7 +180,7 @@ export async function POST(req: NextRequest) {
     const { data: existingItems, error: existingError } = await sb
       .from("items")
       .select("title, creator, consumed_at, time_origin")
-      .eq("owner_key", auth.ownerKey)
+      .eq("owner_key", owner.ownerKey)
       .eq("source", "import_spotify");
 
     if (existingError) {
@@ -199,9 +201,12 @@ export async function POST(req: NextRequest) {
           )
       )
       .map((item) => ({
-      owner_key: auth.ownerKey,
-      owner_kind: auth.ownerKind,
-      tg_user_id: auth.authType === "telegram" ? auth.legacyTgUserId : legacyNativeTgUserId(auth.ownerKey),
+      owner_key: owner.ownerKey,
+      owner_kind: owner.ownerKind,
+      tg_user_id:
+        owner.ownerKind === "telegram" && owner.legacyTgUserId
+          ? owner.legacyTgUserId
+          : legacyNativeTgUserId(owner.ownerKey),
       type: item.type,
       source: item.source,
       title: item.title,

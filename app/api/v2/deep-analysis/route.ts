@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { resolveApiIdentity } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getEffectiveOwner } from "@/lib/ownerLinks";
 
 export const runtime = "nodejs";
 
@@ -32,12 +33,13 @@ function extractJson(text: string) {
 export async function GET(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
+  const owner = await getEffectiveOwner(auth);
 
   const sb = supabaseAdmin();
   const { count, error } = await sb
     .from("analysis_usage_v2")
     .select("id", { count: "exact", head: true })
-    .eq("owner_key", auth.ownerKey);
+    .eq("owner_key", owner.ownerKey);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const usesLeft = Math.max(0, FREE_DEEP_VIBE_USES - (count ?? 0));
@@ -51,12 +53,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
+  const owner = await getEffectiveOwner(auth);
 
   const sb = supabaseAdmin();
   const { count: usageCount, error: usageError } = await sb
     .from("analysis_usage_v2")
     .select("id", { count: "exact", head: true })
-    .eq("owner_key", auth.ownerKey);
+    .eq("owner_key", owner.ownerKey);
 
   if (usageError) return NextResponse.json({ error: usageError.message }, { status: 500 });
   const usesLeftBeforeRun = Math.max(0, FREE_DEEP_VIBE_USES - (usageCount ?? 0));
@@ -73,12 +76,12 @@ export async function POST(req: NextRequest) {
   }
 
   const baseQuery =
-    auth.authType === "telegram"
+    owner.ownerKind === "telegram" && owner.legacyTgUserId
       ? sb
           .from("items")
           .select("type, title, creator, consumed_at, created_at, time_origin")
-          .or(`owner_key.eq.${auth.ownerKey},tg_user_id.eq.${auth.legacyTgUserId}`)
-      : sb.from("items").select("type, title, creator, consumed_at, created_at, time_origin").eq("owner_key", auth.ownerKey);
+          .or(`owner_key.eq.${owner.ownerKey},tg_user_id.eq.${owner.legacyTgUserId}`)
+      : sb.from("items").select("type, title, creator, consumed_at, created_at, time_origin").eq("owner_key", owner.ownerKey);
 
   let { data: items, error } = await baseQuery
     .order("consumed_at", { ascending: false, nullsFirst: false })
@@ -177,8 +180,8 @@ ${monthlyContext}`,
     : [];
 
   const insertUsage = await sb.from("analysis_usage_v2").insert({
-    owner_key: auth.ownerKey,
-    owner_kind: auth.ownerKind,
+    owner_key: owner.ownerKey,
+    owner_kind: owner.ownerKind,
   });
   if (insertUsage.error) return NextResponse.json({ error: insertUsage.error.message }, { status: 500 });
 

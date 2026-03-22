@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { resolveApiIdentity } from "@/lib/auth";
+import { getEffectiveOwner, type EffectiveOwner } from "@/lib/ownerLinks";
 
 export const runtime = "nodejs";
 
@@ -113,15 +114,15 @@ function isMissingTimeOriginColumn(error: { message?: string | null } | null) {
 
 async function selectItemsForOwner(
   sb: ReturnType<typeof supabaseAdmin>,
-  auth: Extract<ReturnType<typeof resolveApiIdentity>, { ok: true }>
+  owner: EffectiveOwner
 ) {
   const baseQuery =
-    auth.authType === "telegram"
+    owner.ownerKind === "telegram" && owner.legacyTgUserId
       ? sb
           .from("items")
           .select("*")
-          .or(`owner_key.eq.${auth.ownerKey},tg_user_id.eq.${auth.legacyTgUserId}`)
-      : sb.from("items").select("*").eq("owner_key", auth.ownerKey);
+          .or(`owner_key.eq.${owner.ownerKey},tg_user_id.eq.${owner.legacyTgUserId}`)
+      : sb.from("items").select("*").eq("owner_key", owner.ownerKey);
 
   let response = await baseQuery.order("consumed_at", { ascending: false, nullsFirst: false });
   if (response.error && isMissingConsumedAtColumn(response.error)) {
@@ -134,9 +135,10 @@ async function selectItemsForOwner(
 export async function GET(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
+  const owner = await getEffectiveOwner(auth);
 
   const sb = supabaseAdmin();
-  const { data, error } = await selectItemsForOwner(sb, auth);
+  const { data, error } = await selectItemsForOwner(sb, owner);
 
   if (error && isMissingOwnerColumns(error)) {
     return NextResponse.json({
@@ -152,6 +154,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
+  const owner = await getEffectiveOwner(auth);
 
   const body = (await req.json().catch(() => null)) as ItemBody | null;
   if (!body) return badRequest("bad json");
@@ -166,7 +169,7 @@ export async function POST(req: NextRequest) {
     const { data: existing } = await sb
       .from("items")
       .select("*")
-      .eq("owner_key", auth.ownerKey)
+      .eq("owner_key", owner.ownerKey)
       .eq("source", "import_spotify")
       .eq("title", title)
       .eq("creator", creator ?? null)
@@ -179,8 +182,8 @@ export async function POST(req: NextRequest) {
   }
 
   const insertPayload: Record<string, string | number | null> = {
-    owner_key: auth.ownerKey,
-    owner_kind: auth.ownerKind,
+    owner_key: owner.ownerKey,
+    owner_kind: owner.ownerKind,
     type,
     source,
     title,
@@ -192,11 +195,11 @@ export async function POST(req: NextRequest) {
     time_origin: body.timeOrigin ?? null,
   };
 
-  if (auth.authType === "telegram") {
-    insertPayload.tg_user_id = auth.legacyTgUserId;
+  if (owner.ownerKind === "telegram" && owner.legacyTgUserId) {
+    insertPayload.tg_user_id = owner.legacyTgUserId;
   } else {
     // Temporary compatibility shim for legacy schemas where tg_user_id is still NOT NULL.
-    insertPayload.tg_user_id = legacyNativeTgUserId(auth.ownerKey);
+    insertPayload.tg_user_id = legacyNativeTgUserId(owner.ownerKey);
   }
 
   let { data, error } = await sb.from("items").insert(insertPayload).select("*").single();
@@ -225,6 +228,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
+  const owner = await getEffectiveOwner(auth);
 
   const body = (await req.json().catch(() => null)) as ItemBody | null;
   if (!body) return badRequest("bad json");
@@ -246,7 +250,7 @@ export async function PATCH(req: NextRequest) {
       time_origin: body.timeOrigin ?? null,
     })
     .eq("id", body.id)
-    .eq("owner_key", auth.ownerKey)
+    .eq("owner_key", owner.ownerKey)
     .select("*")
     .single();
 
@@ -260,7 +264,7 @@ export async function PATCH(req: NextRequest) {
         creator: body.creator ?? null,
       })
       .eq("id", body.id)
-      .eq("owner_key", auth.ownerKey)
+      .eq("owner_key", owner.ownerKey)
       .select("*")
       .single();
 
@@ -292,12 +296,13 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
+  const owner = await getEffectiveOwner(auth);
 
   const body = (await req.json().catch(() => null)) as ItemBody | null;
   if (!body?.id) return badRequest("id is required");
 
   const sb = supabaseAdmin();
-  const { error } = await sb.from("items").delete().eq("id", body.id).eq("owner_key", auth.ownerKey);
+  const { error } = await sb.from("items").delete().eq("id", body.id).eq("owner_key", owner.ownerKey);
 
   if (!error) return NextResponse.json({ ok: true });
 

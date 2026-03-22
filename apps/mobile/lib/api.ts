@@ -120,6 +120,19 @@ type DeepVibeCheckResponse = {
   recommendations?: string[];
 };
 
+type TelegramLinkStatusResponse = {
+  linked: boolean;
+  telegramOwnerKey: string | null;
+  code: string | null;
+  expiresAt: string | null;
+};
+
+type TelegramLinkStartResponse = {
+  code: string;
+  expiresAt: string;
+  instructions: string;
+};
+
 function getApiBaseUrl() {
   const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
   if (!baseUrl) {
@@ -385,5 +398,19 @@ export async function trackAnalyticsEvent(
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify({ event, properties: properties ?? {} }),
+  });
+}
+
+export async function fetchTelegramLinkStatus(token: string) {
+  return fetchJson<TelegramLinkStatusResponse>("/api/v2/telegram-link/start", {
+    method: "GET",
+    headers: authHeaders(token),
+  });
+}
+
+export async function startTelegramLink(token: string) {
+  return fetchJson<TelegramLinkStartResponse>("/api/v2/telegram-link/start", {
+    method: "POST",
+    headers: authHeaders(token),
   });
 }

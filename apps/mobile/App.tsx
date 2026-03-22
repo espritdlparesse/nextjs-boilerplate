@@ -270,6 +270,9 @@ export default function App() {
                   displayName={app.displayName}
                   nameDraft={app.nameDraft}
                   avatarUri={app.avatarUri}
+                  telegramLink={app.telegramLink}
+                  telegramLinkLoading={app.telegramLinkLoading}
+                  telegramLinkStatus={app.telegramLinkStatus}
                   totalItems={app.counters.total}
                   musicCount={app.counters.byType.music}
                   bookCount={app.counters.byType.book}
@@ -283,6 +286,7 @@ export default function App() {
                   onPickAvatarPress={app.pickAvatar}
                   onClearAvatarPress={app.clearAvatar}
                   onThemeChange={app.setThemeMode}
+                  onCreateTelegramLinkCode={app.createTelegramLinkCode}
                 />
               )}
             </ScrollView>

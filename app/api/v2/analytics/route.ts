@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveApiIdentity } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getEffectiveOwner } from "@/lib/ownerLinks";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,7 @@ type EventBody = {
 export async function POST(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
+  const owner = await getEffectiveOwner(auth);
 
   const body = (await req.json().catch(() => null)) as EventBody | null;
   const event = body?.event?.trim();
@@ -21,8 +23,8 @@ export async function POST(req: NextRequest) {
 
   const sb = supabaseAdmin();
   const { error } = await sb.from("app_events").insert({
-    owner_key: auth.ownerKey,
-    owner_kind: auth.ownerKind,
+    owner_key: owner.ownerKey,
+    owner_kind: owner.ownerKind,
     event_name: event,
     properties: body?.properties ?? {},
   });

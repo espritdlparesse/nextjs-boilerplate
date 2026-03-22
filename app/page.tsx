@@ -211,6 +211,9 @@ export default function Page() {
   const [sharePickerText, setSharePickerText] = useState<string | undefined>(undefined);
   const [sharePickerType, setSharePickerType] = useState<"vibe" | "deep" | undefined>(undefined);
   const [spotifySyncing, setSpotifySyncing] = useState(false);
+  const [telegramLinkCode, setTelegramLinkCode] = useState("");
+  const [telegramLinkLoading, setTelegramLinkLoading] = useState(false);
+  const [telegramLinkStatus, setTelegramLinkStatus] = useState("");
 
   async function loadLibrary() {
     setLibraryLoading(true);
@@ -688,6 +691,39 @@ export default function Page() {
 
   function buyDeepVibeOnce() { openDeepVibePurchase("deep_vibe_once"); }
   function buyDeepVibeForever() { openDeepVibePurchase("deep_vibe_forever"); }
+
+  async function linkMobileAccount() {
+    const code = telegramLinkCode.trim().toUpperCase();
+    if (!code) {
+      setTelegramLinkStatus("введи код из мобильного приложения");
+      return;
+    }
+
+    setTelegramLinkLoading(true);
+    setTelegramLinkStatus("");
+    try {
+      const res = await fetch("/api/telegram/link", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-telegram-init-data": getTgInitData(),
+        },
+        body: JSON.stringify({ code }),
+      });
+      const json = await safeJson(res);
+      if (!res.ok) {
+        setTelegramLinkStatus(json?.error ?? "не удалось связать аккаунты");
+        return;
+      }
+      setTelegramLinkStatus("готово — Telegram и мобильное приложение теперь связаны");
+      setTelegramLinkCode("");
+      await loadLibrary();
+    } catch (e: any) {
+      setTelegramLinkStatus(e?.message ?? "не удалось связать аккаунты");
+    } finally {
+      setTelegramLinkLoading(false);
+    }
+  }
 
   // Генерируем карточку по текущему состоянию приложения
   async function generateShareCard(text?: string, type?: "vibe" | "deep", customItems?: DbItem[]): Promise<string> {
@@ -1810,6 +1846,35 @@ export default function Page() {
                 <div className="stat-num">{counts.movies}</div>
                 <div className="stat-label">фильмы</div>
               </div>
+            </div>
+
+            <div className="card">
+              <div className="card-title">перенести в приложение</div>
+              <p className="card-text">
+                если у тебя уже есть библиотека в iPhone-приложении, введи код оттуда и мы свяжем аккаунты.
+              </p>
+              <div className="input-group" style={{ marginTop: 16 }}>
+                <div className="input-label">код из mobile</div>
+                <input
+                  className="input"
+                  placeholder="например, A7K9QP"
+                  value={telegramLinkCode}
+                  onChange={(e) => setTelegramLinkCode(e.target.value.toUpperCase())}
+                  autoCapitalize="characters"
+                  autoCorrect="off"
+                />
+              </div>
+              <button
+                className="btn"
+                style={{ marginTop: 4 }}
+                onClick={linkMobileAccount}
+                disabled={telegramLinkLoading}
+              >
+                {telegramLinkLoading ? "связываем..." : "связать с приложением"}
+              </button>
+              {telegramLinkStatus ? (
+                <div style={{ marginTop: 10, fontSize: 13, color: "#666" }}>{telegramLinkStatus}</div>
+              ) : null}
             </div>
 
             <div className="card">
