@@ -239,12 +239,12 @@ export function LibraryScreen({
     timeQualityFilter === "all"
       ? "все"
       : timeQualityFilter === "exact"
-        ? "точные"
+        ? "точный день"
         : timeQualityFilter === "imported"
-          ? "из импорта"
+          ? "дата из сервиса"
           : timeQualityFilter === "estimated"
-            ? "примерно"
-            : "без даты";
+            ? "разложили вручную"
+            : "пока без даты";
 
   const itemsByDay = useMemo(() => {
     const grouped = new Map<string, LibraryItem[]>();
@@ -380,10 +380,10 @@ export function LibraryScreen({
                 {(
                   [
                     ["all", "все"],
-                    ["exact", "точные"],
-                    ["imported", "из импорта"],
-                    ["estimated", "примерно"],
-                    ["undated", "без даты"],
+                    ["exact", "точный день"],
+                    ["imported", "дата из сервиса"],
+                    ["estimated", "разложили вручную"],
+                    ["undated", "пока без даты"],
                   ] as const
                 ).map(([value, label]) => (
                   <PillButton

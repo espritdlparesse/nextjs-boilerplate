@@ -162,9 +162,9 @@ export function getConsumptionDate(item: Pick<LibraryItem, "consumedAt">) {
 }
 
 export function getTimeOriginLabel(origin?: TimeOrigin) {
-  if (origin === "exact") return "точная дата";
-  if (origin === "imported") return "дата из импорта";
-  if (origin === "estimated") return "примерно";
+  if (origin === "exact") return "точный день";
+  if (origin === "imported") return "дата из сервиса";
+  if (origin === "estimated") return "разложили вручную";
   return null;
 }
 
