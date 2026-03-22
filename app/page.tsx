@@ -47,6 +47,7 @@ type ImportService = {
   id: ImportPlatform;
   title: string;
   subtitle: string;
+  icon: string;
   kind: "oauth" | "csv";
   instructions?: string[];
   actionLabel?: string;
@@ -255,11 +256,12 @@ export default function Page() {
   const [selectedImportService, setSelectedImportService] = useState<ImportService | null>(null);
 
   const importServices: ImportService[] = [
-    { id: "spotify", title: "Spotify", subtitle: "музыка сама", kind: "oauth", actionLabel: "подключить spotify" },
+    { id: "spotify", title: "Spotify", subtitle: "музыка сама", icon: "◉", kind: "oauth", actionLabel: "подключить spotify" },
     {
       id: "livelib",
       title: "LiveLib",
       subtitle: "книги csv",
+      icon: "▤",
       kind: "csv",
       actionLabel: "выбрать файл",
       instructions: [
@@ -272,6 +274,7 @@ export default function Page() {
       id: "goodreads",
       title: "Goodreads",
       subtitle: "книги csv",
+      icon: "G",
       kind: "csv",
       actionLabel: "выбрать файл",
       instructions: [
@@ -284,6 +287,7 @@ export default function Page() {
       id: "letterboxd",
       title: "Letterboxd",
       subtitle: "фильмы csv",
+      icon: "◌",
       kind: "csv",
       actionLabel: "выбрать файл",
       instructions: [
@@ -296,6 +300,7 @@ export default function Page() {
       id: "lastfm",
       title: "last.fm",
       subtitle: "история треков",
+      icon: "♪",
       kind: "csv",
       actionLabel: "выбрать файл",
       instructions: [
@@ -308,6 +313,7 @@ export default function Page() {
       id: "kinopoisk",
       title: "Кинопоиск",
       subtitle: "просмотры csv",
+      icon: "★",
       kind: "csv",
       actionLabel: "выбрать файл",
       instructions: [
@@ -320,6 +326,7 @@ export default function Page() {
       id: "mubi",
       title: "MUBI",
       subtitle: "фильмы csv",
+      icon: "●",
       kind: "csv",
       actionLabel: "выбрать файл",
       instructions: [
@@ -362,25 +369,45 @@ export default function Page() {
     setSelectedIdx(next);
   }
 
-  async function runImport(file: File) {
+  async function runImport(files: File[]) {
     setImportError(""); setImportLoading(true); setImported([]); setSelectedIdx(new Set());
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/import-image", {
-        method: "POST",
-        headers: { "x-telegram-init-data": getTgInitData() },
-        body: form,
-      });
-      const json = await safeJson(res);
-      if (!res.ok) { setImportError(json?.error ?? "Импорт не удался"); return; }
-      const list: ImportedItem[] = json?.items ?? [];
-      if (list.length === 0) {
-        setImportError("не удалось распознать контент на этом фото. попробуй скриншот с названиями книг, музыки или фильмов — например, из Spotify, Кинопоиска или книжной полки.");
+      const selectedFiles = files.filter((file) => file.type?.startsWith("image/")).slice(0, 10);
+      const collected: ImportedItem[] = [];
+      let failedCount = 0;
+
+      for (const file of selectedFiles) {
+        const form = new FormData();
+        form.append("file", file);
+        const res = await fetch("/api/import-image", {
+          method: "POST",
+          headers: { "x-telegram-init-data": getTgInitData() },
+          body: form,
+        });
+        const json = await safeJson(res);
+        if (!res.ok) {
+          failedCount += 1;
+          continue;
+        }
+        const list: ImportedItem[] = json?.items ?? [];
+        if (list.length === 0) {
+          failedCount += 1;
+          continue;
+        }
+        collected.push(...list);
+      }
+
+      if (collected.length === 0) {
+        setImportError("не смог разобрать контент на этих изображениях. попробуй еще раз: лучше работают скриншоты, фото книжной полки, обложек книг, альбомов и постеров.");
         return;
       }
-      setImported(list);
-      setSelectedIdx(new Set(list.map((_, i) => i)));
+
+      setImported(collected);
+      setSelectedIdx(new Set(collected.map((_, i) => i)));
+
+      if (failedCount > 0) {
+        setImportError(`не всё удалось разобрать: ${failedCount} изображ. попробуй еще раз или загрузи более четкие фото/скриншоты.`);
+      }
     } catch (e: any) {
       setImportError(e?.message ?? "Network error");
     } finally {
@@ -1454,6 +1481,20 @@ export default function Page() {
           gap: 10px;
         }
 
+        .import-service-icon {
+          width: 28px;
+          height: 28px;
+          border-radius: 999px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          background: rgba(17,17,17,0.06);
+          color: #111111;
+          font-size: 16px;
+          font-weight: 900;
+        }
+
         .service-modal-backdrop {
           position: fixed;
           inset: 0;
@@ -1971,7 +2012,7 @@ export default function Page() {
             {!manualMode && (
               <>
                 <p className="card-text" style={{ marginBottom: 6 }}>
-                  Загрузи скриншот — из Spotify, заметок, списков, да откуда угодно. ИИ постарается разобрать что там.
+                  Загрузи до 10 изображений: скриншоты, фото книжного шкафа, обложек в магазине, постеров или экранов сервисов. ИИ постарается разобрать что там.
                 </p>
                 <div className="import-service-grid">
                   {importServices.map((service) => (
@@ -1983,6 +2024,7 @@ export default function Page() {
                       disabled={importLoading || savingImported || spotifySyncing}
                     >
                       <div className="import-service-head">
+                        <div className="import-service-icon">{service.icon}</div>
                         <div className="import-service-title">{service.title}</div>
                       </div>
                       <div className="import-service-subtitle">{service.subtitle}</div>
@@ -2008,15 +2050,19 @@ export default function Page() {
                   ref={fileRef}
                   type="file"
                   accept="image/*"
+                  multiple
                   style={{ display: "none" }}
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) runImport(f); }}/>
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? []);
+                    if (files.length > 0) runImport(files);
+                  }}/>
 
                 <button
                   className="btn btn-outline"
                   onClick={() => fileRef.current?.click()}
                   disabled={importLoading}
                 >
-                  {importLoading ? "распознаю..." : "выбрать скриншот →"}
+                  {importLoading ? "разбираю изображения..." : "загрузить изображения →"}
                 </button>
 
                 {importError && <div className="error">{importError}</div>}
