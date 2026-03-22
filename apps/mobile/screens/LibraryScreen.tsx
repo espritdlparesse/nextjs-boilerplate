@@ -231,6 +231,20 @@ export function LibraryScreen({
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
   const [dayModalVisible, setDayModalVisible] = useState(false);
+  const [typeFiltersExpanded, setTypeFiltersExpanded] = useState(false);
+  const [dateFiltersExpanded, setDateFiltersExpanded] = useState(false);
+
+  const typeFilterSummary = typeFilter === "all" ? "все" : TYPE_LABEL[typeFilter];
+  const timeQualitySummary =
+    timeQualityFilter === "all"
+      ? "все"
+      : timeQualityFilter === "exact"
+        ? "точные"
+        : timeQualityFilter === "imported"
+          ? "из импорта"
+          : timeQualityFilter === "estimated"
+            ? "примерно"
+            : "без даты";
 
   const itemsByDay = useMemo(() => {
     const grouped = new Map<string, LibraryItem[]>();
@@ -299,50 +313,90 @@ export function LibraryScreen({
   function renderTopCards() {
     return (
       <View style={appStyles.libraryListTop}>
-        <View style={[appStyles.card, appStyles.cardAccentPink]}>
+        <View style={[appStyles.card, appStyles.cardAccentPink, appStyles.libraryTopCompactCard]}>
           <Text style={appStyles.sectionTitle}>библиотека</Text>
-          <Text style={[appStyles.helper, { color: themeMode === "dark" ? theme.accentText : theme.text }]}>
-            смотри все вместе или раскладывай по типам. в карточках видна дата, чтобы библиотека ощущалась как личная история, а не архив.
+          <View style={appStyles.compactFilterSection}>
+            <Text style={[appStyles.compactFilterHeader, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>отображение</Text>
+            <View style={appStyles.compactFilterRow}>
+              <PillButton
+                themeMode={themeMode}
+                style={appStyles.compactPillButton}
+                label="плитки"
+                active={viewMode === "tiles"}
+                onPress={() => setViewMode("tiles")}
+              />
+              <PillButton
+                themeMode={themeMode}
+                style={appStyles.compactPillButton}
+                label="календарь"
+                active={viewMode === "calendar"}
+                onPress={() => setViewMode("calendar")}
+              />
+            </View>
+          </View>
+
+          <Text style={[appStyles.helper, appStyles.libraryIntroCompact, { color: themeMode === "dark" ? theme.accentText : theme.text }]}>
+            смотри все вместе или раскладывай по типам и качеству даты.
           </Text>
 
-          <Text style={[appStyles.label, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>режим</Text>
-          <View style={appStyles.row}>
-            <PillButton themeMode={themeMode} label="плитки" active={viewMode === "tiles"} onPress={() => setViewMode("tiles")} />
-            <PillButton themeMode={themeMode} label="календарь" active={viewMode === "calendar"} onPress={() => setViewMode("calendar")} />
+          <View style={appStyles.compactFilterSection}>
+            <Pressable style={appStyles.compactAccordionHeader} onPress={() => setTypeFiltersExpanded((current) => !current)}>
+              <Text style={[appStyles.compactFilterHeader, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>тип контента</Text>
+              <View style={appStyles.compactAccordionMeta}>
+                <Text style={[appStyles.compactAccordionValue, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>{typeFilterSummary}</Text>
+                <Text style={[appStyles.compactAccordionChevron, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>
+                  {typeFiltersExpanded ? "−" : "+"}
+                </Text>
+              </View>
+            </Pressable>
+            {typeFiltersExpanded ? (
+              <View style={appStyles.compactFilterRow}>
+                {(["all", "music", "book", "film"] as TypeFilter[]).map((value) => (
+                  <PillButton
+                    key={value}
+                    themeMode={themeMode}
+                    style={appStyles.compactPillButton}
+                    label={value === "all" ? "все" : TYPE_LABEL[value]}
+                    active={typeFilter === value}
+                    onPress={() => onTypeFilterChange(value)}
+                  />
+                ))}
+              </View>
+            ) : null}
           </View>
 
-          <Text style={[appStyles.label, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>тип контента</Text>
-          <View style={appStyles.row}>
-            {(["all", "music", "book", "film"] as TypeFilter[]).map((value) => (
-              <PillButton
-                key={value}
-                themeMode={themeMode}
-                label={value === "all" ? "все" : TYPE_LABEL[value]}
-                active={typeFilter === value}
-                onPress={() => onTypeFilterChange(value)}
-              />
-            ))}
-          </View>
-
-          <Text style={[appStyles.label, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>дата</Text>
-          <View style={appStyles.row}>
-            {(
-              [
-                ["all", "все"],
-                ["exact", "точные"],
-                ["imported", "из импорта"],
-                ["estimated", "примерно"],
-                ["undated", "без даты"],
-              ] as const
-            ).map(([value, label]) => (
-              <PillButton
-                key={value}
-                themeMode={themeMode}
-                label={label}
-                active={timeQualityFilter === value}
-                onPress={() => onTimeQualityFilterChange(value)}
-              />
-            ))}
+          <View style={appStyles.compactFilterSection}>
+            <Pressable style={appStyles.compactAccordionHeader} onPress={() => setDateFiltersExpanded((current) => !current)}>
+              <Text style={[appStyles.compactFilterHeader, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>дата</Text>
+              <View style={appStyles.compactAccordionMeta}>
+                <Text style={[appStyles.compactAccordionValue, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>{timeQualitySummary}</Text>
+                <Text style={[appStyles.compactAccordionChevron, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>
+                  {dateFiltersExpanded ? "−" : "+"}
+                </Text>
+              </View>
+            </Pressable>
+            {dateFiltersExpanded ? (
+              <View style={appStyles.compactFilterRow}>
+                {(
+                  [
+                    ["all", "все"],
+                    ["exact", "точные"],
+                    ["imported", "из импорта"],
+                    ["estimated", "примерно"],
+                    ["undated", "без даты"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <PillButton
+                    key={value}
+                    themeMode={themeMode}
+                    style={appStyles.compactPillButton}
+                    label={label}
+                    active={timeQualityFilter === value}
+                    onPress={() => onTimeQualityFilterChange(value)}
+                  />
+                ))}
+              </View>
+            ) : null}
           </View>
         </View>
 

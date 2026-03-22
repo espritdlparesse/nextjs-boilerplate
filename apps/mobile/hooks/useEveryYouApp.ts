@@ -30,6 +30,7 @@ import {
   deleteItem,
   ensureGuestSession,
   fetchBackendHealth,
+  fetchDeepVibeCheckAccess,
   fetchItems,
   fetchSpotifyConnectionStatus,
   fetchSpotifyPlaylists,
@@ -39,10 +40,12 @@ import {
   getSpotifyOAuthUrl,
   importFromSpotifyUser,
   importFromSpotifyUrl,
+  runDeepVibeCheck,
   runVibeCheck,
   setStoredAvatarUri,
   setStoredGuestName,
   setStoredThemeMode,
+  trackAnalyticsEvent,
   updateItem,
 } from "../lib/api";
 import { parseImportedFile } from "../lib/fileImports";
@@ -170,6 +173,11 @@ export function useEveryYouApp() {
   const [analysisRunning, setAnalysisRunning] = useState(false);
   const [analysisHistory, setAnalysisHistory] = useState<AnalysisRun[]>([]);
   const [analysisResult, setAnalysisResult] = useState<AnalysisRun | null>(null);
+  const [deepAnalysisRunning, setDeepAnalysisRunning] = useState(false);
+  const [deepAnalysisResult, setDeepAnalysisResult] = useState<AnalysisRun | null>(null);
+  const [deepAnalysisAccess, setDeepAnalysisAccess] = useState<"free" | "paywall">("free");
+  const [deepAnalysisUsesLeft, setDeepAnalysisUsesLeft] = useState<number>(2);
+  const [deepAnalysisTotalFreeUses, setDeepAnalysisTotalFreeUses] = useState<number>(2);
   const [loaded, setLoaded] = useState(false);
   const [apiToken, setApiToken] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
@@ -259,6 +267,37 @@ export function useEveryYouApp() {
     const id = setInterval(() => setPhIdx((current) => current + 1), 2500);
     return () => clearInterval(id);
   }, []);
+
+  function fireAnalytics(event: string, properties?: Record<string, unknown>) {
+    if (!apiToken) return;
+    trackAnalyticsEvent(apiToken, event, properties).catch(() => undefined);
+  }
+
+  useEffect(() => {
+    if (!loaded || !apiToken) return;
+    fireAnalytics("app_open", {
+      themeMode,
+      hasCustomName,
+      hasAvatar: Boolean(avatarUri),
+      librarySize: library.length,
+    });
+  }, [loaded, apiToken]);
+
+  useEffect(() => {
+    if (!loaded || !apiToken) return;
+    fireAnalytics("screen_view", { screen: tab });
+  }, [tab, loaded, apiToken]);
+
+  useEffect(() => {
+    if (!apiToken) return;
+    fetchDeepVibeCheckAccess(apiToken)
+      .then((data) => {
+        setDeepAnalysisAccess(data.access);
+        setDeepAnalysisUsesLeft(data.usesLeft);
+        setDeepAnalysisTotalFreeUses(data.totalFreeUses);
+      })
+      .catch(() => undefined);
+  }, [apiToken]);
 
   useEffect(() => {
     if (!loaded || avatarUri || tab !== "home") return;
@@ -672,6 +711,7 @@ export function useEveryYouApp() {
         setTab("library");
         setSelectedId(saved.id);
         setToastMessage("добавили в библиотеку");
+        fireAnalytics("item_created", { type: saved.type, source: saved.source, mode: "manual" });
         return;
       } catch {
         setLibrary((current) => [draft, ...current]);
@@ -683,6 +723,8 @@ export function useEveryYouApp() {
       setLibrary((current) => [draft, ...current]);
       setToastMessage("добавили в библиотеку");
     }
+
+    fireAnalytics("item_created", { type: draft.type, source: draft.source, mode: "manual_local" });
 
     resetForm();
     setTab("library");
@@ -725,6 +767,7 @@ export function useEveryYouApp() {
         setSyncStatus("online");
         setSyncMessage("данные синхронизируются с сервером");
         setToastMessage("сохранили изменения");
+        fireAnalytics("item_updated", { type: saved.type, source: saved.source });
       } catch {
         setLibrary((current) =>
           current.map((item) => (item.id === editingId ? { ...item, ...updatedDraft } : item))
@@ -738,6 +781,7 @@ export function useEveryYouApp() {
         current.map((item) => (item.id === editingId ? { ...item, ...updatedDraft } : item))
       );
       setToastMessage("сохранили изменения");
+      fireAnalytics("item_updated", { type: updatedDraft.type, source: updatedDraft.source, mode: "local" });
     }
 
     setSelectedId(editingId);
@@ -763,6 +807,7 @@ export function useEveryYouApp() {
     if (selectedId === id) setSelectedId(null);
     if (editingId === id) setEditingId(null);
     setToastMessage("удалили из библиотеки");
+    fireAnalytics("item_deleted");
   }
 
   async function runFakeImport() {
@@ -915,6 +960,10 @@ export function useEveryYouApp() {
       setTab("library");
       setToastMessage(`добавили ${pendingImageItems.length} айтем(ов)`);
       setTimelinePromptVisible(hasUndatedItems);
+      fireAnalytics("image_import_completed", {
+        count: pendingImageItems.length,
+        undatedCount: pendingImageItems.filter((item) => item.consumedAt == null).length,
+      });
     } finally {
       setConfirmingPendingImageImport(false);
     }
@@ -971,6 +1020,7 @@ export function useEveryYouApp() {
       setTab("library");
       setToastMessage(`импортировали ${importedItems.length} трек(ов)`);
       setTimelinePromptVisible(true);
+      fireAnalytics("spotify_link_import_completed", { count: importedItems.length });
     } catch (error) {
       const message = error instanceof Error ? error.message : "не удалось импортировать из spotify";
       setSpotifyStatus(message);
@@ -1036,6 +1086,7 @@ export function useEveryYouApp() {
         setFileImportDateInsight(buildDateInsight(parsedItems));
         setFileImportStatus(`добавили ${created} айтем(ов) из файла${coverage ? ` · ${coverage}` : ""}`);
         setToastMessage(`загрузили ${created} айтем(ов)`);
+        fireAnalytics("file_import_completed", { platform, count: created });
       } else {
         setLibrary((current) => [
           ...parsedItems.map((item) => ({
@@ -1053,6 +1104,7 @@ export function useEveryYouApp() {
           `добавили ${parsedItems.length} айтем(ов) локально${coverage ? ` · ${coverage}` : ""}`
         );
         setToastMessage(`загрузили ${parsedItems.length} айтем(ов)`);
+        fireAnalytics("file_import_completed", { platform, count: parsedItems.length, mode: "local" });
       }
 
       setTab("library");
@@ -1099,6 +1151,7 @@ export function useEveryYouApp() {
             : "spotify подключен"
         );
         setToastMessage("spotify обновлен");
+        fireAnalytics("spotify_connection_refreshed", { connected: true });
       }
       return true;
     } catch (error) {
@@ -1144,6 +1197,7 @@ export function useEveryYouApp() {
           ? `нашли ${data.playlists.length} плейлист(ов) spotify`
           : "плейлисты не нашлись"
       );
+      fireAnalytics("spotify_playlists_loaded", { count: data.playlists.length });
     } catch (error) {
       const message = error instanceof Error ? error.message : "не удалось загрузить плейлисты";
       setSpotifyStatus(message);
@@ -1193,6 +1247,11 @@ export function useEveryYouApp() {
       setTab("library");
       setToastMessage(`добавили ${result.importedCount} трек(ов)`);
       setTimelinePromptVisible(input.mode === "playlist");
+      fireAnalytics("spotify_account_import_completed", {
+        mode: input.mode,
+        importedCount: result.importedCount,
+        skippedCount: result.skippedCount ?? 0,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "не удалось импортировать из spotify";
       setSpotifyStatus(message);
@@ -1203,6 +1262,7 @@ export function useEveryYouApp() {
   async function runFakeAnalysis() {
     if (analysisRunning) return;
     setAnalysisRunning(true);
+    fireAnalytics("vibecheck_started", { librarySize: counters.total, tier: "regular" });
 
     try {
       if (apiToken) {
@@ -1217,6 +1277,8 @@ export function useEveryYouApp() {
 
         setAnalysisResult(result);
         setAnalysisHistory([result]);
+        setToastMessage("вайбчек готов");
+        fireAnalytics("vibecheck_completed", { itemCount: data.itemCount, tier: "regular" });
         return;
       }
 
@@ -1237,9 +1299,9 @@ export function useEveryYouApp() {
           total === 0
             ? ["можно начать с импорта spotify", "или добавить что-то вручную"]
             : [
-                "это мобильный демо-вайбчек, логика пока такая же как в telegram mini app",
-                "следующий шаг это реальный backend и авторизация вне Telegram",
-                "после этого сюда можно подключить настоящий анализ и рекомендации",
+                "вкусу явно нравится ходить между поп-крючками и вещами посложнее",
+                "повторяющиеся имена и настроения быстро выдают твой текущий эмоциональный коридор",
+                "это быстрый вайбчек: он скорее подмигивает, чем копает глубоко",
               ],
       };
 
@@ -1261,6 +1323,64 @@ export function useEveryYouApp() {
     }
   }
 
+  async function runDeepAnalysis() {
+    if (deepAnalysisRunning) return;
+    if (deepAnalysisAccess === "paywall") {
+      setToastMessage("2 бесплатных глубоких вайбчека уже использованы");
+      fireAnalytics("deep_vibe_paywall_seen");
+      return;
+    }
+
+    setDeepAnalysisRunning(true);
+    fireAnalytics("vibecheck_started", { librarySize: counters.total, tier: "deep", usesLeft: deepAnalysisUsesLeft });
+
+    try {
+      if (!apiToken) {
+        throw new Error("для глубокого вайбчека нужен backend");
+      }
+
+      const data = await runDeepVibeCheck(apiToken);
+      const result: AnalysisRun = {
+        id: uid(),
+        createdAt: Date.now(),
+        itemCount: data.itemCount,
+        summary: data.summary,
+        highlights: data.highlights,
+        recommendations: data.recommendations ?? [],
+        usesLeft: data.usesLeft,
+      };
+
+      setDeepAnalysisResult(result);
+      setDeepAnalysisAccess(data.access);
+      setDeepAnalysisUsesLeft(data.usesLeft);
+      setDeepAnalysisTotalFreeUses(data.totalFreeUses);
+      setToastMessage("глубокий вайбчек готов");
+      fireAnalytics("vibecheck_completed", { itemCount: data.itemCount, tier: "deep", usesLeft: data.usesLeft });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "deep vibe failed";
+      if (message === "paywall") {
+        setDeepAnalysisAccess("paywall");
+        setDeepAnalysisUsesLeft(0);
+        setToastMessage("2 бесплатных глубоких вайбчека уже использованы");
+        fireAnalytics("deep_vibe_paywall_seen");
+        return;
+      }
+
+      const fallback: AnalysisRun = {
+        id: uid(),
+        createdAt: Date.now(),
+        itemCount: counters.total,
+        summary: `не удалось провести глубокий вайбчек: ${message}`,
+        highlights: ["проверь OPENAI_API_KEY на backend", "и повтори попытку"],
+        recommendations: [],
+        usesLeft: deepAnalysisUsesLeft,
+      };
+      setDeepAnalysisResult(fallback);
+    } finally {
+      setDeepAnalysisRunning(false);
+    }
+  }
+
   async function saveProfileName() {
     const normalized = clampText(nameDraft);
     if (!normalized) return;
@@ -1268,6 +1388,7 @@ export function useEveryYouApp() {
     await setStoredGuestName(normalized);
     setUser(splitDisplayName(normalized));
     setNameDraft(normalized);
+    fireAnalytics("profile_saved", { hasName: true });
   }
 
   async function pickAvatar() {
@@ -1282,18 +1403,21 @@ export function useEveryYouApp() {
     await setStoredAvatarUri(result.assets[0].uri);
     setAvatarUri(result.assets[0].uri);
     setToastMessage("аватар обновили");
+    fireAnalytics("avatar_updated");
   }
 
   async function clearAvatar() {
     await clearStoredAvatarUri();
     setAvatarUri(null);
     setToastMessage("аватар убрали");
+    fireAnalytics("avatar_cleared");
   }
 
   async function updateThemeMode(nextMode: ThemeMode) {
     await setStoredThemeMode(nextMode);
     setThemeMode(nextMode);
     setToastMessage(nextMode === "dark" ? "включили темную тему" : "вернули светлую тему");
+    fireAnalytics("theme_changed", { mode: nextMode });
   }
 
   return {
@@ -1347,6 +1471,11 @@ export function useEveryYouApp() {
     analysisRunning,
     analysisResult,
     analysisHistory,
+    deepAnalysisRunning,
+    deepAnalysisResult,
+    deepAnalysisAccess,
+    deepAnalysisUsesLeft,
+    deepAnalysisTotalFreeUses,
     timelineSpreading,
     timelinePromptVisible,
     setNameDraft,
@@ -1410,6 +1539,7 @@ export function useEveryYouApp() {
     },
     setSelectedId,
     runFakeAnalysis,
+    runDeepAnalysis,
     spreadIntoThisMonth: () => spreadVisibleUndatedItems("this_month"),
     spreadIntoLastMonth: () => spreadVisibleUndatedItems("last_month"),
     spreadIntoLast6Months: () => spreadVisibleUndatedItems("last_6_months"),

@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
       },
       {
         role: "user",
-        content: `Сделай прожарку по этому списку контента и верни JSON.\n\n${lines.join("\n")}`,
+        content: `Сделай прожарку по этому списку контента и верни JSON.\n\n${lines.slice(0, 120).join("\n")}`,
       },
     ],
   });

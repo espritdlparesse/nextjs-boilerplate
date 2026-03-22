@@ -103,6 +103,55 @@ export const appStyles = StyleSheet.create({
     gap: 16,
     marginBottom: 16,
   },
+  libraryTopCompactCard: {
+    gap: 10,
+    paddingTop: 16,
+    paddingBottom: 16,
+  },
+  libraryIntroCompact: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  compactFilterSection: {
+    gap: 8,
+  },
+  compactFilterHeader: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: colors.subtext,
+    textTransform: "lowercase",
+  },
+  compactAccordionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  compactAccordionMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  compactAccordionValue: {
+    fontSize: 12,
+    color: colors.subtext,
+    textTransform: "lowercase",
+  },
+  compactAccordionChevron: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: colors.subtext,
+  },
+  compactFilterRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  compactPillButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 0,
+  },
   libraryListSpacer: {
     height: 12,
   },

@@ -29,6 +29,8 @@ export type AnalysisRun = {
   itemCount: number;
   summary: string;
   highlights: string[];
+  recommendations?: string[];
+  usesLeft?: number | null;
 };
 
 export const TYPE_LABEL: Record<ContentType, string> = {

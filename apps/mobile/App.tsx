@@ -254,9 +254,13 @@ export default function App() {
                   counters={app.counters}
                   analysisRunning={app.analysisRunning}
                   analysisResult={app.analysisResult}
-                  analysisHistory={app.analysisHistory}
+                  deepAnalysisRunning={app.deepAnalysisRunning}
+                  deepAnalysisAccess={app.deepAnalysisAccess}
+                  deepAnalysisUsesLeft={app.deepAnalysisUsesLeft}
+                  deepAnalysisTotalFreeUses={app.deepAnalysisTotalFreeUses}
+                  deepAnalysisResult={app.deepAnalysisResult}
                   onRunPress={app.runFakeAnalysis}
-                  onOpenResult={app.openAnalysisResult}
+                  onRunDeepPress={app.runDeepAnalysis}
                 />
               )}
 

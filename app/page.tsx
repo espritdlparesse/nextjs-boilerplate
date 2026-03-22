@@ -1,12 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { parseImportedFile } from "@/apps/mobile/lib/fileImports";
 
 type Tab = "home" | "add" | "library" | "vibe" | "admin";
 
 const ADMIN_TG_ID = 394657396; // espritdlparesse
 type ItemType = "music" | "book" | "movie" | "custom";
-type ItemSource = "spotify" | "goodreads" | "letterboxd" | "manual" | "livelib" | "import_spotify";
+type ItemSource =
+  | "spotify"
+  | "goodreads"
+  | "letterboxd"
+  | "manual"
+  | "livelib"
+  | "import_spotify"
+  | "lastfm"
+  | "kinopoisk"
+  | "mubi";
 
 type ImportedItem = {
   type: ItemType;
@@ -29,6 +39,17 @@ type DbItem = {
   custom_category_id?: string | null;
   custom_category_name?: string | null;
   custom_category_emoji?: string | null;
+};
+
+type ImportPlatform = "spotify" | "livelib" | "goodreads" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi";
+
+type ImportService = {
+  id: ImportPlatform;
+  title: string;
+  subtitle: string;
+  kind: "oauth" | "csv";
+  instructions?: string[];
+  actionLabel?: string;
 };
 
 function getTgInitData(): string {
@@ -97,6 +118,30 @@ function useAnimatedPlaceholder(type: ItemType, field: "title" | "creator") {
   return displayed;
 }
 
+function formatShortDate(input?: string) {
+  if (!input) return "";
+  const date = new Date(input);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" }).replace(" г.", "");
+}
+
+function dayKey(input: string | Date) {
+  const date = typeof input === "string" ? new Date(input) : input;
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(date: Date, days: number) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days, 12, 0, 0, 0);
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1, 12, 0, 0, 0);
+}
+
 async function safeJson(res: Response) {
   try { return await res.json(); } catch { return {}; }
 }
@@ -124,6 +169,7 @@ const TYPE_COLORS: Record<ItemType, string> = {
 
 export default function Page() {
   const [tab, setTab] = useState<Tab>("home");
+  const [libraryView, setLibraryView] = useState<"tiles" | "calendar">("tiles");
   const [helloName, setHelloName] = useState("привет!");
   const [tgUserId, setTgUserId] = useState<number | null>(null);
 
@@ -200,179 +246,111 @@ export default function Page() {
 
   // ===== Import =====
   const fileRef = useRef<HTMLInputElement | null>(null);
-  const csvRef = useRef<HTMLInputElement | null>(null);
-  const lbRef = useRef<HTMLInputElement | null>(null);
-  const grRef = useRef<HTMLInputElement | null>(null);
+  const csvImportRef = useRef<HTMLInputElement | null>(null);
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState("");
   const [imported, setImported] = useState<ImportedItem[]>([]);
   const [selectedIdx, setSelectedIdx] = useState<Set<number>>(new Set());
   const [savingImported, setSavingImported] = useState(false);
+  const [selectedImportService, setSelectedImportService] = useState<ImportService | null>(null);
 
-  async function importLivelibCsv(file: File) {
+  const importServices: ImportService[] = [
+    { id: "spotify", title: "Spotify", subtitle: "музыка сама", kind: "oauth", actionLabel: "подключить spotify" },
+    {
+      id: "livelib",
+      title: "LiveLib",
+      subtitle: "книги csv",
+      kind: "csv",
+      actionLabel: "выбрать файл",
+      instructions: [
+        "нужен csv",
+        "сделай экспорт через livelib-backup или другой удобный способ",
+        "потом просто выбери csv-файл из «файлов»",
+      ],
+    },
+    {
+      id: "goodreads",
+      title: "Goodreads",
+      subtitle: "книги csv",
+      kind: "csv",
+      actionLabel: "выбрать файл",
+      instructions: [
+        "нужен csv",
+        "в goodreads открой my books → import and export",
+        "нажми export library и загрузи сюда csv-файл",
+      ],
+    },
+    {
+      id: "letterboxd",
+      title: "Letterboxd",
+      subtitle: "фильмы csv",
+      kind: "csv",
+      actionLabel: "выбрать файл",
+      instructions: [
+        "нужен csv",
+        "в profile → settings → import & export нажми export your data",
+        "из архива загрузи watched.csv",
+      ],
+    },
+    {
+      id: "lastfm",
+      title: "last.fm",
+      subtitle: "история треков",
+      kind: "csv",
+      actionLabel: "выбрать файл",
+      instructions: [
+        "нужен csv",
+        "подготовь экспорт скробблов или историю треков в csv",
+        "если в файле есть даты, мы раскидаем их сами",
+      ],
+    },
+    {
+      id: "kinopoisk",
+      title: "Кинопоиск",
+      subtitle: "просмотры csv",
+      kind: "csv",
+      actionLabel: "выбрать файл",
+      instructions: [
+        "нужен csv",
+        "выгрузи историю просмотров или оценок в csv",
+        "если в файле есть watched / watched date, возьмем только просмотренное",
+      ],
+    },
+    {
+      id: "mubi",
+      title: "MUBI",
+      subtitle: "фильмы csv",
+      kind: "csv",
+      actionLabel: "выбрать файл",
+      instructions: [
+        "нужен csv",
+        "подойдет экспорт со списком просмотренных фильмов",
+        "если в csv есть дата просмотра, она тоже подтянется",
+      ],
+    },
+  ];
+
+  async function importCsvPlatform(platform: Exclude<ImportPlatform, "spotify">, file: File) {
     setImportLoading(true);
     setImportError("");
     try {
       const text = await file.text();
-      const lines = text.split(/\r?\n/).filter(Boolean);
-      if (lines.length < 2) { setImportError("файл пустой или не распознан"); return; }
-
-      // Парсим заголовки (могут быть в кавычках)
-      const parseRow = (line: string) =>
-        line.split(",").map(v => v.trim().replace(/^"|"$/g, "").trim());
-
-      const headers = parseRow(lines[0]).map(h => h.toLowerCase());
-
-      // Ищем нужные колонки по разным возможным названиям
-      const col = (names: string[]) => {
-        for (const n of names) {
-          const i = headers.findIndex(h => h.includes(n));
-          if (i !== -1) return i;
-        }
-        return -1;
-      };
-
-      const titleCol  = col(["title", "название", "book title", "name"]);
-      const authorCol = col(["author", "автор", "writer"]);
-
-      if (titleCol === -1) {
-        setImportError("не нашли колонку с названием книги. попробуй формат из chimildic/livelib-backup");
+      const drafts = parseImportedFile(platform, text);
+      const result: ImportedItem[] = drafts.map((item) => ({
+        type: item.type === "film" ? "movie" : item.type,
+        source: platform,
+        title: item.title,
+        creator: item.authorOrArtist || undefined,
+      }));
+      if (result.length === 0) {
+        setImportError("ничего не нашли в этом файле");
         return;
       }
-
-      const result: ImportedItem[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const row = parseRow(lines[i]);
-        const title = row[titleCol];
-        if (!title) continue;
-        const creator = authorCol !== -1 ? row[authorCol] : undefined;
-        result.push({ type: "book", title, creator, source: "livelib" });
-      }
-
-      if (result.length === 0) { setImportError("книги не найдены в файле"); return; }
-
       setImported(result);
       setSelectedIdx(new Set(result.map((_, i) => i)));
+      setSelectedImportService(null);
     } catch (e: any) {
-      setImportError("ошибка при чтении файла: " + e?.message);
-    } finally {
-      setImportLoading(false);
-    }
-  }
-
-  // Letterboxd официальный CSV экспорт: Date,Name,Year,Letterboxd URI,Rating,Rewatch,Tags,Watched Date
-  async function importLetterboxdCsv(file: File) {
-    setImportLoading(true);
-    setImportError("");
-    try {
-      const text = await file.text();
-      const lines = text.split(/\r?\n/).filter(Boolean);
-      if (lines.length < 2) { setImportError("файл пустой"); return; }
-
-      const parseRow = (line: string) => {
-        // CSV с возможными кавычками
-        const result: string[] = [];
-        let cur = "", inQ = false;
-        for (let i = 0; i < line.length; i++) {
-          const ch = line[i];
-          if (ch === '"') { inQ = !inQ; }
-          else if (ch === "," && !inQ) { result.push(cur.trim()); cur = ""; }
-          else { cur += ch; }
-        }
-        result.push(cur.trim());
-        return result;
-      };
-
-      const headers = parseRow(lines[0]).map(h => h.toLowerCase());
-      const col = (names: string[]) => {
-        for (const n of names) {
-          const i = headers.findIndex(h => h.includes(n));
-          if (i !== -1) return i;
-        }
-        return -1;
-      };
-
-      const nameCol = col(["name", "title"]);
-      const yearCol = col(["year"]);
-
-      if (nameCol === -1) { setImportError("не распознан формат Letterboxd CSV"); return; }
-
-      const result: ImportedItem[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const row = parseRow(lines[i]);
-        const title = row[nameCol];
-        if (!title) continue;
-        const year = yearCol !== -1 ? row[yearCol] : undefined;
-        const displayTitle = year ? `${title} (${year})` : title;
-        result.push({ type: "movie", title: displayTitle, creator: undefined, source: "letterboxd" });
-      }
-
-      if (result.length === 0) { setImportError("фильмы не найдены в файле"); return; }
-
-      setImported(result);
-      setSelectedIdx(new Set(result.map((_, i) => i)));
-    } catch (e: any) {
-      setImportError("ошибка при чтении файла: " + e?.message);
-    } finally {
-      setImportLoading(false);
-    }
-  }
-
-  // Goodreads CSV экспорт: Title,Author,ISBN,My Rating,Average Rating,Publisher,Binding,Number of Pages,Year Published,Original Publication Year,Date Read,Date Added,Bookshelves,Exclusive Shelf,...
-  async function importGoodreadsCsv(file: File) {
-    setImportLoading(true);
-    setImportError("");
-    try {
-      const text = await file.text();
-      const lines = text.split(/\r?\n/).filter(Boolean);
-      if (lines.length < 2) { setImportError("файл пустой"); return; }
-
-      const parseRow = (line: string) => {
-        const result: string[] = [];
-        let cur = "", inQ = false;
-        for (let i = 0; i < line.length; i++) {
-          const ch = line[i];
-          if (ch === '"') { inQ = !inQ; }
-          else if (ch === "," && !inQ) { result.push(cur.trim()); cur = ""; }
-          else { cur += ch; }
-        }
-        result.push(cur.trim());
-        return result;
-      };
-
-      const headers = parseRow(lines[0]).map(h => h.toLowerCase().trim());
-      const col = (names: string[]) => {
-        for (const n of names) {
-          const i = headers.findIndex(h => h.includes(n));
-          if (i !== -1) return i;
-        }
-        return -1;
-      };
-
-      const titleCol  = col(["title"]);
-      const authorCol = col(["author"]);
-      const shelfCol  = col(["exclusive shelf", "bookshelves"]);
-
-      if (titleCol === -1) { setImportError("не распознан формат Goodreads CSV"); return; }
-
-      const result: ImportedItem[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const row = parseRow(lines[i]);
-        const title = row[titleCol]?.replace(/\s*\(.*?\)\s*$/, "").trim(); // убираем "(Series #1)"
-        if (!title) continue;
-        const creator = authorCol !== -1 ? row[authorCol] : undefined;
-        // Фильтруем только прочитанные если есть полка
-        const shelf = shelfCol !== -1 ? row[shelfCol]?.toLowerCase() : "";
-        if (shelf && shelf !== "read" && shelf !== "currently-reading" && shelf !== "") continue;
-        result.push({ type: "book", title, creator: creator || undefined, source: "goodreads" });
-      }
-
-      if (result.length === 0) { setImportError("книги не найдены. убедись что выбрал правильный файл из Goodreads"); return; }
-
-      setImported(result);
-      setSelectedIdx(new Set(result.map((_, i) => i)));
-    } catch (e: any) {
-      setImportError("ошибка при чтении файла: " + e?.message);
+      setImportError(e?.message ?? "ошибка при чтении файла");
     } finally {
       setImportLoading(false);
     }
@@ -438,6 +416,23 @@ export default function Page() {
     } finally {
       setSavingImported(false);
     }
+  }
+
+  function startImportService(service: ImportService) {
+    if (service.id === "spotify") {
+      setSelectedImportService(null);
+      if (spotifyConnected) {
+        syncSpotify();
+      } else {
+        connectSpotify();
+      }
+      return;
+    }
+    setSelectedImportService(service);
+  }
+
+  function confirmCsvImport() {
+    csvImportRef.current?.click();
   }
 
   // ===== Custom Categories =====
@@ -831,12 +826,48 @@ export default function Page() {
 
   // ===== Library filter =====
   const [libFilter, setLibFilter] = useState<ItemType | "all" | string>("all");
+  const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
   const filteredItems = useMemo(() => {
     if (libFilter === "all") return items;
     if (libFilter === "music" || libFilter === "book" || libFilter === "movie") return items.filter(i => i.type === libFilter);
     // кастомная категория по id
     return items.filter(i => i.custom_category_id === libFilter);
   }, [items, libFilter]);
+
+  const itemsByDay = useMemo(() => {
+    const grouped = new Map<string, DbItem[]>();
+    for (const item of filteredItems) {
+      if (!item.created_at) continue;
+      const key = dayKey(item.created_at);
+      if (!key) continue;
+      const bucket = grouped.get(key) ?? [];
+      bucket.push(item);
+      grouped.set(key, bucket);
+    }
+    return grouped;
+  }, [filteredItems]);
+
+  const calendarDays = useMemo(() => {
+    const monthStart = startOfMonth(calendarMonth);
+    const startWeekday = (monthStart.getDay() + 6) % 7;
+    const gridStart = addDays(monthStart, -startWeekday);
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = addDays(gridStart, index);
+      const key = dayKey(date);
+      return {
+        key,
+        date,
+        inMonth: date.getMonth() === calendarMonth.getMonth(),
+        items: itemsByDay.get(key) ?? [],
+      };
+    });
+  }, [calendarMonth, itemsByDay]);
+
+  const selectedDay = useMemo(() => {
+    if (selectedDayKey) return calendarDays.find((entry) => entry.key === selectedDayKey) ?? null;
+    return calendarDays.find((entry) => entry.inMonth && entry.items.length > 0) ?? null;
+  }, [calendarDays, selectedDayKey]);
 
   return (
     <>
@@ -952,6 +983,7 @@ export default function Page() {
           transition: color 0.15s;
           letter-spacing: -0.02em;
           text-transform: lowercase;
+          white-space: nowrap;
         }
 
         .nav-btn.active { color: #111111; }
@@ -1132,41 +1164,98 @@ export default function Page() {
         }
 
         .item-card {
-          background: #ffffff;
           border-radius: 28px;
-          padding: 16px;
+          padding: 18px 16px;
           display: flex;
           flex-direction: column;
-          gap: 6px;
-          border: 1px solid #e7e2d9;
+          gap: 8px;
+          border: 1px solid rgba(17,17,17,0.1);
           position: relative;
-          min-height: 120px;
+          min-height: 182px;
         }
 
-        .item-icon { display: none; }
+        .item-card.music { background: #FF79D5; }
+        .item-card.book { background: #49DE4E; }
+        .item-card.movie { background: #38C0FF; }
+        .item-card.custom { background: #FFC804; }
+
+        .item-card-selected {
+          outline: 2px solid #111111;
+        }
+
+        .item-topline {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 8px;
+        }
+
+        .item-date {
+          font-size: 11px;
+          line-height: 1.2;
+          color: rgba(17,17,17,0.45);
+          text-align: right;
+          text-transform: lowercase;
+        }
+
         .item-body { flex: 1; min-width: 0; }
 
         .item-title {
           font-family: 'DM Sans', sans-serif;
           font-size: 13px;
           font-weight: 600;
-          line-height: 1.3;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
+          line-height: 1.28;
+          color: rgba(17,17,17,0.78);
+          text-transform: lowercase;
         }
 
         .item-creator {
-          font-size: 11px;
-          color: #999;
-          font-weight: 300;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 26px;
+          font-weight: 900;
+          line-height: 0.98;
+          letter-spacing: -0.05em;
+          color: #111111;
+          text-transform: lowercase;
+          overflow-wrap: anywhere;
+          margin-top: auto;
         }
 
-        .item-meta { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+        .library-shell {
+          background: #FFE2F4;
+          border-radius: 28px;
+          padding: 20px 18px;
+          border: 1px solid rgba(17,17,17,0.08);
+          margin-bottom: 16px;
+        }
+
+        .library-copy {
+          font-size: 15px;
+          line-height: 1.5;
+          color: rgba(17,17,17,0.72);
+          text-transform: lowercase;
+          margin-bottom: 16px;
+        }
+
+        .library-top-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          margin-bottom: 16px;
+        }
+
+        .compact-toggle {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .compact-toggle .filter-btn {
+          padding: 10px 16px;
+        }
+
+        .item-meta { display: flex; gap: 4px; margin-top: 2px; flex-wrap: wrap; }
 
         .tag {
           padding: 6px 10px;
@@ -1323,12 +1412,326 @@ export default function Page() {
         .tile-blue { background: #38C0FF; }
         .tile-yellow { background: #FFC804; }
 
+        .import-service-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+          margin-top: 16px;
+        }
+
+        .import-service {
+          background: #ffffff;
+          border: 1px solid #e7e2d9;
+          border-radius: 28px;
+          padding: 18px 16px;
+          text-align: left;
+          cursor: pointer;
+          min-height: 118px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .import-service-title {
+          font-size: 16px;
+          font-weight: 900;
+          color: #111111;
+          letter-spacing: -0.04em;
+        }
+
+        .import-service-subtitle {
+          font-size: 13px;
+          line-height: 1.4;
+          color: rgba(17,17,17,0.54);
+          text-transform: lowercase;
+        }
+
+        .import-service-head {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .service-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(17,17,17,0.58);
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          z-index: 300;
+          padding: 16px;
+        }
+
+        .service-modal {
+          width: 100%;
+          max-width: 480px;
+          background: #1d1f28;
+          color: #ffffff;
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 28px;
+          padding: 18px;
+          box-shadow: 0 16px 42px rgba(0,0,0,0.35);
+        }
+
+        .service-modal-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 14px;
+        }
+
+        .service-modal-title {
+          font-size: 28px;
+          font-weight: 900;
+          letter-spacing: -0.05em;
+        }
+
+        .service-modal-copy {
+          font-size: 14px;
+          line-height: 1.65;
+          color: rgba(255,255,255,0.82);
+          text-transform: lowercase;
+        }
+
+        .service-modal-copy ul {
+          padding-left: 18px;
+          margin: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .calendar-shell {
+          background: #ffffff;
+          border: 1px solid #e7e2d9;
+          border-radius: 28px;
+          padding: 18px;
+          margin-bottom: 16px;
+        }
+
+        .calendar-top-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+
+        .calendar-title {
+          font-size: 22px;
+          font-weight: 900;
+          letter-spacing: -0.04em;
+          text-transform: lowercase;
+        }
+
+        .calendar-arrow {
+          width: 40px;
+          height: 40px;
+          border-radius: 999px;
+          border: 1px solid #e7e2d9;
+          background: #ffffff;
+          font-size: 22px;
+          cursor: pointer;
+        }
+
+        .calendar-weekdays {
+          display: grid;
+          grid-template-columns: repeat(7, minmax(0, 1fr));
+          gap: 6px;
+          margin-bottom: 8px;
+        }
+
+        .calendar-weekday {
+          font-size: 11px;
+          color: #8d867d;
+          text-align: center;
+          font-weight: 700;
+          text-transform: lowercase;
+        }
+
+        .calendar-grid {
+          display: grid;
+          grid-template-columns: repeat(7, minmax(0, 1fr));
+          gap: 6px;
+        }
+
+        .calendar-day {
+          min-height: 86px;
+          border-radius: 18px;
+          border: 1px solid #efe7db;
+          background: #faf8f4;
+          padding: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          cursor: pointer;
+          text-align: left;
+        }
+
+        .calendar-day.muted {
+          opacity: 0.45;
+        }
+
+        .calendar-day.selected {
+          border-color: #111111;
+          background: #fff3fb;
+        }
+
+        .calendar-day-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .calendar-day-number {
+          font-size: 13px;
+          font-weight: 800;
+          color: #111111;
+        }
+
+        .calendar-day-count {
+          font-size: 10px;
+          color: #8d867d;
+          font-weight: 700;
+        }
+
+        .calendar-chip {
+          border-radius: 999px;
+          padding: 4px 6px;
+          font-size: 10px;
+          font-weight: 700;
+          color: #111111;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          text-transform: lowercase;
+        }
+
+        .calendar-more {
+          font-size: 10px;
+          color: #8d867d;
+          font-weight: 700;
+          text-transform: lowercase;
+        }
+
+        .day-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(17,17,17,0.58);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 16px;
+          z-index: 400;
+        }
+
+        .day-modal {
+          width: 100%;
+          max-width: 480px;
+          max-height: 80vh;
+          overflow: hidden;
+          background: #ffffff;
+          border-radius: 32px;
+          border: 1px solid #e7e2d9;
+          box-shadow: 0 18px 50px rgba(0,0,0,0.24);
+          display: flex;
+          flex-direction: column;
+        }
+
+        .day-modal-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 18px 18px 14px;
+          border-bottom: 1px solid #efe7db;
+        }
+
+        .day-modal-scroll {
+          overflow-y: auto;
+          padding: 16px 18px 22px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .day-week-strip {
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          padding: 0 18px 14px;
+          border-bottom: 1px solid #efe7db;
+        }
+
+        .day-week-pill {
+          flex: 0 0 auto;
+          border-radius: 18px;
+          border: 1px solid #e7e2d9;
+          background: #ffffff;
+          padding: 8px 12px;
+          min-width: 58px;
+          text-align: center;
+          cursor: pointer;
+        }
+
+        .day-week-pill.active {
+          background: #111111;
+          border-color: #111111;
+          color: #ffffff;
+        }
+
+        .day-week-name {
+          font-size: 10px;
+          font-weight: 700;
+          color: inherit;
+          text-transform: lowercase;
+        }
+
+        .day-week-number {
+          font-size: 16px;
+          font-weight: 900;
+          color: inherit;
+          margin-top: 2px;
+        }
+
+        .vibe-section {
+          border-radius: 28px;
+          padding: 20px 18px;
+          border: 1px solid rgba(17,17,17,0.08);
+          margin-bottom: 16px;
+        }
+
+        .vibe-blue { background: #38C0FF; }
+        .vibe-green { background: #49DE4E; }
+        .vibe-pink { background: #FF79D5; }
+
+        .vibe-helper {
+          font-size: 15px;
+          line-height: 1.55;
+          color: rgba(17,17,17,0.78);
+          text-transform: lowercase;
+          margin-bottom: 12px;
+        }
+
+        .vibe-meta {
+          font-size: 12px;
+          line-height: 1.5;
+          color: rgba(17,17,17,0.55);
+          text-transform: lowercase;
+          margin-bottom: 12px;
+        }
+
         @media (max-width: 420px) {
           .app { padding-left: 14px; padding-right: 14px; }
           .brand { font-size: 30px; }
           .home-tiles { grid-template-columns: 1fr; }
           .home-tile { min-height: 180px; }
           .items-grid { grid-template-columns: 1fr; }
+          .import-service-grid { grid-template-columns: 1fr; }
         }
 
       `}</style>
@@ -1342,7 +1745,7 @@ export default function Page() {
               <div className="greeting">{helloName}</div>
             </div>
           </div>
-          <div className="sync-line">mini app в telegram · аккуратно переводим на новый shell</div>
+          <div className="sync-line">культурный таймлайн, который собирается сам.</div>
         </div>
 
         {/* HOME */}
@@ -1374,9 +1777,6 @@ export default function Page() {
               </p>
               <p className="card-text" style={{ marginTop: 10 }}>
                 Когда накопится достаточно, жми вайбчек — получишь короткий портрет периода от не очень объективного, но довольно проницательного алгоритма.
-              </p>
-              <p className="card-text" style={{ marginTop: 10, opacity: 0.5, fontSize: 12 }}>
-                work in progress. многое ещё не доделано — но уже работает.
               </p>
               <div className="actions">
                 <button className="btn" onClick={() => setTab("add")}>добавить контент →</button>
@@ -1586,105 +1986,36 @@ export default function Page() {
                 <p className="card-text" style={{ marginBottom: 6 }}>
                   Загрузи скриншот — из Spotify, заметок, списков, да откуда угодно. ИИ постарается разобрать что там.
                 </p>
-
-                {/* Spotify */}
-                <div style={{marginBottom:16}}>
-                  {spotifyConnected === false && (
+                <div className="import-service-grid">
+                  {importServices.map((service) => (
                     <button
-                      className="btn btn-outline"
-                      style={{fontSize:13,display:"flex",alignItems:"center",gap:6,width:"100%"}}
-                      onClick={connectSpotify}
+                      key={service.id}
+                      type="button"
+                      className="import-service"
+                      onClick={() => startImportService(service)}
+                      disabled={importLoading || savingImported || spotifySyncing}
                     >
-                      <span style={{color:"#1db954"}}>♫</span> подключить Spotify — и музыка будет добавляться сама
+                      <div className="import-service-head">
+                        <div className="import-service-title">{service.title}</div>
+                      </div>
+                      <div className="import-service-subtitle">{service.subtitle}</div>
                     </button>
-                  )}
-                  {spotifyConnected === true && (
-                    <button
-                      className="btn btn-outline"
-                      style={{fontSize:13,display:"flex",alignItems:"center",gap:6,width:"100%"}}
-                      onClick={syncSpotify}
-                      disabled={spotifySyncing}
-                    >
-                      <span style={{color:"#1db954"}}>♫</span> {spotifySyncing ? "синхронизирую..." : "обновить музыку из Spotify →"}
-                    </button>
-                  )}
+                  ))}
                 </div>
 
-                {/* Livelib CSV */}
-                <div style={{marginBottom:16}}>
-                  <input
-                    ref={csvRef}
-                    type="file"
-                    accept=".csv,text/csv"
-                    style={{display:"none"}}
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) importLivelibCsv(f); e.target.value = ""; }}
-                  />
-                  <button
-                    className="btn btn-outline"
-                    style={{fontSize:13,display:"flex",alignItems:"center",gap:6,width:"100%"}}
-                    onClick={() => csvRef.current?.click()}
-                    disabled={importLoading}
-                  >
-                    📚 импорт из Livelib (CSV)
-                  </button>
-                  <div style={{fontSize:11,color:"#aaa",marginTop:6,lineHeight:1.5}}>
-                    экспортируй книги через{" "}
-                    <a href="https://chimildic.github.io/livelib-backup/" target="_blank" rel="noreferrer" style={{color:"#888"}}>
-                      chimildic.github.io/livelib-backup
-                    </a>
-                    {" "}→ загрузи сюда
-                  </div>
-                </div>
-
-                {/* Letterboxd CSV */}
-                <div style={{marginBottom:16}}>
-                  <input
-                    ref={lbRef}
-                    type="file"
-                    accept=".csv,text/csv"
-                    style={{display:"none"}}
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) importLetterboxdCsv(f); e.target.value = ""; }}
-                  />
-                  <button
-                    className="btn btn-outline"
-                    style={{fontSize:13,display:"flex",alignItems:"center",gap:6,width:"100%"}}
-                    onClick={() => lbRef.current?.click()}
-                    disabled={importLoading}
-                  >
-                    🎬 импорт из Letterboxd (CSV)
-                  </button>
-                  <div style={{fontSize:11,color:"#aaa",marginTop:6,lineHeight:1.6}}>
-                    1. открой letterboxd.com в браузере<br/>
-                    2. зайди в профиль → Settings → Import & Export<br/>
-                    3. нажми «Export Your Data» → скачается zip<br/>
-                    4. распакуй и загрузи сюда файл <b>watched.csv</b>
-                  </div>
-                </div>
-
-                {/* Goodreads CSV */}
-                <div style={{marginBottom:16}}>
-                  <input
-                    ref={grRef}
-                    type="file"
-                    accept=".csv,text/csv"
-                    style={{display:"none"}}
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) importGoodreadsCsv(f); e.target.value = ""; }}
-                  />
-                  <button
-                    className="btn btn-outline"
-                    style={{fontSize:13,display:"flex",alignItems:"center",gap:6,width:"100%"}}
-                    onClick={() => grRef.current?.click()}
-                    disabled={importLoading}
-                  >
-                    📖 импорт из Goodreads (CSV)
-                  </button>
-                  <div style={{fontSize:11,color:"#aaa",marginTop:6,lineHeight:1.6}}>
-                    1. открой goodreads.com → My Books<br/>
-                    2. нажми Import and export (внизу слева)<br/>
-                    3. нажми «Export Library» → скачается goodreads_library_export.csv<br/>
-                    4. загрузи файл сюда — импортируем прочитанные книги
-                  </div>
-                </div>
+                <input
+                  ref={csvImportRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f && selectedImportService && selectedImportService.id !== "spotify") {
+                      importCsvPlatform(selectedImportService.id, f);
+                    }
+                    e.target.value = "";
+                  }}
+                />
 
                 <input
                   ref={fileRef}
@@ -1708,7 +2039,7 @@ export default function Page() {
                     <hr className="divider" />
                     <div className="section-label">найдено {imported.length} айтемов</div>
 
-                    {imported.map((it, i) => (
+                  {imported.map((it, i) => (
                       <div
                         key={i}
                         className={`import-item${selectedIdx.has(i) ? " selected" : ""}`}
@@ -1749,51 +2080,49 @@ export default function Page() {
         {/* LIBRARY */}
         {tab === "library" && (
           <>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-              <div className="stats" style={{margin:0,flex:1}}>
-                <div className="stat-pill">
-                  <div className="stat-num">{counts.total}</div>
-                  <div className="stat-label">всего</div>
+            <div className="library-shell">
+              <div className="library-top-row">
+                <div className="card-title" style={{ marginBottom: 0 }}>библиотека</div>
+                <div className="compact-toggle">
+                  <button
+                    className={`filter-btn${libraryView === "tiles" ? " active" : ""}`}
+                    onClick={() => setLibraryView("tiles")}
+                  >
+                    плитки
+                  </button>
+                  <button
+                    className={`filter-btn${libraryView === "calendar" ? " active" : ""}`}
+                    onClick={() => setLibraryView("calendar")}
+                  >
+                    календарь
+                  </button>
                 </div>
-                <div className="stat-pill">
-                  <div className="stat-num">{counts.music}</div>
-                  <div className="stat-label">музыка</div>
-                </div>
-                <div className="stat-pill">
-                  <div className="stat-num">{counts.books}</div>
-                <div className="stat-label">книги</div>
               </div>
-              <div className="stat-pill">
-                <div className="stat-num">{counts.movies}</div>
-                <div className="stat-label">фильмы</div>
+              <div className="library-copy">
+                смотри все вместе или раскладывай по типам. в календаре видно, что с тобой происходило по дням.
               </div>
-            </div>
-              <button
-                style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#888",padding:"0 4px",flexShrink:0}}
-                title="поделиться"
-                onClick={() => openSharePicker()}
-              >↗</button>
-            </div>
 
-            <div className="filter-row">
-              {([["all", "все"], ["music", "музыка"], ["book", "книги"], ["movie", "фильмы"]] as [string, string][]).map(([val, label]) => (
-                <button
-                  key={val}
-                  className={`filter-btn${libFilter === val ? " active" : ""}`}
-                  onClick={() => setLibFilter(val)}
-                >
-                  {label}
-                </button>
-              ))}
-              {customCategories.map(cat => (
-                <button
-                  key={cat.id}
-                  className={`filter-btn${libFilter === cat.id ? " active" : ""}`}
-                  onClick={() => setLibFilter(cat.id)}
-                >
-                  {cat.emoji} {cat.name}
-                </button>
-              ))}
+              <div className="section-label">тип контента</div>
+              <div className="filter-row">
+                {([["all", "все"], ["music", "музыка"], ["book", "книги"], ["movie", "фильмы"]] as [string, string][]).map(([val, label]) => (
+                  <button
+                    key={val}
+                    className={`filter-btn${libFilter === val ? " active" : ""}`}
+                    onClick={() => setLibFilter(val)}
+                  >
+                    {label}
+                  </button>
+                ))}
+                {customCategories.map(cat => (
+                  <button
+                    key={cat.id}
+                    className={`filter-btn${libFilter === cat.id ? " active" : ""}`}
+                    onClick={() => setLibFilter(cat.id)}
+                  >
+                    {cat.emoji} {cat.name}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {libraryError && <div className="error">{libraryError}</div>}
@@ -1804,16 +2133,115 @@ export default function Page() {
               <div className="empty">
                 {items.length === 0 ? "пока пусто — добавь что-нибудь!" : "нет айтемов этого типа"}
               </div>
+            ) : libraryView === "calendar" ? (
+              <>
+                <div className="calendar-shell">
+                  <div className="calendar-top-row">
+                    <button className="calendar-arrow" onClick={() => setCalendarMonth((current) => startOfMonth(new Date(current.getFullYear(), current.getMonth() - 1, 1)))}>‹</button>
+                    <div className="calendar-title">
+                      {calendarMonth
+                        .toLocaleString("ru-RU", { month: "long", year: "numeric" })
+                        .replace(/\sг\.$/, "")
+                        .replace(/^./, (char) => char.toUpperCase())}
+                    </div>
+                    <button className="calendar-arrow" onClick={() => setCalendarMonth((current) => startOfMonth(new Date(current.getFullYear(), current.getMonth() + 1, 1)))}>›</button>
+                  </div>
+
+                  <div className="calendar-weekdays">
+                    {["пн", "вт", "ср", "чт", "пт", "сб", "вс"].map((label) => (
+                      <div key={label} className="calendar-weekday">{label}</div>
+                    ))}
+                  </div>
+
+                  <div className="calendar-grid">
+                    {calendarDays.map((day) => (
+                      <button
+                        key={day.key}
+                        className={`calendar-day${!day.inMonth ? " muted" : ""}${selectedDay?.key === day.key ? " selected" : ""}`}
+                        onClick={() => setSelectedDayKey(day.key)}
+                      >
+                        <div className="calendar-day-head">
+                          <span className="calendar-day-number">{day.date.getDate()}</span>
+                          {day.items.length > 0 ? <span className="calendar-day-count">{day.items.length}</span> : null}
+                        </div>
+                        {day.items.slice(0, 2).map((item) => (
+                          <div key={String(item.id)} className={`calendar-chip ${item.type}`}>
+                            {item.title}
+                          </div>
+                        ))}
+                        {day.items.length > 2 ? <div className="calendar-more">+ еще {day.items.length - 2}</div> : null}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {selectedDay ? (
+                  <div className="day-modal-backdrop" onClick={() => setSelectedDayKey(null)}>
+                    <div className="day-modal" onClick={(e) => e.stopPropagation()}>
+                      <div className="day-modal-head">
+                        <div className="card-title" style={{ marginBottom: 0 }}>
+                          {selectedDay.date
+                            .toLocaleString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
+                            .replace(/^./, (char) => char.toUpperCase())}
+                        </div>
+                        <button className="btn btn-outline btn-sm" onClick={() => setSelectedDayKey(null)}>закрыть</button>
+                      </div>
+
+                      <div className="day-week-strip">
+                        {Array.from({ length: 7 }, (_, index) => {
+                          const base = addDays(selectedDay.date, -((selectedDay.date.getDay() + 6) % 7));
+                          const date = addDays(base, index);
+                          const key = dayKey(date);
+                          return (
+                            <button
+                              key={key}
+                              className={`day-week-pill${key === selectedDay.key ? " active" : ""}`}
+                              onClick={() => setSelectedDayKey(key)}
+                            >
+                              <div className="day-week-name">{date.toLocaleString("ru-RU", { weekday: "short" })}</div>
+                              <div className="day-week-number">{date.getDate()}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="day-modal-scroll">
+                        {(itemsByDay.get(selectedDay.key) ?? []).length > 0 ? (
+                          (itemsByDay.get(selectedDay.key) ?? []).map((it) => (
+                            <div key={String(it.id)} className={`item-card ${it.type}`}>
+                              <div className="item-topline">
+                                <div className="item-meta">
+                                  <span className="tag">{it.type === "custom" && it.custom_category_name ? `${it.custom_category_emoji ?? "✦"} ${it.custom_category_name}` : TYPE_LABELS[it.type]}</span>
+                                </div>
+                                <div className="item-date">{formatShortDate(it.created_at)}</div>
+                              </div>
+                              <div className="item-body">
+                                {it.creator && <div className="item-title">{it.creator}</div>}
+                                <div className="item-creator">{it.title}</div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="empty">в этот день пока пусто</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </>
             ) : (
               <div className="items-grid">
                 {filteredItems.map((it) => (
-                  <div key={String(it.id)} className="item-card">
-                    <div className="item-body">
-                      <div className="item-title">{it.title}</div>
-                      {it.creator && <div className="item-creator">{it.creator}</div>}
+                  <div key={String(it.id)} className={`item-card ${it.type}`}>
+                    <div className="item-topline">
                       <div className="item-meta">
                         <span className="tag">{it.type === "custom" && it.custom_category_name ? `${it.custom_category_emoji ?? "✦"} ${it.custom_category_name}` : TYPE_LABELS[it.type]}</span>
                       </div>
+                      <div className="item-date">{formatShortDate(it.created_at)}</div>
+                    </div>
+                    <div className="item-body">
+                      {it.creator && <div className="item-title">{it.creator}</div>}
+                      <div className="item-creator">{it.title}</div>
                     </div>
                     <button
                       className="delete-btn"
@@ -1847,44 +2275,27 @@ export default function Page() {
                 onClick={() => openSharePicker(summary || undefined, summary ? "vibe" : undefined)}
               >↗</button>
             </div>
-            <p className="card-text">
-              Смотрит на всё что ты сохранил и говорит что думает.
-            </p>
-            <p className="card-text" style={{ marginTop: 8, opacity: 0.5, fontSize: 12 }}>
-              work in progress. чем больше контента — тем точнее.
-            </p>
-
-            <div className="stats" style={{ marginTop: 16 }}>
-              <div className="stat-pill">
-                <div className="stat-num">{counts.total}</div>
-                <div className="stat-label">всего</div>
+            <div className="vibe-section vibe-blue">
+              <div className="vibe-helper">
+                сейчас в библиотеке {counts.total}: музыка {counts.music}, книги {counts.books}, фильмы {counts.movies}.
               </div>
-              <div className="stat-pill">
-                <div className="stat-num">{counts.music}</div>
-                <div className="stat-label">музыка</div>
+              <div className="vibe-meta">
+                быстрый вайбчек — это короткая прожарка вкуса, без глубокого анализа состояния.
               </div>
-              <div className="stat-pill">
-                <div className="stat-num">{counts.books}</div>
-                <div className="stat-label">книги</div>
-              </div>
-              <div className="stat-pill">
-                <div className="stat-num">{counts.movies}</div>
-                <div className="stat-label">фильмы</div>
-              </div>
+              <button
+                className="btn btn-outline"
+                style={{ background: "#ffffff", borderColor: "#ffffff" }}
+                onClick={runVibeCheck}
+                disabled={vibeLoading || counts.total === 0}
+              >
+                {vibeLoading ? "анализирую..." : counts.total === 0 ? "сначала добавь контент" : "провести вайбчек"}
+              </button>
             </div>
-
-            <button
-              className="btn"
-              style={{ marginTop: 4 }}
-              onClick={runVibeCheck}
-              disabled={vibeLoading || counts.total === 0}
-            >
-              {vibeLoading ? "анализирую..." : counts.total === 0 ? "сначала добавь контент" : "провести вайбчек →"}
-            </button>
 
             {vibeError && <div className="error">{vibeError}</div>}
             {summary && (
-              <>
+              <div className="vibe-section vibe-pink">
+                <div className="card-title" style={{ marginBottom: 10 }}>свежая прожарка</div>
                 <VibeResult summary={summary} />
                 <button
                   className="btn btn-outline"
@@ -1893,7 +2304,7 @@ export default function Page() {
                 >
                   ↗ поделиться вайбчеком
                 </button>
-              </>
+              </div>
             )}
 
             <button
@@ -1921,12 +2332,13 @@ export default function Page() {
             )}
 
             {/* Вайбчек без прикола — платный */}
-            <div style={{marginTop:24,borderTop:"1px solid #e8e3da",paddingTop:20}}>
-              <div style={{fontSize:13,fontWeight:600,color:"#1a1a1a",marginBottom:8,textAlign:"center"}}>
-                вайбчек без прикола
+            <div className="vibe-section vibe-green">
+              <div className="card-title" style={{ marginBottom: 10 }}>глубокий вайбчек</div>
+              <div className="vibe-helper">
+                серьезный срез периода: что у тебя сейчас по темам, эмоциональному фону и куда все это движется.
               </div>
-              <div style={{fontSize:12,color:"#888",marginBottom:14,lineHeight:1.6,textAlign:"center"}}>
-                серьёзный анализ всего что ты добавил. алгоритм составит что-то вроде психологического портрета — какие темы тебя цепляют, какое настроение прослеживается, и посоветует что ещё почитать, посмотреть или послушать, исходя из твоего состояния.
+              <div className="vibe-meta">
+                2 раза бесплатно. потом сюда можно аккуратно поставить оплату.
               </div>
 
               {/* Кнопка запуска — если есть доступ */}
@@ -1978,7 +2390,7 @@ export default function Page() {
 
               {/* Результат с markdown */}
               {deepVibeResult && (
-                <div style={{marginTop:16,padding:"18px",background:"#fff",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.07)",fontSize:14,lineHeight:1.8,color:"#333"}}>
+                <div style={{marginTop:16,padding:"18px",background:"#fff",borderRadius:20,boxShadow:"0 1px 4px rgba(0,0,0,0.07)",fontSize:14,lineHeight:1.8,color:"#333"}}>
                   <MarkdownText text={deepVibeResult} />
                   <button
                     className="btn btn-outline"
@@ -1991,6 +2403,38 @@ export default function Page() {
               )}
             </div>
 
+          </div>
+        )}
+
+        {selectedImportService && (
+          <div className="service-modal-backdrop" onClick={() => setSelectedImportService(null)}>
+            <div className="service-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="service-modal-top">
+                <div className="service-modal-title">{selectedImportService.title}</div>
+                <button className="btn btn-outline btn-sm" onClick={() => setSelectedImportService(null)}>
+                  закрыть
+                </button>
+              </div>
+
+              {selectedImportService.instructions && (
+                <div className="service-modal-copy">
+                  <ul>
+                    {selectedImportService.instructions.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <button
+                className="btn"
+                style={{ marginTop: 16 }}
+                onClick={confirmCsvImport}
+                disabled={importLoading}
+              >
+                {selectedImportService.actionLabel ?? "выбрать файл"}
+              </button>
+            </div>
           </div>
         )}
       </div>

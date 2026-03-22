@@ -110,6 +110,16 @@ type VibeCheckResponse = {
   highlights: string[];
 };
 
+type DeepVibeCheckResponse = {
+  access: "free" | "paywall";
+  usesLeft: number;
+  totalFreeUses: number;
+  itemCount: number;
+  summary: string;
+  highlights: string[];
+  recommendations?: string[];
+};
+
 function getApiBaseUrl() {
   const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
   if (!baseUrl) {
@@ -345,5 +355,31 @@ export async function runVibeCheck(token: string) {
   return fetchJson<VibeCheckResponse>("/api/v2/analysis", {
     method: "POST",
     headers: authHeaders(token),
+  });
+}
+
+export async function fetchDeepVibeCheckAccess(token: string) {
+  return fetchJson<Pick<DeepVibeCheckResponse, "access" | "usesLeft" | "totalFreeUses">>("/api/v2/deep-analysis", {
+    method: "GET",
+    headers: authHeaders(token),
+  });
+}
+
+export async function runDeepVibeCheck(token: string) {
+  return fetchJson<DeepVibeCheckResponse>("/api/v2/deep-analysis", {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+}
+
+export async function trackAnalyticsEvent(
+  token: string,
+  event: string,
+  properties?: Record<string, unknown>
+) {
+  return fetchJson<{ ok: true }>("/api/v2/analytics", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ event, properties: properties ?? {} }),
   });
 }
