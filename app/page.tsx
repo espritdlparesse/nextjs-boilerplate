@@ -2647,7 +2647,7 @@ export default function Page() {
 
             {/* Вайбчек без прикола — платный */}
             <div className="vibe-section vibe-green">
-              <div className="card-title" style={{ marginBottom: 10 }}>глубокий вайбчек</div>
+              <div className="card-title" style={{ marginBottom: 10 }}>вайбчек без прикола</div>
               <div className="vibe-helper">
                 серьезный срез периода: что у тебя сейчас по темам, эмоциональному фону и куда все это движется.
               </div>
@@ -2671,7 +2671,7 @@ export default function Page() {
                     onClick={runDeepVibe}
                     disabled={deepVibeLoading || counts.total === 0}
                   >
-                    {deepVibeLoading ? "анализирую..." : "глубокий вайбчек"}
+                    {deepVibeLoading ? "анализирую..." : "вайбчек без прикола"}
                   </button>
                 </div>
               )}

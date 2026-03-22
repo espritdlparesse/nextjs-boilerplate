@@ -1575,7 +1575,7 @@ export function useEveryYouApp() {
 
     try {
       if (!apiToken) {
-        throw new Error("для глубокого вайбчека нужен backend");
+        throw new Error("для вайбчека без прикола нужен backend");
       }
 
       const data = await runDeepVibeCheck(apiToken);
@@ -1593,7 +1593,7 @@ export function useEveryYouApp() {
       setDeepAnalysisAccess(data.access);
       setDeepAnalysisUsesLeft(data.usesLeft);
       setDeepAnalysisTotalFreeUses(data.totalFreeUses);
-      setToastMessage("глубокий вайбчек готов");
+      setToastMessage("вайбчек без прикола готов");
       fireAnalytics("vibecheck_completed", { itemCount: data.itemCount, tier: "deep", usesLeft: data.usesLeft });
     } catch (error) {
       const message = error instanceof Error ? error.message : "deep vibe failed";
@@ -1607,8 +1607,8 @@ export function useEveryYouApp() {
 
       const friendlySummary =
         message.includes("404")
-          ? "глубокий вайбчек пока не доехал до сервера. попробуй еще раз чуть позже, когда обновится backend."
-          : `не удалось провести глубокий вайбчек: ${message}`;
+          ? "вайбчек без прикола пока не доехал до сервера. попробуй еще раз чуть позже, когда обновится backend."
+          : `не удалось провести вайбчек без прикола: ${message}`;
       const friendlyHighlights = message.includes("404")
         ? ["это похоже на старый деплой сервера", "не твоя ошибка — просто повтори попытку позже"]
         : ["проверь настройки сервера", "и попробуй еще раз"];

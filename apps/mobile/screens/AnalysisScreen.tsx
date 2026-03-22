@@ -80,7 +80,7 @@ export function AnalysisScreen({
           themeMode === "dark" && { backgroundColor: theme.accentGreen, borderColor: theme.border },
         ]}
       >
-        <Text style={appStyles.sectionTitle}>глубокий вайбчек</Text>
+        <Text style={appStyles.sectionTitle}>вайбчек без прикола</Text>
         <Text style={[appStyles.helper, { color: theme.accentText }]}>
           как будто ты показала свой недавний культурный таймлайн очень внимательному психотерапевту, коучу или психоаналитику.
         </Text>
@@ -93,7 +93,7 @@ export function AnalysisScreen({
               ? "думаем глубже..."
               : deepAnalysisAccess === "paywall"
                 ? "лимит исчерпан"
-                : "провести глубокий вайбчек"
+                : "провести вайбчек без прикола"
           }
           variant="primary"
           themeMode={themeMode}
@@ -109,7 +109,7 @@ export function AnalysisScreen({
 
       {deepAnalysisResult ? (
         <View style={[appStyles.tile, themeMode === "dark" ? { backgroundColor: theme.accentBlue, borderColor: theme.border } : appStyles.tileBlue]}>
-          <Text style={appStyles.itemTitle}>глубокий срез периода</Text>
+          <Text style={appStyles.itemTitle}>вайбчек без прикола</Text>
           <Text style={[appStyles.helper, { color: theme.accentText }]}>{deepAnalysisResult.summary}</Text>
           {deepAnalysisResult.highlights.map((item) => (
             <Text key={item} style={[appStyles.metaText, { color: theme.accentMutedText }]}>
