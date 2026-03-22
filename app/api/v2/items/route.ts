@@ -19,6 +19,14 @@ function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
 }
 
+function normalizeLegacySource(raw: unknown) {
+  const source = String(raw ?? "").toLowerCase();
+  if (source === "spotify" || source === "import_spotify") return "spotify";
+  if (source === "goodreads") return "goodreads";
+  if (source === "letterboxd" || source === "import_letterboxd") return "letterboxd";
+  return "manual";
+}
+
 function legacyNativeTgUserId(ownerKey: string) {
   let hash = 0;
   for (let i = 0; i < ownerKey.length; i += 1) {
@@ -57,7 +65,7 @@ async function updateLegacyTelegramItem(
     .from("items")
     .update({
       type: body.type,
-      source: body.source,
+      source: normalizeLegacySource(body.source),
       title: body.title,
       creator: body.creator ?? null,
       owner_key: auth.ownerKey,
@@ -78,7 +86,7 @@ async function updateLegacyTelegramItem(
       .from("items")
       .update({
         type: body.type,
-        source: body.source,
+        source: normalizeLegacySource(body.source),
         title: body.title,
         creator: body.creator ?? null,
         owner_key: auth.ownerKey,
@@ -187,7 +195,7 @@ export async function POST(req: NextRequest) {
   }
 
   const sb = supabaseAdmin();
-  if (source === "import_spotify") {
+  if (source === "import_spotify" || source === "spotify") {
     const { data: existing } = await sb
       .from("items")
       .select("*")
@@ -207,7 +215,7 @@ export async function POST(req: NextRequest) {
     owner_key: owner.ownerKey,
     owner_kind: owner.ownerKind,
     type,
-    source,
+    source: normalizeLegacySource(source),
     title,
     creator: creator ?? null,
     consumed_at:
@@ -262,7 +270,7 @@ export async function PATCH(req: NextRequest) {
     .from("items")
     .update({
       type: body.type,
-      source: body.source,
+      source: normalizeLegacySource(body.source),
       title: body.title,
       creator: body.creator ?? null,
       consumed_at:
@@ -281,7 +289,7 @@ export async function PATCH(req: NextRequest) {
       .from("items")
       .update({
         type: body.type,
-        source: body.source,
+        source: normalizeLegacySource(body.source),
         title: body.title,
         creator: body.creator ?? null,
       })

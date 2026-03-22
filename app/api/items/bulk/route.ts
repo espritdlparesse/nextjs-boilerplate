@@ -9,6 +9,14 @@ function getInitData(req: NextRequest) {
   return req.headers.get("x-telegram-init-data") ?? "";
 }
 
+function normalizeLegacySource(raw: unknown) {
+  const source = String(raw ?? "").toLowerCase();
+  if (source === "spotify" || source === "import_spotify") return "spotify";
+  if (source === "goodreads") return "goodreads";
+  if (source === "letterboxd" || source === "import_letterboxd") return "letterboxd";
+  return "manual";
+}
+
 function authTg(req: NextRequest) {
   const initData = getInitData(req);
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -60,7 +68,7 @@ export async function POST(req: NextRequest) {
     const rows = slice.map((it: any) => ({
       tg_user_id: auth.tgUserId,
       type: it?.type,
-      source: it?.source,
+      source: normalizeLegacySource(it?.source),
       title: it?.title,
       creator: it?.creator ?? null,
       consumed_at:

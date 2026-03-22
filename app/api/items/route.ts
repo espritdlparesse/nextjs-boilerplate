@@ -9,6 +9,14 @@ function getInitData(req: NextRequest) {
   return req.headers.get("x-telegram-init-data") ?? "";
 }
 
+function normalizeLegacySource(raw: unknown) {
+  const source = String(raw ?? "").toLowerCase();
+  if (source === "spotify" || source === "import_spotify") return "spotify";
+  if (source === "goodreads") return "goodreads";
+  if (source === "letterboxd" || source === "import_letterboxd") return "letterboxd";
+  return "manual";
+}
+
 async function resolveTelegramOwner(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) {
@@ -89,7 +97,7 @@ export async function POST(req: NextRequest) {
       owner_key: auth.owner.ownerKey,
       owner_kind: auth.owner.ownerKind,
       type,
-      source,
+      source: normalizeLegacySource(source),
       title,
       creator: creator ?? null,
       custom_category_id: custom_category_id ?? null,
@@ -114,7 +122,7 @@ export async function PATCH(req: NextRequest) {
   const sb = supabaseAdmin();
   const { data, error } = await sb
     .from("items")
-    .update({ type, source, title, creator: creator ?? null })
+    .update({ type, source: normalizeLegacySource(source), title, creator: creator ?? null })
     .eq("id", id)
     .or(buildOwnerReadFilter(auth.scope))
     .select("*")
