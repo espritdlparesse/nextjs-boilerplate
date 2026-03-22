@@ -243,7 +243,7 @@ export default function Page() {
     total: items.length,
     music: items.filter((i) => i.type === "music").length,
     books: items.filter((i) => i.type === "book").length,
-    movies: items.filter((i) => i.type === "movie").length,
+    movies: items.filter((i) => i.type === "movie" || (i.type as string) === "film").length,
   }), [items]);
 
   const headerAvatar = useMemo(() => {

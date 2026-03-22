@@ -126,8 +126,13 @@ export function normalizeLibrary(raw: unknown[]): LibraryItem[] {
 
     const item = x as Record<string, unknown>;
     const id = typeof item.id === "string" ? item.id : uid();
+    const rawType = item.type;
     const type: ContentType =
-      item.type === "music" || item.type === "book" || item.type === "film" ? item.type : "music";
+      rawType === "music" || rawType === "book"
+        ? rawType
+        : rawType === "film" || rawType === "movie"
+          ? "film"
+          : "music";
     const source: SourceType =
       item.source === "manual" || item.source === "import_spotify" ? item.source : "manual";
     const title = clampText(String(item.title ?? "")).toLowerCase();
