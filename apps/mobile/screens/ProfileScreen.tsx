@@ -145,12 +145,12 @@ export function ProfileScreen({
       </View>
 
       <View style={[appStyles.card, themeMode === "dark" ? { backgroundColor: theme.accentGreen, borderColor: theme.border } : appStyles.cardAccentGreen]}>
-        <Text style={[appStyles.label, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>качество таймлайна</Text>
+        <Text style={[appStyles.label, { color: themeMode === "dark" ? theme.accentText : undefined }]}>как проставлены даты</Text>
         <Text style={[appStyles.helper, { color: theme.accentText }]}>
-          точные даты: {exactCount}, из импорта: {importedCount}, примерно: {estimatedCount}, без даты: {undatedCount}.
+          точный день: {exactCount}, дата из сервиса: {importedCount}, разложили вручную: {estimatedCount}, пока без даты: {undatedCount}.
         </Text>
-        <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
-          чем больше точных дат и дат из импорта, тем честнее календарь и тем тоньше потом работает вайбчек.
+        <Text style={[appStyles.metaText, { color: themeMode === "dark" ? theme.accentText : theme.accentMutedText }]}>
+          чем больше точных дат и дат из сервисов, тем честнее календарь и тем лучше потом работает вайбчек.
         </Text>
       </View>
 

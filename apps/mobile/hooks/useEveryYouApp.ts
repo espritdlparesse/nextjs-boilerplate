@@ -236,6 +236,31 @@ export function useEveryYouApp() {
   const [spotifyDateInsight, setSpotifyDateInsight] = useState<DateInsight | null>(null);
   const [fileImportDateInsight, setFileImportDateInsight] = useState<DateInsight | null>(null);
 
+  async function refreshLinkedLibrary(token: string, attempts = 4) {
+    let lastRemoteLibrary: LibraryItem[] = [];
+
+    for (let index = 0; index < attempts; index += 1) {
+      try {
+        const remoteLibrary = await fetchItems(token);
+        lastRemoteLibrary = remoteLibrary;
+        if (remoteLibrary.length > 0 || index === attempts - 1) {
+          setLibrary((current) => (remoteLibrary.length === 0 && current.length > 0 ? current : remoteLibrary));
+          setSyncStatus("online");
+          setSyncMessage(
+            remoteLibrary.length === 0 ? "пока показываем сохраненную библиотеку" : "данные синхронизируются с сервером"
+          );
+          return remoteLibrary;
+        }
+      } catch {
+        // retry below
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 1200 * (index + 1)));
+    }
+
+    return lastRemoteLibrary;
+  }
+
   useEffect(() => {
     let mounted = true;
 
@@ -413,15 +438,8 @@ export function useEveryYouApp() {
         if (justLinked) {
           setTelegramLinkStatus("готово — Telegram и приложение теперь связаны");
           setToastMessage("Telegram подключен");
-
-          const remoteLibrary = await fetchItems(apiToken);
-          if (!cancelled) {
-            setLibrary((current) => (remoteLibrary.length === 0 && current.length > 0 ? current : remoteLibrary));
-            setSyncStatus("online");
-            setSyncMessage(
-              remoteLibrary.length === 0 ? "пока показываем сохраненную библиотеку" : "данные синхронизируются с сервером"
-            );
-          }
+          await refreshLinkedLibrary(apiToken);
+          if (cancelled) return;
 
           try {
             const spotifyStatus = await fetchSpotifyConnectionStatus(apiToken);
