@@ -594,6 +594,7 @@ export default function App() {
                 <ProfileScreen
                   themeMode={app.themeMode}
                   displayName={app.displayName}
+                  hasCustomName={app.hasCustomName}
                   nameDraft={app.nameDraft}
                   avatarUri={app.avatarUri}
                   telegramLink={app.telegramLink}

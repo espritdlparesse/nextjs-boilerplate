@@ -1,4 +1,5 @@
-import { Image, Text, TextInput, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Image, Pressable, Text, TextInput, View } from "react-native";
 import { type ThemeMode } from "../shared/everyyou/domain";
 import { PillButton } from "../components/PillButton";
 import { appStyles } from "../styles/appStyles";
@@ -7,6 +8,7 @@ import { getTheme } from "../styles/theme";
 type ProfileScreenProps = {
   themeMode: ThemeMode;
   displayName: string;
+  hasCustomName: boolean;
   nameDraft: string;
   avatarUri: string | null;
   telegramLink: {
@@ -49,6 +51,7 @@ function initialsFromName(name: string) {
 export function ProfileScreen({
   themeMode,
   displayName,
+  hasCustomName,
   nameDraft,
   avatarUri,
   telegramLink,
@@ -73,10 +76,20 @@ export function ProfileScreen({
   onReplayOnboarding,
 }: ProfileScreenProps) {
   const theme = getTheme(themeMode);
+  const [editingName, setEditingName] = useState(!hasCustomName);
+
+  useEffect(() => {
+    if (!hasCustomName) {
+      setEditingName(true);
+    }
+  }, [hasCustomName]);
 
   return (
     <View style={appStyles.screen}>
-      <View style={[appStyles.card, themeMode === "dark" ? { backgroundColor: theme.accentPink, borderColor: theme.border } : appStyles.cardAccentPink]}>
+      <Pressable
+        style={[appStyles.card, themeMode === "dark" ? { backgroundColor: theme.accentPink, borderColor: theme.border } : appStyles.cardAccentPink]}
+        onPress={() => setEditingName(true)}
+      >
         <Text style={appStyles.sectionTitle}>профиль</Text>
         <View style={appStyles.profileHero}>
           {avatarUri ? (
@@ -93,34 +106,53 @@ export function ProfileScreen({
             <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
               {avatarUri ? "аватар загружен" : "тут можно добавить аватар и собрать свой культурный профиль"}
             </Text>
+            {hasCustomName ? (
+              <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>нажми на карточку, чтобы поменять имя</Text>
+            ) : null}
           </View>
         </View>
         <View style={appStyles.row}>
           <PillButton label="загрузить аватар" onPress={onPickAvatarPress} themeMode={themeMode} />
           {avatarUri ? <PillButton label="убрать аватар" onPress={onClearAvatarPress} themeMode={themeMode} /> : null}
         </View>
-      </View>
+      </Pressable>
 
-      <View style={[appStyles.card, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <Text style={[appStyles.label, { color: theme.mutedText }]}>имя</Text>
-        <TextInput
-          style={[
-            appStyles.input,
-            {
-              backgroundColor: theme.inputBg,
-              borderColor: theme.inputBorder,
-              color: theme.inputText,
-            },
-          ]}
-          placeholder="как к тебе обращаться"
-          placeholderTextColor={theme.inputPlaceholder}
-          value={nameDraft}
-          onChangeText={onNameDraftChange}
-          autoCapitalize="words"
-          autoCorrect={false}
-        />
-        <PillButton label="сохранить имя" variant="primary" themeMode={themeMode} disabled={!nameDraft.trim()} onPress={onSaveNamePress} />
-      </View>
+      {editingName ? (
+        <View style={[appStyles.card, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Text style={[appStyles.label, { color: theme.mutedText }]}>имя</Text>
+          <TextInput
+            style={[
+              appStyles.input,
+              {
+                backgroundColor: theme.inputBg,
+                borderColor: theme.inputBorder,
+                color: theme.inputText,
+              },
+            ]}
+            placeholder="как к тебе обращаться"
+            placeholderTextColor={theme.inputPlaceholder}
+            value={nameDraft}
+            onChangeText={onNameDraftChange}
+            autoCapitalize="words"
+            autoCorrect={false}
+          />
+          <View style={appStyles.row}>
+            {hasCustomName ? (
+              <PillButton label="не сейчас" themeMode={themeMode} onPress={() => setEditingName(false)} />
+            ) : null}
+            <PillButton
+              label="сохранить имя"
+              variant="primary"
+              themeMode={themeMode}
+              disabled={!nameDraft.trim()}
+              onPress={() => {
+                onSaveNamePress();
+                setEditingName(false);
+              }}
+            />
+          </View>
+        </View>
+      ) : null}
 
       <View style={[appStyles.card, themeMode === "dark" ? { backgroundColor: theme.accentBlue, borderColor: theme.border } : appStyles.cardAccentBlue]}>
         <Text style={[appStyles.label, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>анатомия вкуса</Text>
