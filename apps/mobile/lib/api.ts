@@ -147,6 +147,16 @@ type TelegramLinkStartResponse = {
   instructions: string;
 };
 
+type ConnectedSource = {
+  platform: "lastfm" | "letterboxd";
+  profile: string;
+  lastSyncedAt: string | null;
+};
+
+type ConnectedSourcesResponse = {
+  sources: ConnectedSource[];
+};
+
 function getApiBaseUrl() {
   const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
   if (!baseUrl) {
@@ -456,5 +466,23 @@ export async function startTelegramLink(token: string) {
   return fetchJson<TelegramLinkStartResponse>("/api/v2/telegram-link/start", {
     method: "POST",
     headers: authHeaders(token),
+  });
+}
+
+export async function fetchConnectedSources(token: string) {
+  return fetchJson<ConnectedSourcesResponse>("/api/v2/connected-sources", {
+    method: "GET",
+    headers: authHeaders(token),
+  });
+}
+
+export async function saveConnectedSource(
+  token: string,
+  input: { platform: "lastfm" | "letterboxd"; profile: string }
+) {
+  return fetchJson<{ source: ConnectedSource }>("/api/v2/connected-sources", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(input),
   });
 }

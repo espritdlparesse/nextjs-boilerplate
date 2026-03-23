@@ -514,6 +514,7 @@ export default function App() {
                   spotifyPlaylistLoading={app.spotifyPlaylistLoading}
                   lastfmUsername={app.lastfmUsername}
                   letterboxdProfile={app.letterboxdProfile}
+                  connectedSources={app.connectedSources}
                   fileImportStatus={app.fileImportStatus}
                   fileImportDateInsight={app.fileImportDateInsight}
                   type={app.type}

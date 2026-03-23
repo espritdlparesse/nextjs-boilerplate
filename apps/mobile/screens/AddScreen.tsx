@@ -50,6 +50,10 @@ type AddScreenProps = {
   spotifyPlaylistLoading: boolean;
   lastfmUsername: string;
   letterboxdProfile: string;
+  connectedSources: {
+    lastfm: { profile: string; lastSyncedAt: string | null } | null;
+    letterboxd: { profile: string; lastSyncedAt: string | null } | null;
+  };
   fileImportStatus: string | null;
   fileImportDateInsight: { title: string; body: string; meta?: string } | null;
   type: ContentType | "";
@@ -243,6 +247,7 @@ export function AddScreen({
   spotifyPlaylistLoading,
   lastfmUsername,
   letterboxdProfile,
+  connectedSources,
   fileImportStatus,
   fileImportDateInsight,
   type,
@@ -476,14 +481,24 @@ export function AddScreen({
           <BrandImportButton brand="mubi" hint="фильмы csv" themeMode={themeMode} onPress={() => runGuideAction("mubi")} onHelpPress={() => setGuide("mubi")} />
         </View>
 
-        {lastfmUsername.trim() || letterboxdProfile.trim() ? (
+        {connectedSources.lastfm || connectedSources.letterboxd || lastfmUsername.trim() || letterboxdProfile.trim() ? (
           <View style={appStyles.stack}>
             <Text style={[appStyles.label, { color: theme.mutedText }]}>обновить профили</Text>
+            {connectedSources.lastfm ? (
+              <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
+                last.fm подключен: {connectedSources.lastfm.profile}
+              </Text>
+            ) : null}
+            {connectedSources.letterboxd ? (
+              <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
+                letterboxd подключен: {connectedSources.letterboxd.profile}
+              </Text>
+            ) : null}
             <View style={appStyles.row}>
-              {lastfmUsername.trim() ? (
+              {connectedSources.lastfm || lastfmUsername.trim() ? (
                 <PillButton themeMode={themeMode} label="обновить last.fm" onPress={onLastfmProfileImportPress} />
               ) : null}
-              {letterboxdProfile.trim() ? (
+              {connectedSources.letterboxd || letterboxdProfile.trim() ? (
                 <PillButton themeMode={themeMode} label="обновить letterboxd" onPress={onLetterboxdProfileImportPress} />
               ) : null}
             </View>

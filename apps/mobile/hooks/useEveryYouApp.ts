@@ -31,6 +31,7 @@ import {
   deleteItem,
   ensureGuestSession,
   fetchBackendHealth,
+  fetchConnectedSources,
   fetchDeepVibeCheckAccess,
   fetchItems,
   fetchSpotifyConnectionStatus,
@@ -48,6 +49,7 @@ import {
   runDeepVibeCheck,
   runVibeCheck,
   resetGuestSession,
+  saveConnectedSource,
   startTelegramLink,
   setStoredAvatarUri,
   setStoredGuestName,
@@ -76,6 +78,11 @@ type DateInsight = {
   title: string;
   body: string;
   meta?: string;
+};
+
+type ConnectedSourceState = {
+  lastfm: { profile: string; lastSyncedAt: string | null } | null;
+  letterboxd: { profile: string; lastSyncedAt: string | null } | null;
 };
 
 type TelegramLinkState = {
@@ -193,6 +200,10 @@ export function useEveryYouApp() {
   const [spotifyPlaylistLoading, setSpotifyPlaylistLoading] = useState(false);
   const [lastfmUsername, setLastfmUsername] = useState("");
   const [letterboxdProfile, setLetterboxdProfile] = useState("");
+  const [connectedSources, setConnectedSources] = useState<ConnectedSourceState>({
+    lastfm: null,
+    letterboxd: null,
+  });
   const [fileImportStatus, setFileImportStatus] = useState<string | null>(null);
   const [fileImportBusy, setFileImportBusy] = useState(false);
   const [fileImportCanCancel, setFileImportCanCancel] = useState(false);
@@ -315,6 +326,33 @@ export function useEveryYouApp() {
           linkStatus = await fetchTelegramLinkStatus(session.token);
         } catch {
           linkStatus = null;
+        }
+        try {
+          const sources = await fetchConnectedSources(session.token);
+          const nextSources: ConnectedSourceState = { lastfm: null, letterboxd: null };
+          for (const source of sources.sources) {
+            if (source.platform === "lastfm") {
+              nextSources.lastfm = {
+                profile: source.profile,
+                lastSyncedAt: source.lastSyncedAt,
+              };
+            }
+            if (source.platform === "letterboxd") {
+              nextSources.letterboxd = {
+                profile: source.profile,
+                lastSyncedAt: source.lastSyncedAt,
+              };
+            }
+          }
+          setConnectedSources(nextSources);
+          if (nextSources.lastfm?.profile) {
+            setLastfmUsername(nextSources.lastfm.profile);
+          }
+          if (nextSources.letterboxd?.profile) {
+            setLetterboxdProfile(nextSources.letterboxd.profile);
+          }
+        } catch {
+          // ignore if migration is not applied yet or backend is temporarily unavailable
         }
         if (remoteLibrary.length === 0 && storedLibrary.length > 0) {
           nextLibrary = storedLibrary;
@@ -1364,7 +1402,7 @@ export function useEveryYouApp() {
   }
 
   async function importLastfmProfileByUsername() {
-    const normalizedUsername = clampText(lastfmUsername);
+    const normalizedUsername = clampText(lastfmUsername || connectedSources.lastfm?.profile || "");
     if (!normalizedUsername) {
       setFileImportStatus("введи username last.fm");
       return;
@@ -1390,6 +1428,18 @@ export function useEveryYouApp() {
         dateInsightSetter: setFileImportDateInsight,
         }
       );
+      if (apiToken) {
+        try {
+          const result = await saveConnectedSource(apiToken, { platform: "lastfm", profile: normalizedUsername });
+          setConnectedSources((current) => ({
+            ...current,
+            lastfm: { profile: result.source.profile, lastSyncedAt: result.source.lastSyncedAt },
+          }));
+          setLastfmUsername(result.source.profile);
+        } catch {
+          // import can still be successful even if source save failed
+        }
+      }
       setFileImportStatus(
         items.length > 0
           ? `готово: нашли ${items.length} трек(ов) в last.fm`
@@ -1402,7 +1452,7 @@ export function useEveryYouApp() {
   }
 
   async function importLetterboxdPublicProfile() {
-    const normalizedProfile = clampText(letterboxdProfile);
+    const normalizedProfile = clampText(letterboxdProfile || connectedSources.letterboxd?.profile || "");
     if (!normalizedProfile) {
       setFileImportStatus("вставь username или ссылку на profile letterboxd");
       return;
@@ -1428,6 +1478,18 @@ export function useEveryYouApp() {
         dateInsightSetter: setFileImportDateInsight,
         }
       );
+      if (apiToken) {
+        try {
+          const result = await saveConnectedSource(apiToken, { platform: "letterboxd", profile: normalizedProfile });
+          setConnectedSources((current) => ({
+            ...current,
+            letterboxd: { profile: result.source.profile, lastSyncedAt: result.source.lastSyncedAt },
+          }));
+          setLetterboxdProfile(result.source.profile);
+        } catch {
+          // import can still be successful even if source save failed
+        }
+      }
       setFileImportStatus(
         items.length > 0
           ? `готово: нашли ${items.length} фильм(ов) в letterboxd`
@@ -1840,6 +1902,7 @@ export function useEveryYouApp() {
     spotifyPlaylistLoading,
     lastfmUsername,
     letterboxdProfile,
+    connectedSources,
     fileImportStatus,
     fileImportBusy,
     fileImportCanCancel,
