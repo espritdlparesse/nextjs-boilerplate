@@ -18,6 +18,10 @@ type TypeFilter = ContentType | "all";
 type SourceFilter = SourceType | "all";
 type LibraryViewMode = "tiles" | "calendar";
 
+function reactItemKey(item: LibraryItem, index: number) {
+  return `${item.id}-${item.consumedAt ?? item.createdAt ?? "nodate"}-${index}`;
+}
+
 type LibraryScreenProps = {
   themeMode: ThemeMode;
   typeFilter: TypeFilter;
@@ -328,9 +332,7 @@ export function LibraryScreen({
 
   function openDay(dateKey: string) {
     setSelectedDayKey(dateKey);
-    requestAnimationFrame(() => {
-      setDayModalVisible(true);
-    });
+    setDayModalVisible(true);
   }
 
   function renderTopCards() {
@@ -595,7 +597,7 @@ export function LibraryScreen({
       ) : (
         <FlatList
           data={visibleLibrary}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item, index) => reactItemKey(item, index)}
           renderItem={renderTileItem}
           numColumns={2}
           ListHeaderComponent={renderTopCards}
@@ -654,8 +656,13 @@ export function LibraryScreen({
 
                 <ScrollView style={appStyles.dayModalScroll} contentContainerStyle={appStyles.dayModalContent} showsVerticalScrollIndicator={false}>
                   {selectedDay.items.length > 0 ? (
-                    selectedDay.items.map((item) => (
-                      <DayDetailCard key={item.id} item={item} themeMode={themeMode} onPress={() => onSelectItem(item.id)} />
+                    selectedDay.items.map((item, index) => (
+                      <DayDetailCard
+                        key={reactItemKey(item, index)}
+                        item={item}
+                        themeMode={themeMode}
+                        onPress={() => onSelectItem(item.id)}
+                      />
                     ))
                   ) : (
                     <View style={[appStyles.card, themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
@@ -685,8 +692,13 @@ export function LibraryScreen({
             </View>
 
             <ScrollView style={appStyles.dayModalScroll} contentContainerStyle={appStyles.dayModalContent} showsVerticalScrollIndicator={false}>
-              {monthLevelItems.map((item) => (
-                <DayDetailCard key={item.id} item={item} themeMode={themeMode} onPress={() => onSelectItem(item.id)} />
+              {monthLevelItems.map((item, index) => (
+                <DayDetailCard
+                  key={reactItemKey(item, index)}
+                  item={item}
+                  themeMode={themeMode}
+                  onPress={() => onSelectItem(item.id)}
+                />
               ))}
             </ScrollView>
           </View>
