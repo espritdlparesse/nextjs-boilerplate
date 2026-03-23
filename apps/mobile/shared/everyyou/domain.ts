@@ -105,10 +105,20 @@ export function clampText(s: string) {
   return s.trim().replace(/\s+/g, " ");
 }
 
+export function sanitizeTimelineTimestamp(ms?: number) {
+  if (typeof ms !== "number" || !Number.isFinite(ms)) return undefined;
+  const now = Date.now();
+  const futureToleranceMs = 5 * 60 * 1000;
+  if (ms > now + futureToleranceMs) {
+    return now;
+  }
+  return ms;
+}
+
 export function formatFullDate(ms: number) {
-  const d = new Date(ms);
+  const d = new Date(sanitizeTimelineTimestamp(ms) ?? ms);
   return d
-    .toLocaleString(undefined, {
+    .toLocaleString("ru-RU", {
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -142,8 +152,9 @@ export function normalizeLibrary(raw: unknown[]): LibraryItem[] {
 
     const createdAt =
       typeof item.createdAt === "number" && Number.isFinite(item.createdAt) ? item.createdAt : undefined;
-    const consumedAt =
-      typeof item.consumedAt === "number" && Number.isFinite(item.consumedAt) ? item.consumedAt : undefined;
+    const consumedAt = sanitizeTimelineTimestamp(
+      typeof item.consumedAt === "number" && Number.isFinite(item.consumedAt) ? item.consumedAt : undefined
+    );
     const timeOrigin =
       item.timeOrigin === "exact" || item.timeOrigin === "imported" || item.timeOrigin === "estimated"
         ? item.timeOrigin
@@ -156,9 +167,9 @@ export function normalizeLibrary(raw: unknown[]): LibraryItem[] {
 }
 
 export function getConsumptionDate(item: Pick<LibraryItem, "consumedAt">) {
-  return typeof item.consumedAt === "number" && Number.isFinite(item.consumedAt)
-    ? item.consumedAt
-    : undefined;
+  return sanitizeTimelineTimestamp(
+    typeof item.consumedAt === "number" && Number.isFinite(item.consumedAt) ? item.consumedAt : undefined
+  );
 }
 
 export function getTimeOriginLabel(origin?: TimeOrigin) {

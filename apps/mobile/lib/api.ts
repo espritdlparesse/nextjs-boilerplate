@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { uid, type LibraryItem, type ThemeMode } from "../shared/everyyou/domain";
+import { sanitizeTimelineTimestamp, uid, type LibraryItem, type ThemeMode } from "../shared/everyyou/domain";
 
 const STORAGE_KEY_DEVICE_ID = "everyyou.mobile.deviceId";
 const STORAGE_KEY_TOKEN = "everyyou.mobile.token";
@@ -180,12 +180,13 @@ function mapServerItem(item: ItemsResponse["items"][number]): LibraryItem {
       : item.created_at
         ? new Date(item.created_at).getTime()
         : undefined;
-  const consumedAt =
+  const rawConsumedAt =
     typeof item.consumedAt === "number"
       ? item.consumedAt
       : item.consumed_at
         ? new Date(item.consumed_at).getTime()
         : undefined;
+  const consumedAt = sanitizeTimelineTimestamp(rawConsumedAt);
 
   return {
     id: item.id,
@@ -194,7 +195,7 @@ function mapServerItem(item: ItemsResponse["items"][number]): LibraryItem {
     title: item.title,
     authorOrArtist: item.creator ?? "",
     createdAt: Number.isFinite(createdAt) ? createdAt : undefined,
-    consumedAt: Number.isFinite(consumedAt) ? consumedAt : undefined,
+    consumedAt,
     timeOrigin: item.timeOrigin ?? item.time_origin ?? undefined,
   };
 }
