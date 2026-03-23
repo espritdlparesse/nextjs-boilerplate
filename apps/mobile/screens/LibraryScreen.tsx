@@ -635,7 +635,11 @@ export function LibraryScreen({
                   </Pressable>
                 </View>
 
-                <View style={appStyles.weekStrip}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={appStyles.weekStrip}
+                >
                   {selectedWeek.map((day) => (
                     <WeekDayPill
                       key={day.key}
@@ -645,7 +649,7 @@ export function LibraryScreen({
                       onPress={() => setSelectedDayKey(day.key)}
                     />
                   ))}
-                </View>
+                </ScrollView>
 
                 <ScrollView style={appStyles.dayModalScroll} contentContainerStyle={appStyles.dayModalContent} showsVerticalScrollIndicator={false}>
                   {selectedDay.items.length > 0 ? (

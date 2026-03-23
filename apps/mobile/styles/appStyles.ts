@@ -823,6 +823,37 @@ export const appStyles = StyleSheet.create({
   calendarCard: {
     gap: 14,
   },
+  monthLevelCard: {
+    gap: 10,
+    paddingTop: 16,
+    paddingBottom: 16,
+  },
+  monthLevelTopRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  monthLevelTextBlock: {
+    flex: 1,
+    gap: 6,
+  },
+  monthLevelTitle: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: colors.black,
+    textTransform: "lowercase",
+    letterSpacing: -0.6,
+  },
+  monthLevelBody: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  monthLevelModalText: {
+    marginTop: 4,
+    fontSize: 15,
+    lineHeight: 22,
+  },
   calendarTopRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -927,7 +958,8 @@ export const appStyles = StyleSheet.create({
   weekStrip: {
     flexDirection: "row",
     gap: 8,
-    flexWrap: "wrap",
+    alignItems: "center",
+    paddingBottom: 2,
   },
   weekDayChip: {
     minWidth: 58,
