@@ -39,6 +39,7 @@ const navItems: NavItem[] = [
 export default function App() {
   const app = useEveryYouApp();
   const theme = getTheme(app.themeMode);
+  const isLibraryTab = app.tab === "library";
   const [screenshotPromptVisible, setScreenshotPromptVisible] = useState(false);
   const [latestScreenshotUri, setLatestScreenshotUri] = useState<string | null>(null);
   const [screenshotActionLoading, setScreenshotActionLoading] = useState(false);
@@ -161,28 +162,36 @@ export default function App() {
   }
 
   const headerBlock = (
-    <View style={appStyles.appHeader}>
-      <View style={appStyles.headerIdentityRow}>
+    <View style={[appStyles.appHeader, !isLibraryTab && appStyles.appHeaderCompact]}>
+      <View style={[appStyles.headerIdentityRow, !isLibraryTab && appStyles.headerIdentityRowCompact]}>
         {app.avatarUri ? (
-          <Image source={{ uri: app.avatarUri }} style={appStyles.headerAvatarImage} />
+          <Image
+            source={{ uri: app.avatarUri }}
+            style={[appStyles.headerAvatarImage, !isLibraryTab && appStyles.headerAvatarImageCompact]}
+          />
         ) : (
           <View
             style={[
               appStyles.headerAvatarBubble,
+              !isLibraryTab && appStyles.headerAvatarBubbleCompact,
               { backgroundColor: app.themeMode === "dark" ? theme.surfaceMuted : "#F4F4F4", borderColor: theme.border },
             ]}
           >
-            <Text style={appStyles.headerAvatarEmoji}>{app.headerAvatarEmoji}</Text>
+            <Text style={[appStyles.headerAvatarEmoji, !isLibraryTab && appStyles.headerAvatarEmojiCompact]}>
+              {app.headerAvatarEmoji}
+            </Text>
           </View>
         )}
         <View style={appStyles.headerIdentityText}>
-          <Text style={[appStyles.brand, { color: theme.text }]}>everyyou</Text>
+          <Text style={[appStyles.brand, !isLibraryTab && appStyles.brandCompact, { color: theme.text }]}>everyyou</Text>
           {app.hasCustomName ? (
-            <Text style={[appStyles.subtitle, { color: theme.text }]}>привет, {app.displayName.toLowerCase()}</Text>
+            <Text style={[appStyles.subtitle, !isLibraryTab && appStyles.subtitleCompact, { color: theme.text }]}>
+              привет, {app.displayName.toLowerCase()}
+            </Text>
           ) : null}
         </View>
       </View>
-      <Text style={[appStyles.syncText, { color: theme.mutedText }]}>
+      <Text style={[appStyles.syncText, !isLibraryTab && appStyles.syncTextCompact, { color: theme.mutedText }]}>
         синхронизация: {app.syncStatus === "online" ? "онлайн" : app.syncStatus === "syncing" ? "обновляем" : "офлайн"} ·{" "}
         {app.syncMessage}
       </Text>
@@ -433,7 +442,7 @@ export default function App() {
             </View>
           ) : null}
 
-          {app.tab === "library" ? (
+          {isLibraryTab ? (
             <View style={[appStyles.libraryShell, { backgroundColor: theme.background }]}>
               <View style={appStyles.libraryHeader}>{headerBlock}</View>
               <LibraryScreen
@@ -472,7 +481,11 @@ export default function App() {
           ) : (
             <ScrollView
               style={[appStyles.scroll, { backgroundColor: theme.background }]}
-              contentContainerStyle={[appStyles.container, { backgroundColor: theme.background }]}
+              contentContainerStyle={[
+                appStyles.container,
+                appStyles.containerCompact,
+                { backgroundColor: theme.background },
+              ]}
             >
               {headerBlock}
 

@@ -3,7 +3,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { Linking } from "react-native";
 import QRCode from "qrcode";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   clampText,
   getDisplayName,
@@ -246,6 +246,7 @@ export function useEveryYouApp() {
   const [screenshotDateInsight, setScreenshotDateInsight] = useState<DateInsight | null>(null);
   const [spotifyDateInsight, setSpotifyDateInsight] = useState<DateInsight | null>(null);
   const [fileImportDateInsight, setFileImportDateInsight] = useState<DateInsight | null>(null);
+  const deferredLibrary = useDeferredValue(library);
 
   async function refreshLinkedLibrary(token: string, attempts = 4) {
     let lastRemoteLibrary: LibraryItem[] = [];
@@ -654,7 +655,7 @@ export function useEveryYouApp() {
     return library.find((item) => item.id === selectedId) ?? null;
   }, [library, selectedId]);
   const visibleLibrary = useMemo(() => {
-    return library.filter((item) => {
+    return deferredLibrary.filter((item) => {
       const typeMatch = typeFilter === "all" || item.type === typeFilter;
       const sourceMatch = sourceFilter === "all" || item.source === sourceFilter;
       const timeMatch =
@@ -665,7 +666,7 @@ export function useEveryYouApp() {
             : item.timeOrigin === timeQualityFilter;
       return typeMatch && sourceMatch && timeMatch;
     });
-  }, [library, sourceFilter, timeQualityFilter, typeFilter]);
+  }, [deferredLibrary, sourceFilter, timeQualityFilter, typeFilter]);
   const counters = useMemo(() => {
     const byType: Record<ContentType, number> = { music: 0, book: 0, film: 0 };
     library.forEach((item) => {

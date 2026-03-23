@@ -35,6 +35,11 @@ export const appStyles = StyleSheet.create({
     paddingBottom: 140,
     gap: 20,
   },
+  containerCompact: {
+    paddingTop: 10,
+    paddingBottom: 116,
+    gap: 14,
+  },
   libraryHeader: {
     paddingHorizontal: 20,
     paddingTop: 16,
@@ -42,6 +47,9 @@ export const appStyles = StyleSheet.create({
   },
   appHeader: {
     gap: 14,
+  },
+  appHeaderCompact: {
+    gap: 10,
   },
   brand: {
     fontSize: 34,
@@ -59,6 +67,9 @@ export const appStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
+  },
+  headerIdentityRowCompact: {
+    gap: 12,
   },
   headerIdentityText: {
     flex: 1,
@@ -82,14 +93,38 @@ export const appStyles = StyleSheet.create({
   headerAvatarEmoji: {
     fontSize: 30,
   },
+  headerAvatarBubbleCompact: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  headerAvatarImageCompact: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  headerAvatarEmojiCompact: {
+    fontSize: 24,
+  },
+  brandCompact: {
+    fontSize: 28,
+    letterSpacing: -0.9,
+  },
+  subtitleCompact: {
+    fontSize: 16,
+  },
   syncText: {
     fontSize: 13,
     color: colors.subtext,
     textTransform: "lowercase",
     lineHeight: 18,
   },
+  syncTextCompact: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
   screen: {
-    gap: 16,
+    gap: 14,
   },
   libraryScreen: {
     flex: 1,
@@ -317,7 +352,7 @@ export const appStyles = StyleSheet.create({
   profileStatsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 8,
   },
   profileStatTile: {
     width: "47%",
@@ -325,8 +360,8 @@ export const appStyles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     borderColor: colors.line,
-    paddingHorizontal: 14,
-    paddingVertical: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
     gap: 4,
   },
   profileStatValue: {
@@ -350,15 +385,15 @@ export const appStyles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     borderColor: colors.line,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 17,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    fontSize: 16,
     color: colors.black,
   },
   pillButton: {
     borderRadius: 999,
-    paddingHorizontal: 18,
-    paddingVertical: 15,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -409,8 +444,8 @@ export const appStyles = StyleSheet.create({
   tile: {
     backgroundColor: colors.white,
     borderRadius: 28,
-    padding: 16,
-    gap: 10,
+    padding: 14,
+    gap: 8,
     borderWidth: 1,
     borderColor: colors.line,
   },
@@ -729,21 +764,21 @@ export const appStyles = StyleSheet.create({
   },
   libraryTile: {
     flex: 1,
-    minHeight: 154,
+    minHeight: 146,
     justifyContent: "space-between",
-    paddingTop: 14,
-    paddingBottom: 14,
+    paddingTop: 13,
+    paddingBottom: 13,
   },
   homeFeatureTile: {
     width: "48%",
-    minHeight: 228,
+    minHeight: 204,
     justifyContent: "space-between",
-    paddingTop: 14,
-    paddingBottom: 16,
-    gap: 10,
+    paddingTop: 12,
+    paddingBottom: 14,
+    gap: 8,
   },
   homeTileTextBlock: {
-    gap: 10,
+    gap: 8,
   },
   homeTileEyebrow: {
     fontSize: 12,
@@ -752,16 +787,16 @@ export const appStyles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   homeTileTitle: {
-    fontSize: 22,
-    lineHeight: 25,
+    fontSize: 20,
+    lineHeight: 23,
     fontWeight: "900",
     color: colors.black,
     textTransform: "lowercase",
     letterSpacing: -0.7,
   },
   homeTileBody: {
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 13,
+    lineHeight: 19,
     textTransform: "lowercase",
     maxWidth: "94%",
   },
@@ -846,8 +881,8 @@ export const appStyles = StyleSheet.create({
     letterSpacing: -0.6,
   },
   monthLevelBody: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
   },
   monthLevelModalText: {
     marginTop: 4,
@@ -903,13 +938,13 @@ export const appStyles = StyleSheet.create({
   },
   calendarDay: {
     width: "13.3%",
-    minHeight: 84,
+    minHeight: 78,
     borderRadius: 18,
     backgroundColor: "#FAFAFA",
     borderWidth: 1,
     borderColor: colors.line,
     padding: 8,
-    gap: 6,
+    gap: 5,
   },
   calendarDayMuted: {
     opacity: 0.34,
@@ -937,18 +972,18 @@ export const appStyles = StyleSheet.create({
     fontWeight: "800",
     color: colors.subtext,
   },
-  calendarItemChip: {
-    borderRadius: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    minHeight: 24,
-    justifyContent: "center",
+  calendarDotRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 2,
   },
-  calendarItemChipText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: colors.black,
-    textTransform: "lowercase",
+  calendarDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#FFFFFF",
   },
   calendarMore: {
     fontSize: 10,
@@ -1009,8 +1044,8 @@ export const appStyles = StyleSheet.create({
     borderRadius: 32,
     borderWidth: 1,
     borderColor: colors.line,
-    padding: 18,
-    gap: 12,
+    padding: 16,
+    gap: 10,
   },
   guideModalSheet: {
     width: "100%",
@@ -1027,15 +1062,15 @@ export const appStyles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
   dayModalHeading: {
     flex: 1,
     gap: 2,
   },
   dayModalClose: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
     borderRadius: 999,
     backgroundColor: colors.white,
     borderWidth: 1,
@@ -1052,9 +1087,14 @@ export const appStyles = StyleSheet.create({
     minHeight: 1,
   },
   dayModalContent: {
-    gap: 12,
-    paddingBottom: 20,
+    gap: 10,
+    paddingBottom: 18,
     flexGrow: 1,
+  },
+  dayModalTitle: {
+    fontSize: 24,
+    lineHeight: 29,
+    letterSpacing: -0.8,
   },
   tileTopRow: {
     flexDirection: "row",
@@ -1135,8 +1175,8 @@ export const appStyles = StyleSheet.create({
   },
   sectionHero: {
     borderRadius: 32,
-    padding: 20,
-    gap: 12,
+    padding: 18,
+    gap: 10,
     backgroundColor: "#FFDDF4",
     borderWidth: 1,
     borderColor: colors.pink,

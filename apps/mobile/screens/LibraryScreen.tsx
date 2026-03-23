@@ -118,16 +118,17 @@ const CalendarDayCell = memo(function CalendarDayCell({
         </Text>
         {day.items.length > 0 ? <Text style={[appStyles.calendarDayCount, { color: theme.mutedText }]}>{day.items.length}</Text> : null}
       </View>
-
-      {day.items.slice(0, 2).map((item) => (
-        <View key={item.id} style={[appStyles.calendarItemChip, typeTileStyle(item.type)]}>
-          <Text style={appStyles.calendarItemChipText} numberOfLines={1}>
-            {item.title}
-          </Text>
+      {day.items.length > 0 ? (
+        <View style={appStyles.calendarDotRow}>
+          {Array.from(new Set(day.items.map((item) => item.type)))
+            .slice(0, 3)
+            .map((type) => (
+              <View key={type} style={[appStyles.calendarDot, typeTileStyle(type as LibraryItem["type"])]} />
+            ))}
         </View>
-      ))}
+      ) : null}
 
-      {day.items.length > 2 ? <Text style={[appStyles.calendarMore, { color: theme.mutedText }]}>+ еще {day.items.length - 2}</Text> : null}
+      {day.items.length > 1 ? <Text style={[appStyles.calendarMore, { color: theme.mutedText }]}>+ еще {day.items.length - 1}</Text> : null}
     </Pressable>
   );
 });
@@ -620,7 +621,7 @@ export function LibraryScreen({
               <>
                 <View style={appStyles.dayModalTopRow}>
                   <View style={appStyles.dayModalHeading}>
-                    <Text style={appStyles.sectionTitle}>
+                    <Text style={[appStyles.sectionTitle, appStyles.dayModalTitle, { color: theme.text }]}>
                       {selectedDay.date
                         .toLocaleString("ru-RU", {
                           day: "numeric",
@@ -673,7 +674,7 @@ export function LibraryScreen({
           <View style={[appStyles.dayModalSheet, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <View style={appStyles.dayModalTopRow}>
               <View style={appStyles.dayModalHeading}>
-                <Text style={appStyles.sectionTitle}>а еще в этом месяце было</Text>
+                <Text style={[appStyles.sectionTitle, appStyles.dayModalTitle, { color: theme.text }]}>а еще в этом месяце было</Text>
                 <Text style={[appStyles.helper, appStyles.monthLevelModalText, { color: theme.text }]}>
                   это вещи без точного дня. мы только знаем, что они попали примерно в этот месяц.
                 </Text>
