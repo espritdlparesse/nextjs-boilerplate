@@ -273,6 +273,7 @@ export function useEveryYouApp() {
 
         let session = await ensureGuestSession(storedGuestName);
         let remoteLibrary: LibraryItem[];
+        let linkStatus: TelegramLinkState | null = null;
         try {
           remoteLibrary = await fetchItems(session.token);
         } catch (error) {
@@ -285,6 +286,11 @@ export function useEveryYouApp() {
           session = await ensureGuestSession(storedGuestName);
           remoteLibrary = await fetchItems(session.token);
         }
+        try {
+          linkStatus = await fetchTelegramLinkStatus(session.token);
+        } catch {
+          linkStatus = null;
+        }
         if (remoteLibrary.length === 0 && storedLibrary.length > 0) {
           nextLibrary = storedLibrary;
           nextSyncStatus = "online";
@@ -294,6 +300,14 @@ export function useEveryYouApp() {
         }
         nextToken = session.token;
         nextUser = splitDisplayName(session.name ?? storedGuestName);
+        if (linkStatus) {
+          setTelegramLink(linkStatus);
+          telegramLinkWasLinkedRef.current = linkStatus.linked;
+        }
+        if (remoteLibrary.length === 0 && storedLibrary.length === 0 && linkStatus && !linkStatus.linked) {
+          nextSyncStatus = "online";
+          nextSyncMessage = "похоже, нужно заново связать телеграм и айфон";
+        }
         if (nextSyncStatus !== "online") {
           nextSyncStatus = "online";
           nextSyncMessage = "данные синхронизируются с сервером";
@@ -552,8 +566,9 @@ export function useEveryYouApp() {
 
   useEffect(() => {
     if (!loaded) return;
+    if (syncStatus === "online" && library.length === 0) return;
     AsyncStorage.setItem(STORAGE_KEY_LIBRARY, JSON.stringify(library)).catch(() => undefined);
-  }, [library, loaded]);
+  }, [library, loaded, syncStatus]);
 
   useEffect(() => {
     if (!loaded) return;
