@@ -367,7 +367,13 @@ export function useEveryYouApp() {
           setTelegramLink(linkStatus);
           telegramLinkWasLinkedRef.current = linkStatus.linked;
         }
-        if (remoteLibrary.length === 0 && storedLibrary.length === 0 && linkStatus && !linkStatus.linked) {
+        if (
+          remoteLibrary.length === 0 &&
+          storedLibrary.length === 0 &&
+          linkStatus &&
+          !linkStatus.linked &&
+          telegramLinkWasLinkedRef.current
+        ) {
           nextSyncStatus = "online";
           nextSyncMessage = "похоже, нужно заново связать телеграм и айфон";
         }

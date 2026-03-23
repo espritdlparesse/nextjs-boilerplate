@@ -227,7 +227,7 @@ export function LibraryScreen({
   onDeleteItem,
 }: LibraryScreenProps) {
   const theme = getTheme(themeMode);
-  const [viewMode, setViewMode] = useState<LibraryViewMode>("tiles");
+  const [viewMode, setViewMode] = useState<LibraryViewMode>("calendar");
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
   const [dayModalVisible, setDayModalVisible] = useState(false);
@@ -327,7 +327,9 @@ export function LibraryScreen({
 
   function openDay(dateKey: string) {
     setSelectedDayKey(dateKey);
-    setDayModalVisible(true);
+    requestAnimationFrame(() => {
+      setDayModalVisible(true);
+    });
   }
 
   function renderTopCards() {
@@ -567,7 +569,7 @@ export function LibraryScreen({
           >
             <View style={appStyles.monthLevelTopRow}>
               <View style={appStyles.monthLevelTextBlock}>
-                <Text style={appStyles.monthLevelTitle}>еще в этом месяце</Text>
+                <Text style={appStyles.monthLevelTitle}>а еще в этом месяце было</Text>
                 <Text style={[appStyles.helper, appStyles.monthLevelBody, { color: theme.text }]}>
                   {monthLevelItems.length} {monthLevelItems.length === 1 ? "айтем" : monthLevelItems.length < 5 ? "айтема" : "айтемов"} без
                   точного дня.
@@ -577,7 +579,7 @@ export function LibraryScreen({
                 <Text style={[appStyles.statusChipText, { color: themeMode === "dark" ? theme.text : undefined }]}>{monthLevelItems.length}</Text>
               </View>
             </View>
-            <Text style={[appStyles.metaText, { color: themeMode === "dark" ? theme.mutedText : undefined }]}>открой список</Text>
+            <Text style={[appStyles.metaText, { color: themeMode === "dark" ? theme.mutedText : undefined }]}>нажми, чтобы открыть список</Text>
           </Pressable>
         ) : null}
 
@@ -667,7 +669,7 @@ export function LibraryScreen({
           <View style={[appStyles.dayModalSheet, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <View style={appStyles.dayModalTopRow}>
               <View style={appStyles.dayModalHeading}>
-                <Text style={appStyles.sectionTitle}>еще в этом месяце</Text>
+                <Text style={appStyles.sectionTitle}>а еще в этом месяце было</Text>
                 <Text style={[appStyles.helper, appStyles.monthLevelModalText, { color: theme.text }]}>
                   это вещи без точного дня. мы только знаем, что они попали примерно в этот месяц.
                 </Text>
