@@ -285,11 +285,19 @@ export function useEveryYouApp() {
           session = await ensureGuestSession(storedGuestName);
           remoteLibrary = await fetchItems(session.token);
         }
-        nextLibrary = remoteLibrary;
+        if (remoteLibrary.length === 0 && storedLibrary.length > 0) {
+          nextLibrary = storedLibrary;
+          nextSyncStatus = "online";
+          nextSyncMessage = "пока показываем сохраненную библиотеку";
+        } else {
+          nextLibrary = remoteLibrary;
+        }
         nextToken = session.token;
         nextUser = splitDisplayName(session.name ?? storedGuestName);
-        nextSyncStatus = "online";
-        nextSyncMessage = "данные синхронизируются с сервером";
+        if (nextSyncStatus !== "online") {
+          nextSyncStatus = "online";
+          nextSyncMessage = "данные синхронизируются с сервером";
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "backend недоступен";
         nextSyncStatus = "offline";
@@ -394,9 +402,11 @@ export function useEveryYouApp() {
 
           const remoteLibrary = await fetchItems(apiToken);
           if (!cancelled) {
-            setLibrary(remoteLibrary);
+            setLibrary((current) => (remoteLibrary.length === 0 && current.length > 0 ? current : remoteLibrary));
             setSyncStatus("online");
-            setSyncMessage("данные синхронизируются с сервером");
+            setSyncMessage(
+              remoteLibrary.length === 0 ? "пока показываем сохраненную библиотеку" : "данные синхронизируются с сервером"
+            );
           }
 
           try {

@@ -84,7 +84,7 @@ export const mobileThemes = {
     accentYellow: "#E4C870",
     accentGreen: "#8DCE92",
     accentText: "#111111",
-    accentMutedText: "#4F4B50",
+    accentMutedText: "#2F3944",
     brandButtonBg: "#FFFFFF",
     brandButtonBorder: "#E6E6E6",
     brandHintText: "#555555",

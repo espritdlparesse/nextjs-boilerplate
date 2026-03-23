@@ -231,6 +231,7 @@ export function LibraryScreen({
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
   const [dayModalVisible, setDayModalVisible] = useState(false);
+  const [monthItemsModalVisible, setMonthItemsModalVisible] = useState(false);
   const [typeFiltersExpanded, setTypeFiltersExpanded] = useState(false);
   const [dateFiltersExpanded, setDateFiltersExpanded] = useState(false);
 
@@ -298,6 +299,25 @@ export function LibraryScreen({
       };
     });
   }, [itemsByDay, selectedDay]);
+
+  const monthLevelItems = useMemo(() => {
+    return visibleLibrary
+      .filter((item) => {
+        const consumedAt = getConsumptionDate(item);
+        if (!consumedAt) return false;
+        const consumedDate = new Date(consumedAt);
+        return (
+          item.timeOrigin === "estimated" &&
+          consumedDate.getFullYear() === calendarMonth.getFullYear() &&
+          consumedDate.getMonth() === calendarMonth.getMonth()
+        );
+      })
+      .sort((left, right) => {
+        const leftTime = getConsumptionDate(left) ?? 0;
+        const rightTime = getConsumptionDate(right) ?? 0;
+        return rightTime - leftTime;
+      });
+  }, [calendarMonth, visibleLibrary]);
 
   useEffect(() => {
     if (selectedDay) {
@@ -535,6 +555,39 @@ export function LibraryScreen({
           </View>
         </View>
 
+        {monthLevelItems.length > 0 ? (
+          <Pressable
+            style={[
+              appStyles.card,
+              appStyles.monthLevelCard,
+              appStyles.cardAccentYellow,
+              themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+            onPress={() => setMonthItemsModalVisible(true)}
+          >
+            <View style={appStyles.monthLevelTopRow}>
+              <View style={appStyles.monthLevelTextBlock}>
+                <Text style={appStyles.monthLevelTitle}>
+                  а еще в{" "}
+                  {calendarMonth
+                    .toLocaleString("ru-RU", { month: "long" })
+                    .toLowerCase()}
+                </Text>
+                <Text style={[appStyles.helper, appStyles.monthLevelBody, { color: theme.text }]}>
+                  {monthLevelItems.length} {monthLevelItems.length === 1 ? "вещь" : monthLevelItems.length < 5 ? "вещи" : "вещей"} мы
+                  разложили по месяцу без точного дня.
+                </Text>
+              </View>
+              <View style={[appStyles.statusChip, themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+                <Text style={[appStyles.statusChipText, { color: themeMode === "dark" ? theme.text : undefined }]}>{monthLevelItems.length}</Text>
+              </View>
+            </View>
+            <Text style={[appStyles.metaText, { color: themeMode === "dark" ? theme.mutedText : undefined }]}>
+              открой, чтобы посмотреть, что попало в этот месяц примерно.
+            </Text>
+          </Pressable>
+        ) : null}
+
       </ScrollView>
     );
   }
@@ -551,7 +604,7 @@ export function LibraryScreen({
           numColumns={2}
           ListHeaderComponent={renderTopCards}
           ListEmptyComponent={
-            <View style={appStyles.card}>
+            <View style={[appStyles.card, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <Text style={[appStyles.helper, { color: theme.text }]}>пока пусто. попробуй импорт из spotify, импорт изображений или загрузку файла.</Text>
             </View>
           }
@@ -605,13 +658,43 @@ export function LibraryScreen({
                       <DayDetailCard key={item.id} item={item} themeMode={themeMode} onPress={() => onSelectItem(item.id)} />
                     ))
                   ) : (
-                    <View style={appStyles.card}>
+                    <View style={[appStyles.card, themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
                       <Text style={[appStyles.helper, { color: theme.text }]}>в этот день пока пусто.</Text>
                     </View>
                   )}
                 </ScrollView>
               </>
             ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={monthItemsModalVisible} transparent animationType="fade" onRequestClose={() => setMonthItemsModalVisible(false)}>
+        <View style={[appStyles.dayModalBackdrop, { backgroundColor: theme.overlay }]}>
+          <View style={[appStyles.dayModalSheet, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View style={appStyles.dayModalTopRow}>
+              <View style={appStyles.dayModalHeading}>
+                <Text style={appStyles.sectionTitle}>
+                  а еще в{" "}
+                  {calendarMonth
+                    .toLocaleString("ru-RU", { month: "long", year: "numeric" })
+                    .replace(/\sг\.$/, "")
+                    .toLowerCase()}
+                </Text>
+                <Text style={[appStyles.helper, appStyles.monthLevelModalText, { color: theme.text }]}>
+                  это вещи без точного дня. мы только знаем, что они попали примерно в этот месяц.
+                </Text>
+              </View>
+              <Pressable style={[appStyles.dayModalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} onPress={() => setMonthItemsModalVisible(false)}>
+                <Text style={[appStyles.dayModalCloseText, { color: theme.text }]}>закрыть</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView style={appStyles.dayModalScroll} contentContainerStyle={appStyles.dayModalContent} showsVerticalScrollIndicator={false}>
+              {monthLevelItems.map((item) => (
+                <DayDetailCard key={item.id} item={item} themeMode={themeMode} onPress={() => onSelectItem(item.id)} />
+              ))}
+            </ScrollView>
           </View>
         </View>
       </Modal>
