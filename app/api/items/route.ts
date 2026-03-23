@@ -34,6 +34,7 @@ async function selectItemsForOwner(
 ) {
   const pageSize = 1000;
   const rows: any[] = [];
+  const seenIds = new Set<string>();
   let from = 0;
 
   while (true) {
@@ -48,7 +49,12 @@ async function selectItemsForOwner(
       return { data: null, error };
     }
 
-    rows.push(...(data ?? []));
+    for (const row of data ?? []) {
+      const id = typeof row?.id === "string" ? row.id : null;
+      if (id && seenIds.has(id)) continue;
+      if (id) seenIds.add(id);
+      rows.push(row);
+    }
     if (!data || data.length < pageSize) break;
     from += pageSize;
   }

@@ -124,6 +124,7 @@ async function selectItemsForOwner(
 ) {
   const pageSize = 1000;
   const rows: any[] = [];
+  const seenIds = new Set<string>();
   let from = 0;
   let orderBy: "consumed_at" | "created_at" = "consumed_at";
 
@@ -151,7 +152,12 @@ async function selectItemsForOwner(
       return response;
     }
 
-    rows.push(...(response.data ?? []));
+    for (const row of response.data ?? []) {
+      const id = typeof row?.id === "string" ? row.id : null;
+      if (id && seenIds.has(id)) continue;
+      if (id) seenIds.add(id);
+      rows.push(row);
+    }
     if (!response.data || response.data.length < pageSize) break;
     from += pageSize;
   }

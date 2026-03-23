@@ -303,7 +303,14 @@ export async function fetchItems(token: string) {
     headers: authHeaders(token),
   });
 
-  return data.items.map(mapServerItem);
+  const seenIds = new Set<string>();
+  return data.items
+    .filter((item) => {
+      if (seenIds.has(item.id)) return false;
+      seenIds.add(item.id);
+      return true;
+    })
+    .map(mapServerItem);
 }
 
 export async function createItem(
