@@ -1,3 +1,5 @@
+import { clampTimelineTimestampMs } from "@/lib/timeline";
+
 type LastfmRecentTrack = {
   name?: string;
   artist?: { "#text"?: string };
@@ -61,7 +63,7 @@ export async function importLastfmProfile(username: string, limit = 200) {
       const title = normalizeText(track.name).toLowerCase();
       const authorOrArtist = normalizeText(track.artist?.["#text"]).toLowerCase();
       const uts = normalizeText(track.date?.uts);
-      const consumedAt = /^\d+$/.test(uts) ? Number(uts) * 1000 : undefined;
+      const consumedAt = clampTimelineTimestampMs(/^\d+$/.test(uts) ? Number(uts) * 1000 : undefined);
       if (!title || !authorOrArtist) return null;
       const key = `${title}::${authorOrArtist}::${consumedAt ?? "undated"}`;
       if (seen.has(key)) return null;

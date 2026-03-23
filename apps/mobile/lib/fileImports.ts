@@ -1,4 +1,4 @@
-import { clampText, type ContentType, type LibraryItem } from "../shared/everyyou/domain";
+import { clampText, sanitizeTimelineTimestamp, type ContentType, type LibraryItem } from "../shared/everyyou/domain";
 
 type ImportPlatform = "livelib" | "goodreads" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi";
 
@@ -55,15 +55,23 @@ function normalizeDateInput(raw: string) {
   const value = clampText(raw);
   if (!value) return undefined;
 
+  if (/^\d+$/.test(value)) {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) {
+      const normalized = value.length >= 13 ? numeric : numeric * 1000;
+      return sanitizeTimelineTimestamp(normalized);
+    }
+  }
+
   const direct = Date.parse(value);
-  if (Number.isFinite(direct)) return direct;
+  if (Number.isFinite(direct)) return sanitizeTimelineTimestamp(direct);
 
   const dotted = value.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
   if (dotted) {
     const [, dd, mm, yyyy] = dotted;
     const year = yyyy.length === 2 ? `20${yyyy}` : yyyy;
     const parsed = Date.parse(`${year}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}T12:00:00`);
-    if (Number.isFinite(parsed)) return parsed;
+    if (Number.isFinite(parsed)) return sanitizeTimelineTimestamp(parsed);
   }
 
   return undefined;

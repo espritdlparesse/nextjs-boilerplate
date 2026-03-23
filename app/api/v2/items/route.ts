@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { resolveApiIdentity } from "@/lib/auth";
 import { buildOwnerReadFilter, getOwnerScope, type EffectiveOwner, type OwnerScope } from "@/lib/ownerLinks";
+import { safeTimelineIsoFromMs } from "@/lib/timeline";
 
 export const runtime = "nodejs";
 
@@ -70,10 +71,7 @@ async function updateLegacyTelegramItem(
       creator: body.creator ?? null,
       owner_key: auth.ownerKey,
       owner_kind: auth.ownerKind,
-      consumed_at:
-        typeof body.consumedAt === "number" && Number.isFinite(body.consumedAt)
-          ? new Date(body.consumedAt).toISOString()
-          : null,
+      consumed_at: safeTimelineIsoFromMs(body.consumedAt),
       time_origin: body.timeOrigin ?? null,
     })
     .eq("id", body.id)
@@ -218,10 +216,7 @@ export async function POST(req: NextRequest) {
     source: normalizeLegacySource(source),
     title,
     creator: creator ?? null,
-    consumed_at:
-      typeof body.consumedAt === "number" && Number.isFinite(body.consumedAt)
-        ? new Date(body.consumedAt).toISOString()
-        : null,
+    consumed_at: safeTimelineIsoFromMs(body.consumedAt),
     time_origin: body.timeOrigin ?? null,
   };
 
@@ -273,10 +268,7 @@ export async function PATCH(req: NextRequest) {
       source: normalizeLegacySource(body.source),
       title: body.title,
       creator: body.creator ?? null,
-      consumed_at:
-        typeof body.consumedAt === "number" && Number.isFinite(body.consumedAt)
-          ? new Date(body.consumedAt).toISOString()
-          : null,
+      consumed_at: safeTimelineIsoFromMs(body.consumedAt),
       time_origin: body.timeOrigin ?? null,
     })
     .eq("id", body.id)

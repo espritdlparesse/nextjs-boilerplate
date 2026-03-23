@@ -3,6 +3,7 @@ import { resolveApiIdentity } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getSpotifyAccessTokenForOwner } from "@/lib/spotifyConnection";
 import { getEffectiveOwner } from "@/lib/ownerLinks";
+import { safeTimelineIsoFromMs } from "@/lib/timeline";
 
 export const runtime = "nodejs";
 
@@ -47,10 +48,7 @@ function trackToItem(
     source: "import_spotify" as const,
     title,
     authorOrArtist,
-    consumedAt:
-      consumedAt && Number.isFinite(Date.parse(consumedAt))
-        ? new Date(consumedAt).toISOString()
-        : null,
+    consumedAt: consumedAt && Number.isFinite(Date.parse(consumedAt)) ? safeTimelineIsoFromMs(Date.parse(consumedAt)) : null,
     timeOrigin,
   };
 }

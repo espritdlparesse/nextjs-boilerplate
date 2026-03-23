@@ -1,3 +1,5 @@
+import { clampTimelineTimestampMs } from "@/lib/timeline";
+
 function normalizeText(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
@@ -67,9 +69,9 @@ export async function importLetterboxdProfile(profile: string, limit = 100) {
         .replace(/^\d+★+\s*/i, "")
         .replace(/\s*-\s*Letterboxd$/i, "")
         .trim();
-      const consumedAt = pubDateMatch?.[1] ? Date.parse(pubDateMatch[1]) : NaN;
+      const consumedAt = pubDateMatch?.[1] ? clampTimelineTimestampMs(Date.parse(pubDateMatch[1])) : undefined;
       const title = cleanedTitle.toLowerCase();
-      const key = `${title}::${Number.isFinite(consumedAt) ? consumedAt : "undated"}`;
+      const key = `${title}::${typeof consumedAt === "number" ? consumedAt : "undated"}`;
       if (!title || seen.has(key)) return null;
       seen.add(key);
 
@@ -78,8 +80,8 @@ export async function importLetterboxdProfile(profile: string, limit = 100) {
         source: "import_letterboxd" as const,
         title,
         authorOrArtist: "",
-        consumedAt: Number.isFinite(consumedAt) ? consumedAt : undefined,
-        timeOrigin: Number.isFinite(consumedAt) ? ("imported" as const) : undefined,
+        consumedAt,
+        timeOrigin: typeof consumedAt === "number" ? ("imported" as const) : undefined,
       };
     })
     .filter(Boolean);
