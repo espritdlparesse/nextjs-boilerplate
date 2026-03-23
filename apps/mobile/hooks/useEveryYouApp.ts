@@ -1395,7 +1395,6 @@ export function useEveryYouApp() {
           ? `готово: нашли ${items.length} трек(ов) в last.fm`
           : "ничего не нашли в этом профиле"
       );
-      setLastfmUsername("");
     } catch (error) {
       const message = error instanceof Error ? error.message : "не удалось импортировать профиль last.fm";
       setFileImportStatus(message);
@@ -1434,7 +1433,6 @@ export function useEveryYouApp() {
           ? `готово: нашли ${items.length} фильм(ов) в letterboxd`
           : "ничего не нашли в этом профиле"
       );
-      setLetterboxdProfile("");
     } catch (error) {
       const message = error instanceof Error ? error.message : "не удалось импортировать profile Letterboxd";
       setFileImportStatus(message);

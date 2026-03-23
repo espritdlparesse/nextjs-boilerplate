@@ -476,6 +476,20 @@ export function AddScreen({
           <BrandImportButton brand="mubi" hint="фильмы csv" themeMode={themeMode} onPress={() => runGuideAction("mubi")} onHelpPress={() => setGuide("mubi")} />
         </View>
 
+        {lastfmUsername.trim() || letterboxdProfile.trim() ? (
+          <View style={appStyles.stack}>
+            <Text style={[appStyles.label, { color: theme.mutedText }]}>обновить профили</Text>
+            <View style={appStyles.row}>
+              {lastfmUsername.trim() ? (
+                <PillButton themeMode={themeMode} label="обновить last.fm" onPress={onLastfmProfileImportPress} />
+              ) : null}
+              {letterboxdProfile.trim() ? (
+                <PillButton themeMode={themeMode} label="обновить letterboxd" onPress={onLetterboxdProfileImportPress} />
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+
         <View style={appStyles.chipRow}>
           {spotifyConnected ? (
             <StatusChip text={`spotify подключен: ${spotifyProfileName ?? "аккаунт найден"}`} />
@@ -657,7 +671,11 @@ export function AddScreen({
                         <Text style={[appStyles.metaText, { color: theme.text }]}>
                           импортируем recent tracks из публичного last.fm профиля
                         </Text>
-                        <PillButton label="импортировать профиль" themeMode={themeMode} onPress={() => confirmProfileImport("lastfm")} />
+                        <PillButton
+                          label={lastfmUsername.trim() ? "обновить last.fm" : "импортировать профиль"}
+                          themeMode={themeMode}
+                          onPress={() => confirmProfileImport("lastfm")}
+                        />
                         <PillButton label="или выбрать csv" themeMode={themeMode} onPress={confirmGuideAction} />
                       </>
                     ) : null}
@@ -675,7 +693,11 @@ export function AddScreen({
                         <Text style={[appStyles.metaText, { color: theme.text }]}>
                           public profile beta: лучше всего работает с открытым профилем
                         </Text>
-                        <PillButton label="импортировать профиль" themeMode={themeMode} onPress={() => confirmProfileImport("letterboxd")} />
+                        <PillButton
+                          label={letterboxdProfile.trim() ? "обновить letterboxd" : "импортировать профиль"}
+                          themeMode={themeMode}
+                          onPress={() => confirmProfileImport("letterboxd")}
+                        />
                         <PillButton label="или выбрать csv" themeMode={themeMode} onPress={confirmGuideAction} />
                       </>
                     ) : null}
