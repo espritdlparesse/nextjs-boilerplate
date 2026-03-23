@@ -960,11 +960,12 @@ export const appStyles = StyleSheet.create({
     gap: 8,
     alignItems: "center",
     paddingBottom: 2,
+    paddingRight: 8,
   },
   weekDayChip: {
-    minWidth: 58,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    minWidth: 54,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
     borderRadius: 18,
     backgroundColor: colors.white,
     borderWidth: 1,
@@ -975,9 +976,10 @@ export const appStyles = StyleSheet.create({
   weekDayChipActive: {
     backgroundColor: colors.black,
     borderColor: colors.black,
+    transform: [{ scale: 1.02 }],
   },
   weekDayName: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "800",
     color: colors.subtext,
     textTransform: "lowercase",
@@ -986,7 +988,7 @@ export const appStyles = StyleSheet.create({
     color: colors.white,
   },
   weekDayNumber: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "900",
     color: colors.black,
   },
@@ -1008,7 +1010,7 @@ export const appStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
     padding: 18,
-    gap: 14,
+    gap: 12,
   },
   guideModalSheet: {
     width: "100%",
@@ -1024,23 +1026,23 @@ export const appStyles = StyleSheet.create({
   dayModalTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: 12,
   },
   dayModalHeading: {
     flex: 1,
-    gap: 4,
+    gap: 2,
   },
   dayModalClose: {
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 999,
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.line,
   },
   dayModalCloseText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "900",
     color: colors.black,
     textTransform: "lowercase",

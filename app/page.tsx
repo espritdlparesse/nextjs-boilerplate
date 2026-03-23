@@ -1824,14 +1824,15 @@ export default function Page() {
         }
 
         .calendar-day {
-          min-height: 86px;
+          min-height: 78px;
           border-radius: 18px;
           border: 1px solid #efe7db;
           background: #faf8f4;
           padding: 8px;
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          justify-content: space-between;
+          gap: 8px;
           cursor: pointer;
           text-align: left;
         }
@@ -1864,16 +1865,35 @@ export default function Page() {
           font-weight: 700;
         }
 
-        .calendar-chip {
+        .calendar-dots {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          align-items: center;
+          min-height: 12px;
+        }
+
+        .calendar-dot {
+          width: 8px;
+          height: 8px;
           border-radius: 999px;
-          padding: 4px 6px;
-          font-size: 10px;
-          font-weight: 700;
-          color: #111111;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          text-transform: lowercase;
+          flex: 0 0 auto;
+        }
+
+        .calendar-dot.music {
+          background: #FF79D5;
+        }
+
+        .calendar-dot.book {
+          background: #38C0FF;
+        }
+
+        .calendar-dot.movie {
+          background: #FFC804;
+        }
+
+        .calendar-dot.custom {
+          background: #B889FF;
         }
 
         .calendar-more {
@@ -1881,6 +1901,7 @@ export default function Page() {
           color: #8d867d;
           font-weight: 700;
           text-transform: lowercase;
+          line-height: 1;
         }
 
         .day-modal-backdrop {
@@ -2428,12 +2449,14 @@ export default function Page() {
                 <div className="card-title" style={{ marginBottom: 0 }}>библиотека</div>
                 <div className="compact-toggle">
                   <button
+                    type="button"
                     className={`filter-btn${libraryView === "tiles" ? " active" : ""}`}
                     onClick={() => setLibraryView("tiles")}
                   >
                     плитки
                   </button>
                   <button
+                    type="button"
                     className={`filter-btn${libraryView === "calendar" ? " active" : ""}`}
                     onClick={() => setLibraryView("calendar")}
                   >
@@ -2450,6 +2473,7 @@ export default function Page() {
                 {([["all", "все"], ["music", "музыка"], ["book", "книги"], ["movie", "фильмы"]] as [string, string][]).map(([val, label]) => (
                   <button
                     key={val}
+                    type="button"
                     className={`filter-btn${libFilter === val ? " active" : ""}`}
                     onClick={() => setLibFilter(val)}
                   >
@@ -2459,6 +2483,7 @@ export default function Page() {
                 {customCategories.map(cat => (
                   <button
                     key={cat.id}
+                    type="button"
                     className={`filter-btn${libFilter === cat.id ? " active" : ""}`}
                     onClick={() => setLibFilter(cat.id)}
                   >
@@ -2500,6 +2525,7 @@ export default function Page() {
                     {calendarDays.map((day) => (
                       <button
                         key={day.key}
+                        type="button"
                         className={`calendar-day${!day.inMonth ? " muted" : ""}${selectedDay?.key === day.key ? " selected" : ""}`}
                         onClick={() => {
                           setSelectedDayKey(day.key);
@@ -2510,12 +2536,12 @@ export default function Page() {
                           <span className="calendar-day-number">{day.date.getDate()}</span>
                           {day.items.length > 0 ? <span className="calendar-day-count">{day.items.length}</span> : null}
                         </div>
-                        {day.items.slice(0, 2).map((item) => (
-                          <div key={String(item.id)} className={`calendar-chip ${item.type}`}>
-                            {item.title}
-                          </div>
-                        ))}
-                        {day.items.length > 2 ? <div className="calendar-more">+ еще {day.items.length - 2}</div> : null}
+                        <div className="calendar-dots">
+                          {day.items.slice(0, 4).map((item) => (
+                            <div key={String(item.id)} className={`calendar-dot ${item.type}`} />
+                          ))}
+                        </div>
+                        {day.items.length > 4 ? <div className="calendar-more">+ еще {day.items.length - 4}</div> : null}
                       </button>
                     ))}
                   </div>
