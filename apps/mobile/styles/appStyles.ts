@@ -453,9 +453,10 @@ export const appStyles = StyleSheet.create({
     minHeight: 164,
   },
   dayDetailTile: {
-    borderRadius: 24,
-    padding: 12,
-    gap: 6,
+    minHeight: 146,
+    borderRadius: 22,
+    padding: 10,
+    gap: 5,
   },
   tilePink: {
     backgroundColor: colors.pink,
@@ -496,16 +497,21 @@ export const appStyles = StyleSheet.create({
     textAlign: "right",
   },
   dayDetailTitle: {
-    fontSize: 18,
-    letterSpacing: -0.4,
-    lineHeight: 21,
+    fontSize: 13,
+    letterSpacing: -0.25,
+    lineHeight: 15,
   },
   dayDetailMeta: {
-    fontSize: 14,
+    fontSize: 12,
+    lineHeight: 14,
   },
   dayDetailDate: {
     fontSize: 10,
-    maxWidth: 92,
+    maxWidth: 56,
+  },
+  dayDetailOrigin: {
+    fontSize: 10,
+    lineHeight: 12,
   },
   bottomBarWrap: {
     position: "absolute",
@@ -1050,19 +1056,23 @@ export const appStyles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 9,
   },
+  dayGridPressable: {
+    flex: 1,
+    position: "relative",
+  },
   daySelectionBadge: {
     position: "absolute",
-    top: 12,
-    right: 12,
+    top: 8,
+    right: 8,
     backgroundColor: colors.black,
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderWidth: 1,
     borderColor: colors.white,
   },
   daySelectionBadgeText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "900",
     color: colors.white,
     textTransform: "lowercase",
@@ -1166,6 +1176,10 @@ export const appStyles = StyleSheet.create({
   dayModalContent: {
     gap: 8,
     paddingBottom: 14,
+  },
+  dayModalGridRow: {
+    gap: 8,
+    marginBottom: 8,
   },
   dayModalTitle: {
     fontSize: 24,

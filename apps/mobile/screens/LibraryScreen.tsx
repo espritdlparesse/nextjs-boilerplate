@@ -182,6 +182,13 @@ const DayDetailCard = memo(function DayDetailCard({
   onPress: () => void;
 }) {
   const theme = getTheme(themeMode);
+  const consumedAt = getConsumptionDate(item);
+  const compactTimeLabel = consumedAt
+    ? new Date(consumedAt).toLocaleTimeString("ru-RU", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "без времени";
   return (
     <Pressable style={[appStyles.tile, appStyles.dayDetailTile, typeTileStyle(item.type)]} onPress={onPress}>
       <View style={appStyles.tileTopRow}>
@@ -189,13 +196,13 @@ const DayDetailCard = memo(function DayDetailCard({
           <Text style={appStyles.typeBadgeText}>{TYPE_LABEL[item.type]}</Text>
         </View>
         <Text style={[appStyles.metaDate, appStyles.dayDetailDate, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>
-          {formatFullDate(getConsumptionDate(item) as number)}
+          {compactTimeLabel}
         </Text>
       </View>
-      <Text style={[appStyles.itemTitle, appStyles.dayDetailTitle]}>{item.title}</Text>
-      <Text style={[appStyles.itemMeta, appStyles.dayDetailMeta]}>{item.authorOrArtist || "без автора"}</Text>
+      <Text numberOfLines={4} style={[appStyles.itemTitle, appStyles.dayDetailTitle]}>{item.title}</Text>
+      <Text numberOfLines={2} style={[appStyles.itemMeta, appStyles.dayDetailMeta]}>{item.authorOrArtist || "без автора"}</Text>
       {getTimeOriginLabel(item.timeOrigin) ? (
-        <Text style={[appStyles.metaText, { color: themeMode === "dark" ? theme.accentMutedText : theme.mutedText }]}>
+        <Text numberOfLines={1} style={[appStyles.metaText, appStyles.dayDetailOrigin, { color: themeMode === "dark" ? theme.accentMutedText : theme.mutedText }]}>
           {getTimeOriginLabel(item.timeOrigin)}
         </Text>
       ) : null}
@@ -754,9 +761,10 @@ export function LibraryScreen({
                 <FlatList
                   key={`${selectedDay.key}-${selectedDayTypeFilter}`}
                   data={selectedDayItems}
+                  numColumns={3}
                   keyExtractor={(item, index) => reactItemKey(item, index)}
                   renderItem={({ item }) => (
-                    <Pressable onPress={() => toggleDaySelection(item.id)}>
+                    <Pressable style={appStyles.dayGridPressable} onPress={() => toggleDaySelection(item.id)}>
                       <DayDetailCard item={item} themeMode={themeMode} onPress={() => toggleDaySelection(item.id)} />
                       {daySelection.includes(item.id) ? (
                         <View style={appStyles.daySelectionBadge}>
@@ -767,6 +775,7 @@ export function LibraryScreen({
                   )}
                   style={appStyles.dayModalScroll}
                   contentContainerStyle={appStyles.dayModalContent}
+                  columnWrapperStyle={appStyles.dayModalGridRow}
                   showsVerticalScrollIndicator={false}
                   automaticallyAdjustContentInsets={false}
                   contentInsetAdjustmentBehavior="never"
