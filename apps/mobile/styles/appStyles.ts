@@ -918,6 +918,11 @@ export const appStyles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
+  calendarTopActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   calendarTitle: {
     flex: 1,
     fontSize: 26,
@@ -935,6 +940,17 @@ export const appStyles = StyleSheet.create({
     borderColor: colors.line,
     alignItems: "center",
     justifyContent: "center",
+  },
+  calendarTodayButton: {
+    width: "auto",
+    minWidth: 84,
+    paddingHorizontal: 14,
+  },
+  calendarTodayText: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: colors.black,
+    textTransform: "lowercase",
   },
   calendarArrowText: {
     fontSize: 28,

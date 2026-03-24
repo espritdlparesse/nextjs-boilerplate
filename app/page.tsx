@@ -1977,6 +1977,12 @@ export default function Page() {
           margin-bottom: 16px;
         }
 
+        .calendar-top-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
         .calendar-title {
           font-size: 22px;
           font-weight: 900;
@@ -1992,6 +1998,15 @@ export default function Page() {
           background: #ffffff;
           font-size: 22px;
           cursor: pointer;
+        }
+
+        .calendar-today {
+          width: auto;
+          min-width: 78px;
+          padding: 0 14px;
+          font-size: 12px;
+          font-weight: 900;
+          text-transform: lowercase;
         }
 
         .calendar-weekdays {
@@ -2132,9 +2147,40 @@ export default function Page() {
         .day-modal-scroll {
           overflow-y: auto;
           padding: 16px 18px 22px;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
+        }
+
+        .day-items-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .day-items-grid .item-card {
+          min-height: 148px;
+          padding: 10px;
+          gap: 5px;
+          border-radius: 22px;
+        }
+
+        .day-items-grid .item-title {
+          font-size: 12px;
+          line-height: 1.25;
+        }
+
+        .day-items-grid .item-creator {
+          font-size: 13px;
+          line-height: 1.05;
+          letter-spacing: -0.03em;
+        }
+
+        .day-items-grid .item-date {
+          font-size: 10px;
+          max-width: 54px;
+        }
+
+        .day-items-grid .tag {
+          font-size: 9px;
+          padding: 5px 8px;
         }
 
         .day-type-filters {
@@ -2759,7 +2805,20 @@ export default function Page() {
                         .replace(/\sг\.$/, "")
                         .replace(/^./, (char) => char.toUpperCase())}
                     </div>
-                    <button className="calendar-arrow" onClick={() => setCalendarMonth((current) => startOfMonth(new Date(current.getFullYear(), current.getMonth() + 1, 1)))}>›</button>
+                    <div className="calendar-top-actions">
+                      <button
+                        type="button"
+                        className="calendar-arrow calendar-today"
+                        onClick={() => {
+                          const today = new Date();
+                          setCalendarMonth(startOfMonth(today));
+                          setSelectedDayKey(dayKey(today));
+                        }}
+                      >
+                        сегодня
+                      </button>
+                      <button className="calendar-arrow" onClick={() => setCalendarMonth((current) => startOfMonth(new Date(current.getFullYear(), current.getMonth() + 1, 1)))}>›</button>
+                    </div>
                   </div>
 
                   <div className="calendar-weekdays">
@@ -2861,26 +2920,28 @@ export default function Page() {
 
                       <div className="day-modal-scroll">
                         {selectedDayVisibleItems.length > 0 ? (
-                          selectedDayVisibleItems.map((it) => (
-                            <button
-                              key={String(it.id)}
-                              type="button"
-                              className={`item-card ${it.type}${selectedDayItems.includes(it.id) ? " selected" : ""}`}
-                              onClick={() => toggleSelectedDayItem(it.id)}
-                            >
-                              <div className="item-topline">
-                                <div className="item-meta">
-                                  <span className="tag">{it.type === "custom" && it.custom_category_name ? `${it.custom_category_emoji ?? "✦"} ${it.custom_category_name}` : TYPE_LABELS[it.type]}</span>
+                          <div className="day-items-grid">
+                            {selectedDayVisibleItems.map((it) => (
+                              <button
+                                key={String(it.id)}
+                                type="button"
+                                className={`item-card ${it.type}${selectedDayItems.includes(it.id) ? " selected" : ""}`}
+                                onClick={() => toggleSelectedDayItem(it.id)}
+                              >
+                                <div className="item-topline">
+                                  <div className="item-meta">
+                                    <span className="tag">{it.type === "custom" && it.custom_category_name ? `${it.custom_category_emoji ?? "✦"} ${it.custom_category_name}` : TYPE_LABELS[it.type]}</span>
+                                  </div>
+                                  <div className="item-date">{formatShortDate(getItemDateValue(it))}</div>
                                 </div>
-                                <div className="item-date">{formatShortDate(getItemDateValue(it))}</div>
-                              </div>
-                              <div className="item-body">
-                                {it.creator && <div className="item-title">{it.creator}</div>}
-                                <div className="item-creator">{it.title}</div>
-                              </div>
-                              {selectedDayItems.includes(it.id) ? <div className="item-selected-badge">выбрано</div> : null}
-                            </button>
-                          ))
+                                <div className="item-body">
+                                  {it.creator && <div className="item-title">{it.creator}</div>}
+                                  <div className="item-creator">{it.title}</div>
+                                </div>
+                                {selectedDayItems.includes(it.id) ? <div className="item-selected-badge">выбрано</div> : null}
+                              </button>
+                            ))}
+                          </div>
                         ) : (
                           <div className="empty">в этот день пока пусто</div>
                         )}

@@ -666,9 +666,21 @@ export function LibraryScreen({
                 .replace(/\sг\.$/, "")
                 .replace(/^./, (char) => char.toUpperCase())}
             </Text>
-            <Pressable style={[appStyles.calendarArrow, themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} onPress={() => setCalendarMonth((current) => startOfMonth(new Date(current.getFullYear(), current.getMonth() + 1, 1)))}>
-              <Text style={[appStyles.calendarArrowText, { color: theme.text }]}>›</Text>
-            </Pressable>
+            <View style={appStyles.calendarTopActions}>
+              <Pressable
+                style={[appStyles.calendarArrow, appStyles.calendarTodayButton, themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+                onPress={() => {
+                  const today = new Date();
+                  setCalendarMonth(startOfMonth(today));
+                  setSelectedDayKey(dayKey(today));
+                }}
+              >
+                <Text style={[appStyles.calendarTodayText, { color: theme.text }]}>сегодня</Text>
+              </Pressable>
+              <Pressable style={[appStyles.calendarArrow, themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} onPress={() => setCalendarMonth((current) => startOfMonth(new Date(current.getFullYear(), current.getMonth() + 1, 1)))}>
+                <Text style={[appStyles.calendarArrowText, { color: theme.text }]}>›</Text>
+              </Pressable>
+            </View>
           </View>
 
           <View style={appStyles.calendarWeekdays}>
