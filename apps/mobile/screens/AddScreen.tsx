@@ -92,6 +92,9 @@ type AddScreenProps = {
   onLetterboxdProfileChange: (value: string) => void;
   onLastfmProfileImportPress: () => void;
   onLetterboxdProfileImportPress: () => void;
+  onDisconnectLastfmPress: (deleteContent?: boolean) => void;
+  onDisconnectLetterboxdPress: (deleteContent?: boolean) => void;
+  onDisconnectSpotifyPress: (deleteContent?: boolean) => void;
   onLivelibImportPress: () => void;
   onGoodreadsImportPress: () => void;
   onLetterboxdImportPress: () => void;
@@ -304,6 +307,9 @@ export function AddScreen({
   onLetterboxdProfileChange,
   onLastfmProfileImportPress,
   onLetterboxdProfileImportPress,
+  onDisconnectLastfmPress,
+  onDisconnectLetterboxdPress,
+  onDisconnectSpotifyPress,
   onLivelibImportPress,
   onLetterboxdImportPress,
   onGoodreadsImportPress,
@@ -528,10 +534,17 @@ export function AddScreen({
             ) : null}
             <View style={appStyles.row}>
               {connectedSources.lastfm || lastfmUsername.trim() ? (
-                <PillButton themeMode={themeMode} label="обновить last.fm" onPress={onLastfmProfileImportPress} />
+                <>
+                  <PillButton themeMode={themeMode} label="обновить last.fm" onPress={onLastfmProfileImportPress} />
+                  <PillButton themeMode={themeMode} label="отвязать last.fm" onPress={() => onDisconnectLastfmPress(false)} />
+                </>
               ) : null}
               {connectedSources.letterboxd || letterboxdProfile.trim() ? (
-                <PillButton themeMode={themeMode} label="обновить letterboxd" onPress={onLetterboxdProfileImportPress} />
+                <>
+                  <PillButton themeMode={themeMode} label="обновить letterboxd" onPress={onLetterboxdProfileImportPress} />
+                  <PillButton themeMode={themeMode} label="отвязать letterboxd" onPress={() => onDisconnectLetterboxdPress(false)} />
+                  <PillButton themeMode={themeMode} label="убрать импорт letterboxd" onPress={() => onDisconnectLetterboxdPress(true)} />
+                </>
               ) : null}
             </View>
           </View>
@@ -643,6 +656,8 @@ export function AddScreen({
           />
           <PillButton themeMode={themeMode} label="любимые треки" onPress={onSpotifyLikedSongsPress} />
           <PillButton themeMode={themeMode} label="недавнее" onPress={onSpotifyRecentlyPlayedPress} />
+          {spotifyConnected ? <PillButton themeMode={themeMode} label="отвязать spotify" onPress={() => onDisconnectSpotifyPress(false)} /> : null}
+          {spotifyConnected ? <PillButton themeMode={themeMode} label="убрать импорт spotify" onPress={() => onDisconnectSpotifyPress(true)} /> : null}
         </View>
 
         <TextInput

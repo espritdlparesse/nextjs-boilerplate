@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveApiIdentity } from "@/lib/auth";
-import { getEffectiveOwner } from "@/lib/ownerLinks";
-import { listConnectedSources, upsertConnectedSource, type ConnectedPlatform } from "@/lib/connectedSources";
+import { buildOwnerReadFilter, getEffectiveOwner, getOwnerScope } from "@/lib/ownerLinks";
+import { deleteConnectedSource, listConnectedSources, upsertConnectedSource, type ConnectedPlatform } from "@/lib/connectedSources";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 
@@ -56,6 +57,57 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "supabase migration missing: connected_sources" }, { status: 500 });
     }
     const message = error instanceof Error ? error.message : "connected source save failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const auth = resolveApiIdentity(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+
+  const url = new URL(req.url);
+  const queryPlatform = url.searchParams.get("platform");
+  const queryDeleteContent = url.searchParams.get("deleteContent");
+  const body = (await req.json().catch(() => null)) as
+    | { platform?: ConnectedPlatform; deleteContent?: boolean }
+    | null;
+  const platform = (body?.platform ?? queryPlatform ?? "").trim() as ConnectedPlatform;
+  const deleteContent = body?.deleteContent === true || queryDeleteContent === "1" || queryDeleteContent === "true";
+
+  if (platform !== "lastfm" && platform !== "letterboxd") {
+    return NextResponse.json({ error: "valid platform is required" }, { status: 400 });
+  }
+
+  try {
+    const owner = await getEffectiveOwner(auth);
+    const scope = await getOwnerScope(auth);
+    await deleteConnectedSource(owner, platform);
+
+    let deletedItems = 0;
+    if (deleteContent) {
+      const sb = supabaseAdmin();
+      const sourceValues = platform === "letterboxd" ? ["letterboxd", "import_letterboxd"] : ["lastfm", "import_lastfm"];
+      const { data, error } = await sb
+        .from("items")
+        .delete()
+        .in("source", sourceValues)
+        .or(buildOwnerReadFilter(scope))
+        .select("id");
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      deletedItems = data?.length ?? 0;
+    }
+
+    return NextResponse.json({ ok: true, disconnected: true, deletedItems });
+  } catch (error) {
+    if (isMissingConnectedSourcesTable(error)) {
+      return NextResponse.json({ error: "supabase migration missing: connected_sources" }, { status: 500 });
+    }
+    const message = error instanceof Error ? error.message : "connected source delete failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

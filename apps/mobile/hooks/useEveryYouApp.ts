@@ -33,6 +33,8 @@ import {
   clearStoredAvatarUri,
   createItem,
   deleteItem,
+  disconnectConnectedSource,
+  disconnectSpotifyConnection,
   ensureGuestSession,
   fetchBackendHealth,
   fetchConnectedSources,
@@ -1594,6 +1596,69 @@ export function useEveryYouApp() {
     }
   }
 
+  async function disconnectProfileSource(platform: "lastfm" | "letterboxd", deleteContent = false) {
+    if (!apiToken || fileImportBusy) return;
+
+    try {
+      setFileImportBusy(true);
+      setFileImportStatus(deleteContent ? "отвязываем источник и убираем его импорт..." : "отвязываем источник...");
+      const result = await disconnectConnectedSource(apiToken, { platform, deleteContent });
+      const remoteLibrary = await fetchItems(apiToken);
+      setLibrary(remoteLibrary);
+      setConnectedSources((current) => ({
+        ...current,
+        [platform]: null,
+      }));
+      if (platform === "lastfm") {
+        setLastfmUsername("");
+      } else {
+        setLetterboxdProfile("");
+      }
+      setFileImportDateInsight(null);
+      setFileImportStatus(
+        deleteContent
+          ? `готово: отвязали ${platform} и убрали ${result.deletedItems} айтем(ов)`
+          : `готово: ${platform} больше не подключен`
+      );
+      setToastMessage(
+        deleteContent
+          ? `${platform} отвязали и почистили импорт`
+          : `${platform} отвязали`
+      );
+      fireAnalytics("source_disconnected", { platform, deleteContent, deletedItems: result.deletedItems });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "не удалось отвязать источник";
+      setFileImportStatus(message);
+    } finally {
+      setFileImportBusy(false);
+    }
+  }
+
+  async function disconnectSpotifySource(deleteContent = false) {
+    if (!apiToken || spotifyOAuthLoading || spotifyPlaylistLoading) return;
+
+    try {
+      setSpotifyStatus(deleteContent ? "отвязываем spotify и убираем его импорт..." : "отвязываем spotify...");
+      const result = await disconnectSpotifyConnection(apiToken, deleteContent);
+      const remoteLibrary = await fetchItems(apiToken);
+      setLibrary(remoteLibrary);
+      setSpotifyConnected(false);
+      setSpotifyProfileName(null);
+      setSpotifyPlaylists([]);
+      setSpotifyDateInsight(null);
+      setSpotifyStatus(
+        deleteContent
+          ? `готово: spotify отвязали и убрали ${result.deletedItems} айтем(ов)`
+          : "готово: spotify больше не подключен"
+      );
+      setToastMessage(deleteContent ? "spotify отвязали и почистили импорт" : "spotify отвязали");
+      fireAnalytics("source_disconnected", { platform: "spotify", deleteContent, deletedItems: result.deletedItems });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "не удалось отвязать spotify";
+      setSpotifyStatus(message);
+    }
+  }
+
   async function refreshSpotifyConnection(showSuccessMessage = false) {
     if (!apiToken) {
       setSpotifyStatus("backend token missing");
@@ -2076,6 +2141,9 @@ export function useEveryYouApp() {
     setLetterboxdProfile,
     importLastfmProfileByUsername,
     importLetterboxdPublicProfile,
+    disconnectLastfmSource: (deleteContent = false) => disconnectProfileSource("lastfm", deleteContent),
+    disconnectLetterboxdSource: (deleteContent = false) => disconnectProfileSource("letterboxd", deleteContent),
+    disconnectSpotifySource,
     importLivelibFile: () => importPlatformFile("livelib"),
     importGoodreadsFile: () => importPlatformFile("goodreads"),
     importLetterboxdFile: () => importPlatformFile("letterboxd"),

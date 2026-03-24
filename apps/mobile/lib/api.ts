@@ -494,3 +494,24 @@ export async function saveConnectedSource(
     body: JSON.stringify(input),
   });
 }
+
+export async function disconnectConnectedSource(
+  token: string,
+  input: { platform: "lastfm" | "letterboxd"; deleteContent?: boolean }
+) {
+  return fetchJson<{ ok: true; disconnected: true; deletedItems: number }>("/api/v2/connected-sources", {
+    method: "DELETE",
+    headers: authHeaders(token),
+    body: JSON.stringify(input),
+  });
+}
+
+export async function disconnectSpotifyConnection(token: string, deleteContent = false) {
+  return fetchJson<{ ok: true; disconnected: true; deletedItems: number }>(
+    `/api/spotify/status?deleteContent=${deleteContent ? "1" : "0"}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(token),
+    }
+  );
+}

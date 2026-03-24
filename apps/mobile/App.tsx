@@ -562,6 +562,9 @@ export default function App() {
                   onLetterboxdProfileChange={app.setLetterboxdProfile}
                   onLastfmProfileImportPress={app.importLastfmProfileByUsername}
                   onLetterboxdProfileImportPress={app.importLetterboxdPublicProfile}
+                  onDisconnectLastfmPress={app.disconnectLastfmSource}
+                  onDisconnectLetterboxdPress={app.disconnectLetterboxdSource}
+                  onDisconnectSpotifyPress={app.disconnectSpotifySource}
                   onLivelibImportPress={app.importLivelibFile}
                   onGoodreadsImportPress={app.importGoodreadsFile}
                   onLetterboxdImportPress={app.importLetterboxdFile}
@@ -701,6 +704,9 @@ export default function App() {
                     onLetterboxdProfileChange={app.setLetterboxdProfile}
                     onLastfmProfileImportPress={app.importLastfmProfileByUsername}
                     onLetterboxdProfileImportPress={app.importLetterboxdPublicProfile}
+                    onDisconnectLastfmPress={app.disconnectLastfmSource}
+                    onDisconnectLetterboxdPress={app.disconnectLetterboxdSource}
+                    onDisconnectSpotifyPress={app.disconnectSpotifySource}
                     onLivelibImportPress={app.importLivelibFile}
                     onGoodreadsImportPress={app.importGoodreadsFile}
                     onLetterboxdImportPress={app.importLetterboxdFile}

@@ -130,3 +130,40 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const tgUserId = getTgUserOrThrow(req);
+    const sb = supabaseAdmin();
+    const url = new URL(req.url);
+    const deleteContent = url.searchParams.get("deleteContent") === "1" || url.searchParams.get("deleteContent") === "true";
+
+    const { error: tokenError } = await sb
+      .from("spotify_tokens")
+      .delete()
+      .eq("tg_user_id", tgUserId);
+
+    if (tokenError) {
+      return NextResponse.json({ error: tokenError.message }, { status: 500 });
+    }
+
+    let deletedItems = 0;
+    if (deleteContent) {
+      const { data, error } = await sb
+        .from("items")
+        .delete()
+        .eq("tg_user_id", tgUserId)
+        .in("source", ["spotify", "import_spotify"])
+        .select("id");
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      deletedItems = data?.length ?? 0;
+    }
+
+    return NextResponse.json({ ok: true, disconnected: true, deletedItems });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message ?? "disconnect failed" }, { status: 500 });
+  }
+}

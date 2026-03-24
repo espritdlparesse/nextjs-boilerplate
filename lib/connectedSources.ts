@@ -68,3 +68,19 @@ export async function upsertConnectedSource(
     lastSyncedAt: data.last_synced_at ?? null,
   };
 }
+
+export async function deleteConnectedSource(
+  owner: EffectiveOwner,
+  platform: ConnectedPlatform
+) {
+  const sb = supabaseAdmin();
+  const { error } = await sb
+    .from("connected_sources")
+    .delete()
+    .eq("owner_key", owner.ownerKey)
+    .eq("platform", platform);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
