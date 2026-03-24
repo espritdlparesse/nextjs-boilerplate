@@ -470,6 +470,7 @@ export default function App() {
                 onAssignSelectedLast6Months={app.assignSelectedToLast6Months}
                 onAssignSelectedThisYear={app.assignSelectedToThisYear}
                 onAssignSelectedVeryOld={app.assignSelectedToVeryOld}
+                onMoveItemsToDate={app.moveItemsToDate}
                 onDismissTimelinePrompt={app.dismissTimelinePrompt}
                 onEditItem={(id) => {
                   app.startEdit(id);

@@ -452,6 +452,11 @@ export const appStyles = StyleSheet.create({
   tileLarge: {
     minHeight: 164,
   },
+  dayDetailTile: {
+    borderRadius: 24,
+    padding: 12,
+    gap: 6,
+  },
   tilePink: {
     backgroundColor: colors.pink,
   },
@@ -489,6 +494,18 @@ export const appStyles = StyleSheet.create({
     textTransform: "lowercase",
     maxWidth: 106,
     textAlign: "right",
+  },
+  dayDetailTitle: {
+    fontSize: 18,
+    letterSpacing: -0.4,
+    lineHeight: 21,
+  },
+  dayDetailMeta: {
+    fontSize: 14,
+  },
+  dayDetailDate: {
+    fontSize: 10,
+    maxWidth: 92,
   },
   bottomBarWrap: {
     position: "absolute",
@@ -994,19 +1011,72 @@ export const appStyles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     alignItems: "center",
-    paddingBottom: 2,
+    paddingVertical: 0,
     paddingRight: 8,
   },
-  weekDayChip: {
-    minWidth: 54,
-    paddingHorizontal: 11,
+  weekStripScroll: {
+    flexGrow: 0,
+    maxHeight: 50,
+    minHeight: 50,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  dayTypeFilterRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 6,
+  },
+  dayTypeFilterPill: {
+    minHeight: 34,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  calendarMoveBanner: {
+    gap: 10,
+    paddingTop: 14,
+    paddingBottom: 14,
+  },
+  calendarMoveTitle: {
+    marginBottom: 0,
+  },
+  dayActionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 10,
+  },
+  dayActionPill: {
+    minHeight: 36,
+    paddingHorizontal: 14,
     paddingVertical: 9,
-    borderRadius: 18,
+  },
+  daySelectionBadge: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    backgroundColor: colors.black,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: colors.white,
+  },
+  daySelectionBadgeText: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: colors.white,
+    textTransform: "lowercase",
+  },
+  weekDayChip: {
+    minWidth: 48,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 16,
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.line,
     alignItems: "center",
-    gap: 2,
+    gap: 1,
   },
   weekDayChipActive: {
     backgroundColor: colors.black,
@@ -1014,7 +1084,7 @@ export const appStyles = StyleSheet.create({
     transform: [{ scale: 1.02 }],
   },
   weekDayName: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "800",
     color: colors.subtext,
     textTransform: "lowercase",
@@ -1023,7 +1093,7 @@ export const appStyles = StyleSheet.create({
     color: colors.white,
   },
   weekDayNumber: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "900",
     color: colors.black,
   },
@@ -1034,9 +1104,9 @@ export const appStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: "rgba(17,17,17,0.18)",
     justifyContent: "flex-end",
-    paddingHorizontal: 12,
-    paddingBottom: 12,
-    paddingTop: 80,
+    paddingHorizontal: 18,
+    paddingBottom: 16,
+    paddingTop: 88,
   },
   dayModalSheet: {
     flex: 1,
@@ -1044,8 +1114,11 @@ export const appStyles = StyleSheet.create({
     borderRadius: 32,
     borderWidth: 1,
     borderColor: colors.line,
-    padding: 16,
-    gap: 10,
+    paddingTop: 14,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 8,
+    overflow: "hidden",
   },
   guideModalSheet: {
     width: "100%",
@@ -1063,18 +1136,21 @@ export const appStyles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     gap: 10,
+    marginBottom: 4,
   },
   dayModalHeading: {
     flex: 1,
     gap: 2,
   },
   dayModalClose: {
-    paddingHorizontal: 13,
-    paddingVertical: 9,
+    minWidth: 84,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 999,
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.line,
+    alignItems: "center",
   },
   dayModalCloseText: {
     fontSize: 13,
@@ -1085,11 +1161,11 @@ export const appStyles = StyleSheet.create({
   dayModalScroll: {
     flex: 1,
     minHeight: 1,
+    marginTop: 2,
   },
   dayModalContent: {
-    gap: 10,
-    paddingBottom: 18,
-    flexGrow: 1,
+    gap: 8,
+    paddingBottom: 14,
   },
   dayModalTitle: {
     fontSize: 24,

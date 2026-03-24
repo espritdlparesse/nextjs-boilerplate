@@ -47,6 +47,7 @@ type LibraryScreenProps = {
   onAssignSelectedLast6Months: () => void;
   onAssignSelectedThisYear: () => void;
   onAssignSelectedVeryOld: () => void;
+  onMoveItemsToDate: (itemIds: string[], targetDate: number) => void;
   onDismissTimelinePrompt: () => void;
   onEditItem: (id: string) => void;
   onDeleteItem: (id: string) => void;
@@ -182,17 +183,17 @@ const DayDetailCard = memo(function DayDetailCard({
 }) {
   const theme = getTheme(themeMode);
   return (
-    <Pressable style={[appStyles.tile, typeTileStyle(item.type)]} onPress={onPress}>
+    <Pressable style={[appStyles.tile, appStyles.dayDetailTile, typeTileStyle(item.type)]} onPress={onPress}>
       <View style={appStyles.tileTopRow}>
         <View style={appStyles.typeBadge}>
           <Text style={appStyles.typeBadgeText}>{TYPE_LABEL[item.type]}</Text>
         </View>
-        <Text style={[appStyles.metaDate, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>
+        <Text style={[appStyles.metaDate, appStyles.dayDetailDate, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>
           {formatFullDate(getConsumptionDate(item) as number)}
         </Text>
       </View>
-      <Text style={appStyles.itemTitle}>{item.title}</Text>
-      <Text style={appStyles.itemMeta}>{item.authorOrArtist || "без автора"}</Text>
+      <Text style={[appStyles.itemTitle, appStyles.dayDetailTitle]}>{item.title}</Text>
+      <Text style={[appStyles.itemMeta, appStyles.dayDetailMeta]}>{item.authorOrArtist || "без автора"}</Text>
       {getTimeOriginLabel(item.timeOrigin) ? (
         <Text style={[appStyles.metaText, { color: themeMode === "dark" ? theme.accentMutedText : theme.mutedText }]}>
           {getTimeOriginLabel(item.timeOrigin)}
@@ -227,6 +228,7 @@ export function LibraryScreen({
   onAssignSelectedLast6Months,
   onAssignSelectedThisYear,
   onAssignSelectedVeryOld,
+  onMoveItemsToDate,
   onDismissTimelinePrompt,
   onEditItem,
   onDeleteItem,
@@ -235,10 +237,14 @@ export function LibraryScreen({
   const [viewMode, setViewMode] = useState<LibraryViewMode>("calendar");
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
+  const [selectedDayTypeFilter, setSelectedDayTypeFilter] = useState<TypeFilter>("all");
   const [dayModalVisible, setDayModalVisible] = useState(false);
   const [monthItemsModalVisible, setMonthItemsModalVisible] = useState(false);
   const [typeFiltersExpanded, setTypeFiltersExpanded] = useState(false);
   const [dateFiltersExpanded, setDateFiltersExpanded] = useState(false);
+  const [daySelection, setDaySelection] = useState<string[]>([]);
+  const [calendarMoveMode, setCalendarMoveMode] = useState(false);
+  const [pendingMoveTargetKey, setPendingMoveTargetKey] = useState<string | null>(null);
 
   const typeFilterSummary = typeFilter === "all" ? "все" : TYPE_LABEL[typeFilter];
   const timeQualitySummary =
@@ -305,6 +311,28 @@ export function LibraryScreen({
     });
   }, [itemsByDay, selectedDay]);
 
+  const selectedDayItems = useMemo(() => {
+    if (!selectedDay) return [];
+    if (selectedDayTypeFilter === "all") return selectedDay.items;
+    return selectedDay.items.filter((item) => item.type === selectedDayTypeFilter);
+  }, [selectedDay, selectedDayTypeFilter]);
+
+  const selectedDayCounts = useMemo(() => {
+    const counts = {
+      all: selectedDay?.items.length ?? 0,
+      music: 0,
+      book: 0,
+      film: 0,
+    };
+    if (!selectedDay) return counts;
+    for (const item of selectedDay.items) {
+      if (item.type === "music") counts.music += 1;
+      if (item.type === "book") counts.book += 1;
+      if (item.type === "film") counts.film += 1;
+    }
+    return counts;
+  }, [selectedDay]);
+
   const monthLevelItems = useMemo(() => {
     return visibleLibrary
       .filter((item) => {
@@ -330,9 +358,48 @@ export function LibraryScreen({
     }
   }, [selectedDay?.key]);
 
+  useEffect(() => {
+    setSelectedDayTypeFilter("all");
+  }, [selectedDayKey, dayModalVisible]);
+
   function openDay(dateKey: string) {
+    if (calendarMoveMode) {
+      setPendingMoveTargetKey(dateKey);
+      return;
+    }
     setSelectedDayKey(dateKey);
+    setSelectedDayTypeFilter("all");
+    setDaySelection([]);
     setDayModalVisible(true);
+  }
+
+  const pendingMoveTarget = useMemo(
+    () => (pendingMoveTargetKey ? calendarDays.find((entry) => entry.key === pendingMoveTargetKey) ?? null : null),
+    [calendarDays, pendingMoveTargetKey]
+  );
+
+  function toggleDaySelection(itemId: string) {
+    setDaySelection((current) => (current.includes(itemId) ? current.filter((id) => id !== itemId) : [...current, itemId]));
+  }
+
+  function startCalendarMoveMode() {
+    if (daySelection.length === 0) return;
+    setDayModalVisible(false);
+    setCalendarMoveMode(true);
+  }
+
+  function cancelCalendarMoveMode() {
+    setCalendarMoveMode(false);
+    setPendingMoveTargetKey(null);
+    setDaySelection([]);
+  }
+
+  function confirmMoveSelection() {
+    if (!pendingMoveTarget || daySelection.length === 0) return;
+    onMoveItemsToDate(daySelection, pendingMoveTarget.date.getTime());
+    setCalendarMoveMode(false);
+    setPendingMoveTargetKey(null);
+    setDaySelection([]);
   }
 
   function renderTopCards() {
@@ -524,6 +591,16 @@ export function LibraryScreen({
         {renderTopCards()}
 
         <View style={[appStyles.card, appStyles.calendarCard, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          {calendarMoveMode ? (
+            <View style={[appStyles.card, appStyles.calendarMoveBanner, themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+              <Text style={[appStyles.sectionTitle, appStyles.calendarMoveTitle, { color: theme.text }]}>выбери новый день</Text>
+              <Text style={[appStyles.helper, { color: theme.text }]}>
+                переносим {daySelection.length} {daySelection.length === 1 ? "айтем" : daySelection.length < 5 ? "айтема" : "айтемов"}.
+              </Text>
+              <PillButton themeMode={themeMode} label="отмена" onPress={cancelCalendarMoveMode} />
+            </View>
+          ) : null}
+
           <View style={appStyles.calendarTopRow}>
             <Pressable style={[appStyles.calendarArrow, themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} onPress={() => setCalendarMonth((current) => startOfMonth(new Date(current.getFullYear(), current.getMonth() - 1, 1)))}>
               <Text style={[appStyles.calendarArrowText, { color: theme.text }]}>‹</Text>
@@ -640,8 +717,11 @@ export function LibraryScreen({
 
                 <ScrollView
                   horizontal
+                  style={appStyles.weekStripScroll}
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={appStyles.weekStrip}
+                  automaticallyAdjustContentInsets={false}
+                  contentInsetAdjustmentBehavior="never"
                 >
                   {selectedWeek.map((day) => (
                     <WeekDayPill
@@ -654,24 +734,89 @@ export function LibraryScreen({
                   ))}
                 </ScrollView>
 
-                <ScrollView style={appStyles.dayModalScroll} contentContainerStyle={appStyles.dayModalContent} showsVerticalScrollIndicator={false}>
-                  {selectedDay.items.length > 0 ? (
-                    selectedDay.items.map((item, index) => (
-                      <DayDetailCard
-                        key={reactItemKey(item, index)}
-                        item={item}
-                        themeMode={themeMode}
-                        onPress={() => onSelectItem(item.id)}
-                      />
-                    ))
-                  ) : (
-                    <View style={[appStyles.card, themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-                      <Text style={[appStyles.helper, { color: theme.text }]}>в этот день пока пусто.</Text>
-                    </View>
+                <View style={appStyles.dayTypeFilterRow}>
+                  {(["all", "music", "book", "film"] as TypeFilter[]).map((value) => (
+                    <PillButton
+                      key={value}
+                      themeMode={themeMode}
+                      style={appStyles.dayTypeFilterPill}
+                      label={
+                        value === "all"
+                          ? `все ${selectedDayCounts.all}`
+                          : `${TYPE_LABEL[value]} ${selectedDayCounts[value]}`
+                      }
+                      active={selectedDayTypeFilter === value}
+                      onPress={() => setSelectedDayTypeFilter(value)}
+                    />
+                  ))}
+                </View>
+
+                <FlatList
+                  key={`${selectedDay.key}-${selectedDayTypeFilter}`}
+                  data={selectedDayItems}
+                  keyExtractor={(item, index) => reactItemKey(item, index)}
+                  renderItem={({ item }) => (
+                    <Pressable onPress={() => toggleDaySelection(item.id)}>
+                      <DayDetailCard item={item} themeMode={themeMode} onPress={() => toggleDaySelection(item.id)} />
+                      {daySelection.includes(item.id) ? (
+                        <View style={appStyles.daySelectionBadge}>
+                          <Text style={appStyles.daySelectionBadgeText}>выбрано</Text>
+                        </View>
+                      ) : null}
+                    </Pressable>
                   )}
-                </ScrollView>
+                  style={appStyles.dayModalScroll}
+                  contentContainerStyle={appStyles.dayModalContent}
+                  showsVerticalScrollIndicator={false}
+                  automaticallyAdjustContentInsets={false}
+                  contentInsetAdjustmentBehavior="never"
+                  ListEmptyComponent={
+                    <View style={[appStyles.card, themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+                      <Text style={[appStyles.helper, { color: theme.text }]}>
+                        {selectedDayTypeFilter === "all" ? "в этот день пока пусто." : "в этот день пока ничего не было в этой категории."}
+                      </Text>
+                    </View>
+                  }
+                  ListHeaderComponent={
+                    daySelection.length > 0 ? (
+                      <View style={appStyles.dayActionRow}>
+                        <PillButton
+                          themeMode={themeMode}
+                          style={appStyles.dayActionPill}
+                          label={daySelection.length === 1 ? "изменить дату" : `изменить дату (${daySelection.length})`}
+                          onPress={startCalendarMoveMode}
+                        />
+                        <PillButton
+                          themeMode={themeMode}
+                          style={appStyles.dayActionPill}
+                          label="снять выбор"
+                          onPress={() => setDaySelection([])}
+                        />
+                      </View>
+                    ) : null
+                  }
+                />
               </>
             ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={Boolean(pendingMoveTarget) && calendarMoveMode} transparent animationType="fade" onRequestClose={() => setPendingMoveTargetKey(null)}>
+        <View style={[appStyles.dayModalBackdrop, { backgroundColor: theme.overlay }]}>
+          <View style={[appStyles.guideModalSheet, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Text style={[appStyles.sectionTitle, { color: theme.text }]}>перенести на другой день?</Text>
+            <Text style={[appStyles.helper, { color: theme.text }]}>
+              перенесем {daySelection.length} {daySelection.length === 1 ? "айтем" : daySelection.length < 5 ? "айтема" : "айтемов"} на{" "}
+              {pendingMoveTarget?.date
+                .toLocaleString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
+                .replace(/^./, (char) => char.toUpperCase())}
+              .
+            </Text>
+            <View style={appStyles.dayActionRow}>
+              <PillButton themeMode={themeMode} style={appStyles.dayActionPill} label="да, перенести" onPress={confirmMoveSelection} />
+              <PillButton themeMode={themeMode} style={appStyles.dayActionPill} label="не сейчас" onPress={() => setPendingMoveTargetKey(null)} />
+            </View>
           </View>
         </View>
       </Modal>
@@ -691,16 +836,19 @@ export function LibraryScreen({
               </Pressable>
             </View>
 
-            <ScrollView style={appStyles.dayModalScroll} contentContainerStyle={appStyles.dayModalContent} showsVerticalScrollIndicator={false}>
-              {monthLevelItems.map((item, index) => (
-                <DayDetailCard
-                  key={reactItemKey(item, index)}
-                  item={item}
-                  themeMode={themeMode}
-                  onPress={() => onSelectItem(item.id)}
-                />
-              ))}
-            </ScrollView>
+            <FlatList
+              key={`${calendarMonth.getFullYear()}-${calendarMonth.getMonth()}-month-items`}
+              data={monthLevelItems}
+              keyExtractor={(item, index) => reactItemKey(item, index)}
+              renderItem={({ item }) => (
+                <DayDetailCard item={item} themeMode={themeMode} onPress={() => onSelectItem(item.id)} />
+              )}
+              style={appStyles.dayModalScroll}
+              contentContainerStyle={appStyles.dayModalContent}
+              showsVerticalScrollIndicator={false}
+              automaticallyAdjustContentInsets={false}
+              contentInsetAdjustmentBehavior="never"
+            />
           </View>
         </View>
       </Modal>

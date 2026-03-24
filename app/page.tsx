@@ -40,6 +40,8 @@ type DbItem = {
   title: string;
   creator?: string | null;
   created_at?: string;
+  consumed_at?: string | null;
+  time_origin?: "exact" | "imported" | "estimated" | null;
   custom_category_id?: string | null;
   custom_category_name?: string | null;
   custom_category_emoji?: string | null;
@@ -128,6 +130,10 @@ function formatShortDate(input?: string) {
   const date = new Date(input);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" }).replace(" г.", "");
+}
+
+function getItemDateValue(item: DbItem) {
+  return item.consumed_at || item.created_at || "";
 }
 
 function dayKey(input: string | Date) {
@@ -721,6 +727,77 @@ export default function Page() {
     }
   }
 
+  function toggleSelectedDayItem(id: string | number) {
+    setSelectedDayItems((current) =>
+      current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id]
+    );
+  }
+
+  function startMoveSelectedDayItems() {
+    if (selectedDayItems.length === 0) return;
+    setDayModalOpen(false);
+    setPendingMoveTargetKey(null);
+    setCalendarMoveMode(true);
+    setLibraryStatus("выбери день, на который перенести выбранное");
+  }
+
+  function cancelMoveSelectedDayItems() {
+    setCalendarMoveMode(false);
+    setPendingMoveTargetKey(null);
+    setSelectedDayItems([]);
+    setLibraryStatus("");
+  }
+
+  async function moveSelectedItemsToDay() {
+    if (!pendingMoveTarget || selectedDayItems.length === 0) return;
+
+    const chosenItems = items.filter((item) => selectedDayItems.includes(item.id));
+    if (chosenItems.length === 0) return;
+
+    setLibraryLoading(true);
+    setLibraryError("");
+    try {
+      for (const [index, item] of chosenItems.entries()) {
+        const base = pendingMoveTarget.date;
+        const sourceDate = getItemDateValue(item) ? new Date(getItemDateValue(item)) : null;
+        const hours = sourceDate ? sourceDate.getHours() : 12;
+        const minutes = sourceDate ? sourceDate.getMinutes() : Math.min(index * 3, 57);
+        const targetDate = new Date(base.getFullYear(), base.getMonth(), base.getDate(), hours, minutes, 0, 0).getTime();
+
+        const res = await fetch("/api/items", {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "x-telegram-init-data": getTgInitData(),
+          },
+          body: JSON.stringify({
+            id: item.id,
+            type: item.type,
+            source: item.source,
+            title: item.title,
+            creator: item.creator ?? null,
+            consumedAt: targetDate,
+            timeOrigin: "exact",
+          }),
+        });
+        const json = await safeJson(res);
+        if (!res.ok) throw new Error(json?.error ?? "не удалось перенести дату");
+      }
+
+      await loadLibrary();
+      setLibraryStatus(chosenItems.length === 1 ? "да, все ок: перенесли" : `да, все ок: перенесли ${chosenItems.length}`);
+      setCalendarMoveMode(false);
+      setPendingMoveTargetKey(null);
+      setSelectedDayItems([]);
+      setSelectedDayKey(pendingMoveTarget.key);
+      setDayModalOpen(true);
+    } catch (e: any) {
+      setLibraryError(e?.message ?? "не удалось перенести дату");
+    } finally {
+      setLibraryLoading(false);
+    }
+  }
+
   // ===== Vibe =====
   const [summary, setSummary] = useState("");
   const [vibeLoading, setVibeLoading] = useState(false);
@@ -1050,6 +1127,11 @@ export default function Page() {
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
   const [dayModalOpen, setDayModalOpen] = useState(false);
+  const [selectedDayTypeFilter, setSelectedDayTypeFilter] = useState<ItemType | "all">("all");
+  const [selectedDayItems, setSelectedDayItems] = useState<Array<string | number>>([]);
+  const [calendarMoveMode, setCalendarMoveMode] = useState(false);
+  const [pendingMoveTargetKey, setPendingMoveTargetKey] = useState<string | null>(null);
+  const [libraryStatus, setLibraryStatus] = useState("");
   const filteredItems = useMemo(() => {
     if (libFilter === "all") return items;
     if (libFilter === "music" || libFilter === "book" || libFilter === "movie") return items.filter(i => i.type === libFilter);
@@ -1060,8 +1142,9 @@ export default function Page() {
   const itemsByDay = useMemo(() => {
     const grouped = new Map<string, DbItem[]>();
     for (const item of filteredItems) {
-      if (!item.created_at) continue;
-      const key = dayKey(item.created_at);
+      const dateValue = getItemDateValue(item);
+      if (!dateValue) continue;
+      const key = dayKey(dateValue);
       if (!key) continue;
       const bucket = grouped.get(key) ?? [];
       bucket.push(item);
@@ -1090,6 +1173,28 @@ export default function Page() {
     if (selectedDayKey) return calendarDays.find((entry) => entry.key === selectedDayKey) ?? null;
     return null;
   }, [calendarDays, selectedDayKey]);
+
+  const selectedDayVisibleItems = useMemo(() => {
+    if (!selectedDay) return [];
+    const dayItems = itemsByDay.get(selectedDay.key) ?? [];
+    if (selectedDayTypeFilter === "all") return dayItems;
+    return dayItems.filter((item) => item.type === selectedDayTypeFilter);
+  }, [itemsByDay, selectedDay, selectedDayTypeFilter]);
+
+  const selectedDayCounts = useMemo(() => {
+    const dayItems = selectedDay ? itemsByDay.get(selectedDay.key) ?? [] : [];
+    return {
+      all: dayItems.length,
+      music: dayItems.filter((item) => item.type === "music").length,
+      book: dayItems.filter((item) => item.type === "book").length,
+      movie: dayItems.filter((item) => item.type === "movie").length,
+    };
+  }, [itemsByDay, selectedDay]);
+
+  const pendingMoveTarget = useMemo(
+    () => (pendingMoveTargetKey ? calendarDays.find((entry) => entry.key === pendingMoveTargetKey) ?? null : null),
+    [calendarDays, pendingMoveTargetKey]
+  );
 
   return (
     <>
@@ -1386,6 +1491,8 @@ export default function Page() {
         }
 
         .item-card {
+          appearance: none;
+          width: 100%;
           border-radius: 28px;
           padding: 18px 16px;
           display: flex;
@@ -1394,6 +1501,8 @@ export default function Page() {
           border: 1px solid rgba(17,17,17,0.1);
           position: relative;
           min-height: 182px;
+          text-align: left;
+          cursor: pointer;
         }
 
         .item-card.music { background: #FF79D5; }
@@ -1401,8 +1510,22 @@ export default function Page() {
         .item-card.movie { background: #38C0FF; }
         .item-card.custom { background: #FFC804; }
 
-        .item-card-selected {
+        .item-card.selected {
           outline: 2px solid #111111;
+          outline-offset: -2px;
+        }
+
+        .item-selected-badge {
+          position: absolute;
+          top: 12px;
+          right: 12px;
+          padding: 6px 10px;
+          border-radius: 999px;
+          background: #111111;
+          color: #ffffff;
+          font-size: 10px;
+          font-weight: 900;
+          text-transform: lowercase;
         }
 
         .item-topline {
@@ -1549,6 +1672,17 @@ export default function Page() {
 
         .error { color: #c0392b; font-size: 13px; margin-top: 10px; font-weight: 300; }
         .success { color: #27ae60; font-size: 13px; margin-top: 10px; font-weight: 400; }
+        .status-note {
+          margin-bottom: 14px;
+          padding: 10px 12px;
+          border-radius: 16px;
+          background: #f6f2ea;
+          border: 1px solid #e7e2d9;
+          color: #6d665d;
+          font-size: 13px;
+          line-height: 1.45;
+          text-transform: lowercase;
+        }
 
         .vibe-text {
           margin-top: 20px;
@@ -1777,6 +1911,28 @@ export default function Page() {
           margin-bottom: 16px;
         }
 
+        .calendar-move-banner {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 14px;
+          margin-bottom: 14px;
+          border-radius: 22px;
+          background: #f7f3ec;
+          border: 1px solid #e7e2d9;
+        }
+
+        .calendar-move-copy {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          font-size: 14px;
+          line-height: 1.5;
+          color: rgba(17,17,17,0.78);
+          text-transform: lowercase;
+        }
+
         .calendar-top-row {
           display: flex;
           align-items: center;
@@ -1945,12 +2101,41 @@ export default function Page() {
           gap: 12px;
         }
 
+        .day-type-filters {
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          padding: 0 18px 12px;
+        }
+
+        .filter-btn.compact {
+          padding: 8px 12px;
+          font-size: 11px;
+        }
+
+        .day-action-row {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          padding: 0 18px 12px;
+        }
+
         .day-week-strip {
           display: flex;
           gap: 8px;
           overflow-x: auto;
           padding: 0 18px 14px;
           border-bottom: 1px solid #efe7db;
+        }
+
+        .confirm-modal {
+          width: 100%;
+          max-width: 420px;
+          background: #ffffff;
+          border-radius: 28px;
+          border: 1px solid #e7e2d9;
+          padding: 18px;
+          box-shadow: 0 18px 50px rgba(0,0,0,0.24);
         }
 
         .day-week-pill {
@@ -2464,11 +2649,13 @@ export default function Page() {
                   </button>
                 </div>
               </div>
-              <div className="library-copy">
-                смотри все вместе или раскладывай по типам. в календаре видно, что с тобой происходило по дням.
-              </div>
+            <div className="library-copy">
+              смотри все вместе или раскладывай по типам. в календаре видно, что с тобой происходило по дням.
+            </div>
 
-              <div className="section-label">тип контента</div>
+            {libraryStatus && !libraryError && <div className="status-note">{libraryStatus}</div>}
+
+            <div className="section-label">тип контента</div>
               <div className="filter-row">
                 {([["all", "все"], ["music", "музыка"], ["book", "книги"], ["movie", "фильмы"]] as [string, string][]).map(([val, label]) => (
                   <button
@@ -2504,6 +2691,15 @@ export default function Page() {
             ) : libraryView === "calendar" ? (
               <>
                 <div className="calendar-shell">
+                  {calendarMoveMode && selectedDayItems.length > 0 ? (
+                    <div className="calendar-move-banner">
+                      <div className="calendar-move-copy">
+                        <div className="section-label" style={{ marginBottom: 4 }}>перенос даты</div>
+                        <div>выбери новый день для {selectedDayItems.length} {selectedDayItems.length === 1 ? "айтема" : selectedDayItems.length < 5 ? "айтемов" : "айтемов"}.</div>
+                      </div>
+                      <button type="button" className="btn btn-outline btn-sm" onClick={cancelMoveSelectedDayItems}>отмена</button>
+                    </div>
+                  ) : null}
                   <div className="calendar-top-row">
                     <button className="calendar-arrow" onClick={() => setCalendarMonth((current) => startOfMonth(new Date(current.getFullYear(), current.getMonth() - 1, 1)))}>‹</button>
                     <div className="calendar-title">
@@ -2528,7 +2724,13 @@ export default function Page() {
                         type="button"
                         className={`calendar-day${!day.inMonth ? " muted" : ""}${selectedDay?.key === day.key ? " selected" : ""}`}
                         onClick={() => {
+                          if (calendarMoveMode) {
+                            setPendingMoveTargetKey(day.key);
+                            return;
+                          }
                           setSelectedDayKey(day.key);
+                          setSelectedDayTypeFilter("all");
+                          setSelectedDayItems([]);
                           setDayModalOpen(true);
                         }}
                       >
@@ -2567,10 +2769,12 @@ export default function Page() {
                           return (
                             <button
                               key={key}
+                              type="button"
                               className={`day-week-pill${key === selectedDay.key ? " active" : ""}`}
                               onClick={() => {
                                 setSelectedDayKey(key);
-                                setDayModalOpen(true);
+                                setSelectedDayTypeFilter("all");
+                                setSelectedDayItems([]);
                               }}
                             >
                               <div className="day-week-name">{date.toLocaleString("ru-RU", { weekday: "short" })}</div>
@@ -2580,25 +2784,71 @@ export default function Page() {
                         })}
                       </div>
 
+                      <div className="day-type-filters">
+                        {([["all", `все ${selectedDayCounts.all}`], ["music", `музыка ${selectedDayCounts.music}`], ["book", `книги ${selectedDayCounts.book}`], ["movie", `фильмы ${selectedDayCounts.movie}`]] as [ItemType | "all", string][]).map(([value, label]) => (
+                          <button
+                            key={value}
+                            type="button"
+                            className={`filter-btn compact${selectedDayTypeFilter === value ? " active" : ""}`}
+                            onClick={() => setSelectedDayTypeFilter(value)}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {selectedDayItems.length > 0 ? (
+                        <div className="day-action-row">
+                          <button type="button" className="btn btn-outline btn-sm" onClick={startMoveSelectedDayItems}>
+                            {selectedDayItems.length === 1 ? "изменить дату" : `изменить дату (${selectedDayItems.length})`}
+                          </button>
+                          <button type="button" className="btn btn-outline btn-sm" onClick={() => setSelectedDayItems([])}>
+                            снять выбор
+                          </button>
+                        </div>
+                      ) : null}
+
                       <div className="day-modal-scroll">
-                        {(itemsByDay.get(selectedDay.key) ?? []).length > 0 ? (
-                          (itemsByDay.get(selectedDay.key) ?? []).map((it) => (
-                            <div key={String(it.id)} className={`item-card ${it.type}`}>
+                        {selectedDayVisibleItems.length > 0 ? (
+                          selectedDayVisibleItems.map((it) => (
+                            <button
+                              key={String(it.id)}
+                              type="button"
+                              className={`item-card ${it.type}${selectedDayItems.includes(it.id) ? " selected" : ""}`}
+                              onClick={() => toggleSelectedDayItem(it.id)}
+                            >
                               <div className="item-topline">
                                 <div className="item-meta">
                                   <span className="tag">{it.type === "custom" && it.custom_category_name ? `${it.custom_category_emoji ?? "✦"} ${it.custom_category_name}` : TYPE_LABELS[it.type]}</span>
                                 </div>
-                                <div className="item-date">{formatShortDate(it.created_at)}</div>
+                                <div className="item-date">{formatShortDate(getItemDateValue(it))}</div>
                               </div>
                               <div className="item-body">
                                 {it.creator && <div className="item-title">{it.creator}</div>}
                                 <div className="item-creator">{it.title}</div>
                               </div>
-                            </div>
+                              {selectedDayItems.includes(it.id) ? <div className="item-selected-badge">выбрано</div> : null}
+                            </button>
                           ))
                         ) : (
                           <div className="empty">в этот день пока пусто</div>
                         )}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {calendarMoveMode && pendingMoveTarget ? (
+                  <div className="day-modal-backdrop" onClick={() => setPendingMoveTargetKey(null)}>
+                    <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+                      <div className="card-title" style={{ marginBottom: 10 }}>перенести на другой день?</div>
+                      <div className="vibe-helper" style={{ marginBottom: 14 }}>
+                        перенесем {selectedDayItems.length} {selectedDayItems.length === 1 ? "айтем" : selectedDayItems.length < 5 ? "айтема" : "айтемов"} на{" "}
+                        {pendingMoveTarget.date.toLocaleString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}.
+                      </div>
+                      <div className="day-action-row">
+                        <button type="button" className="btn" onClick={moveSelectedItemsToDay}>да, перенести</button>
+                        <button type="button" className="btn btn-outline" onClick={() => setPendingMoveTargetKey(null)}>не сейчас</button>
                       </div>
                     </div>
                   </div>
@@ -2612,7 +2862,7 @@ export default function Page() {
                       <div className="item-meta">
                         <span className="tag">{it.type === "custom" && it.custom_category_name ? `${it.custom_category_emoji ?? "✦"} ${it.custom_category_name}` : TYPE_LABELS[it.type]}</span>
                       </div>
-                      <div className="item-date">{formatShortDate(it.created_at)}</div>
+                      <div className="item-date">{formatShortDate(getItemDateValue(it))}</div>
                     </div>
                     <div className="item-body">
                       {it.creator && <div className="item-title">{it.creator}</div>}

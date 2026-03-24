@@ -6,6 +6,7 @@ import QRCode from "qrcode";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   clampText,
+  getConsumptionDate,
   getDisplayName,
   LEGACY_ANALYSIS_KEYS,
   LEGACY_IMPORT_KEYS,
@@ -867,6 +868,63 @@ export function useEveryYouApp() {
       setSyncStatus("offline");
       setSyncMessage(message);
       setToastMessage("не удалось обновить время");
+    } finally {
+      setTimelineSpreading(false);
+    }
+  }
+
+  async function moveItemsToDate(itemIds: string[], targetDate: number) {
+    const selectedItems = library.filter((item) => itemIds.includes(item.id));
+    if (selectedItems.length === 0 || timelineSpreading) return;
+
+    setTimelineSpreading(true);
+
+    const movedAt = selectedItems.map((item, index) => {
+      const original = getConsumptionDate(item);
+      const base = new Date(targetDate);
+      const sourceTime = original ? new Date(original) : null;
+      const hours = sourceTime ? sourceTime.getHours() : 12;
+      const minutes = sourceTime ? sourceTime.getMinutes() : Math.min(index * 3, 57);
+      return new Date(base.getFullYear(), base.getMonth(), base.getDate(), hours, minutes, 0, 0).getTime();
+    });
+
+    try {
+      if (apiToken) {
+        const updatedItems: LibraryItem[] = [];
+        for (const [index, item] of selectedItems.entries()) {
+          const updated = await updateItem(apiToken, {
+            id: item.id,
+            type: item.type,
+            source: item.source,
+            title: item.title,
+            authorOrArtist: item.authorOrArtist,
+            consumedAt: movedAt[index],
+            timeOrigin: "exact",
+          });
+          updatedItems.push(updated);
+        }
+
+        setLibrary((current) =>
+          current.map((item) => updatedItems.find((updated) => updated.id === item.id) ?? item)
+        );
+        setSyncStatus("online");
+        setSyncMessage("данные синхронизируются с сервером");
+      } else {
+        setLibrary((current) =>
+          current.map((item) => {
+            const index = selectedItems.findIndex((candidate) => candidate.id === item.id);
+            if (index === -1) return item;
+            return { ...item, consumedAt: movedAt[index], timeOrigin: "exact" };
+          })
+        );
+      }
+
+      setToastMessage(selectedItems.length === 1 ? "дату перенесли" : `перенесли ${selectedItems.length} айтема`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "не удалось перенести дату";
+      setSyncStatus("offline");
+      setSyncMessage(message);
+      setToastMessage("не удалось перенести");
     } finally {
       setTimelineSpreading(false);
     }
@@ -2017,6 +2075,7 @@ export function useEveryYouApp() {
     assignSelectedToLast6Months: () => selectedId && assignTimelineToItem(selectedId, "last_6_months"),
     assignSelectedToThisYear: () => selectedId && assignTimelineToItem(selectedId, "this_year"),
     assignSelectedToVeryOld: () => selectedId && assignTimelineToItem(selectedId, "very_old"),
+    moveItemsToDate,
     dismissTimelinePrompt: () => setTimelinePromptVisible(false),
     promptTimelinePlacement,
     openAnalysisResult: setAnalysisResult,
