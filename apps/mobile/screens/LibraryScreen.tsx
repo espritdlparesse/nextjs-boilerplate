@@ -252,6 +252,8 @@ export function LibraryScreen({
   const [daySelection, setDaySelection] = useState<string[]>([]);
   const [calendarMoveMode, setCalendarMoveMode] = useState(false);
   const [pendingMoveTargetKey, setPendingMoveTargetKey] = useState<string | null>(null);
+  const [moveOriginDayKey, setMoveOriginDayKey] = useState<string | null>(null);
+  const [returnDayKey, setReturnDayKey] = useState<string | null>(null);
 
   const typeFilterSummary = typeFilter === "all" ? "все" : TYPE_LABEL[typeFilter];
   const timeQualitySummary =
@@ -391,6 +393,8 @@ export function LibraryScreen({
 
   function startCalendarMoveMode() {
     if (daySelection.length === 0) return;
+    setMoveOriginDayKey(selectedDay?.key ?? null);
+    setReturnDayKey(null);
     setDayModalVisible(false);
     setCalendarMoveMode(true);
   }
@@ -404,9 +408,28 @@ export function LibraryScreen({
   function confirmMoveSelection() {
     if (!pendingMoveTarget || daySelection.length === 0) return;
     onMoveItemsToDate(daySelection, pendingMoveTarget.date.getTime());
+    setReturnDayKey(moveOriginDayKey);
     setCalendarMoveMode(false);
     setPendingMoveTargetKey(null);
     setDaySelection([]);
+    setMoveOriginDayKey(null);
+  }
+
+  const returnDay = useMemo(
+    () => (returnDayKey ? calendarDays.find((entry) => entry.key === returnDayKey) ?? null : null),
+    [calendarDays, returnDayKey]
+  );
+
+  function jumpBackToReturnDay() {
+    if (!returnDay) return;
+    setCalendarMonth(startOfMonth(returnDay.date));
+    setSelectedDayKey(returnDay.key);
+    setSelectedDayTypeFilter("all");
+    setPendingMoveTargetKey(null);
+    setCalendarMoveMode(false);
+    setDaySelection([]);
+    setDayModalVisible(true);
+    setReturnDayKey(null);
   }
 
   function renderTopCards() {
@@ -605,6 +628,18 @@ export function LibraryScreen({
                 переносим {daySelection.length} {daySelection.length === 1 ? "айтем" : daySelection.length < 5 ? "айтема" : "айтемов"}.
               </Text>
               <PillButton themeMode={themeMode} label="отмена" onPress={cancelCalendarMoveMode} />
+            </View>
+          ) : returnDay ? (
+            <View style={[appStyles.card, appStyles.calendarMoveBanner, themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+              <Text style={[appStyles.sectionTitle, appStyles.calendarMoveTitle, { color: theme.text }]}>дату перенесли</Text>
+              <Text style={[appStyles.helper, { color: theme.text }]}>
+                если хочешь, можно сразу вернуться к прежнему дню.
+              </Text>
+              <PillButton
+                themeMode={themeMode}
+                label={`вернуться к ${returnDay.date.toLocaleString("ru-RU", { day: "numeric", month: "long" })}`}
+                onPress={jumpBackToReturnDay}
+              />
             </View>
           ) : null}
 

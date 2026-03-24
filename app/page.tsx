@@ -735,6 +735,8 @@ export default function Page() {
 
   function startMoveSelectedDayItems() {
     if (selectedDayItems.length === 0) return;
+    setMoveOriginDayKey(selectedDay?.key ?? null);
+    setReturnDayKey(null);
     setDayModalOpen(false);
     setPendingMoveTargetKey(null);
     setCalendarMoveMode(true);
@@ -745,6 +747,7 @@ export default function Page() {
     setCalendarMoveMode(false);
     setPendingMoveTargetKey(null);
     setSelectedDayItems([]);
+    setMoveOriginDayKey(null);
     setLibraryStatus("");
   }
 
@@ -786,9 +789,11 @@ export default function Page() {
 
       await loadLibrary();
       setLibraryStatus(chosenItems.length === 1 ? "да, все ок: перенесли" : `да, все ок: перенесли ${chosenItems.length}`);
+      setReturnDayKey(moveOriginDayKey);
       setCalendarMoveMode(false);
       setPendingMoveTargetKey(null);
       setSelectedDayItems([]);
+      setMoveOriginDayKey(null);
       setSelectedDayKey(pendingMoveTarget.key);
       setDayModalOpen(true);
     } catch (e: any) {
@@ -796,6 +801,19 @@ export default function Page() {
     } finally {
       setLibraryLoading(false);
     }
+  }
+
+  function jumpBackToReturnDay() {
+    if (!returnDay) return;
+    setCalendarMonth(startOfMonth(returnDay.date));
+    setSelectedDayKey(returnDay.key);
+    setSelectedDayTypeFilter("all");
+    setSelectedDayItems([]);
+    setPendingMoveTargetKey(null);
+    setCalendarMoveMode(false);
+    setDayModalOpen(true);
+    setReturnDayKey(null);
+    setLibraryStatus("");
   }
 
   // ===== Vibe =====
@@ -1131,6 +1149,8 @@ export default function Page() {
   const [selectedDayItems, setSelectedDayItems] = useState<Array<string | number>>([]);
   const [calendarMoveMode, setCalendarMoveMode] = useState(false);
   const [pendingMoveTargetKey, setPendingMoveTargetKey] = useState<string | null>(null);
+  const [moveOriginDayKey, setMoveOriginDayKey] = useState<string | null>(null);
+  const [returnDayKey, setReturnDayKey] = useState<string | null>(null);
   const [libraryStatus, setLibraryStatus] = useState("");
   const filteredItems = useMemo(() => {
     if (libFilter === "all") return items;
@@ -1194,6 +1214,11 @@ export default function Page() {
   const pendingMoveTarget = useMemo(
     () => (pendingMoveTargetKey ? calendarDays.find((entry) => entry.key === pendingMoveTargetKey) ?? null : null),
     [calendarDays, pendingMoveTargetKey]
+  );
+
+  const returnDay = useMemo(
+    () => (returnDayKey ? calendarDays.find((entry) => entry.key === returnDayKey) ?? null : null),
+    [calendarDays, returnDayKey]
   );
 
   return (
@@ -2654,6 +2679,17 @@ export default function Page() {
             </div>
 
             {libraryStatus && !libraryError && <div className="status-note">{libraryStatus}</div>}
+            {returnDay && !calendarMoveMode ? (
+              <div className="calendar-move-banner" style={{ marginBottom: 16 }}>
+                <div className="calendar-move-copy">
+                  <div className="section-label" style={{ marginBottom: 4 }}>дату перенесли</div>
+                  <div>если хочешь, можно сразу вернуться к прежнему дню.</div>
+                </div>
+                <button type="button" className="btn btn-outline btn-sm" onClick={jumpBackToReturnDay}>
+                  {`вернуться к ${returnDay.date.toLocaleString("ru-RU", { day: "numeric", month: "long" })}`}
+                </button>
+              </div>
+            ) : null}
 
             <div className="section-label">тип контента</div>
               <div className="filter-row">
