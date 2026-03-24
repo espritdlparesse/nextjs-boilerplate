@@ -1050,6 +1050,12 @@ export const appStyles = StyleSheet.create({
     color: colors.subtext,
     textTransform: "lowercase",
   },
+  calendarStepsText: {
+    fontSize: 9,
+    color: colors.subtext,
+    textTransform: "lowercase",
+    marginTop: 1,
+  },
   weekStrip: {
     flexDirection: "row",
     gap: 8,
@@ -1092,6 +1098,25 @@ export const appStyles = StyleSheet.create({
     minHeight: 36,
     paddingHorizontal: 14,
     paddingVertical: 9,
+  },
+  dayStepsCard: {
+    gap: 4,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderRadius: 20,
+  },
+  dayStepsTitle: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: colors.subtext,
+    textTransform: "lowercase",
+  },
+  dayStepsValue: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: colors.black,
+    textTransform: "lowercase",
+    letterSpacing: -0.6,
   },
   dayGridPressable: {
     flex: 1,

@@ -51,6 +51,8 @@ type LibraryScreenProps = {
   onDismissTimelinePrompt: () => void;
   onEditItem: (id: string) => void;
   onDeleteItem: (id: string) => void;
+  dailyStepsByDay: Record<string, number>;
+  healthStepsEnabled: boolean;
 };
 
 function typeTileStyle(type: LibraryItem["type"]) {
@@ -95,6 +97,7 @@ const CalendarDayCell = memo(function CalendarDayCell({
     date: Date;
     inMonth: boolean;
     items: LibraryItem[];
+    steps: number;
   };
   selected: boolean;
   themeMode: ThemeMode;
@@ -132,6 +135,8 @@ const CalendarDayCell = memo(function CalendarDayCell({
             ))}
         </View>
       ) : null}
+
+      {day.steps > 0 ? <Text style={[appStyles.calendarStepsText, { color: theme.mutedText }]}>{`${Math.round(day.steps / 1000)}к шагов`}</Text> : null}
 
       {day.items.length > 1 ? <Text style={[appStyles.calendarMore, { color: theme.mutedText }]}>+ еще {day.items.length - 1}</Text> : null}
     </Pressable>
@@ -239,6 +244,8 @@ export function LibraryScreen({
   onDismissTimelinePrompt,
   onEditItem,
   onDeleteItem,
+  dailyStepsByDay,
+  healthStepsEnabled,
 }: LibraryScreenProps) {
   const theme = getTheme(themeMode);
   const [viewMode, setViewMode] = useState<LibraryViewMode>("calendar");
@@ -289,15 +296,16 @@ export function LibraryScreen({
     return Array.from({ length: 42 }, (_, index) => {
       const date = addDays(gridStart, index);
       const key = dayKey(date);
-      return {
-        key,
-        date,
-        inMonth: date.getMonth() === calendarMonth.getMonth(),
-        isToday: key === dayKey(new Date()),
-        items: itemsByDay.get(key) ?? [],
-      };
-    });
-  }, [calendarMonth, itemsByDay]);
+        return {
+          key,
+          date,
+          inMonth: date.getMonth() === calendarMonth.getMonth(),
+          isToday: key === dayKey(new Date()),
+          items: itemsByDay.get(key) ?? [],
+          steps: dailyStepsByDay[key] ?? 0,
+        };
+      });
+  }, [calendarMonth, dailyStepsByDay, itemsByDay]);
 
   const selectedDay = useMemo(() => {
     if (selectedDayKey) {
@@ -320,9 +328,10 @@ export function LibraryScreen({
         key,
         date,
         items: itemsByDay.get(key) ?? [],
+        steps: dailyStepsByDay[key] ?? 0,
       };
     });
-  }, [itemsByDay, selectedDay]);
+  }, [dailyStepsByDay, itemsByDay, selectedDay]);
 
   const selectedDayItems = useMemo(() => {
     if (!selectedDay) return [];
@@ -767,6 +776,16 @@ export function LibraryScreen({
                     />
                   ))}
                 </ScrollView>
+
+                {healthStepsEnabled && selectedDay.steps > 0 ? (
+                  <View style={[appStyles.card, appStyles.dayStepsCard, themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+                    <Text style={[appStyles.dayStepsTitle, { color: theme.text }]}>шаги</Text>
+                    <Text style={[appStyles.dayStepsValue, { color: theme.text }]}>
+                      {selectedDay.steps.toLocaleString("ru-RU")}
+                    </Text>
+                    <Text style={[appStyles.metaText, { color: theme.mutedText }]}>из приложения «здоровье», когда подключим интеграцию</Text>
+                  </View>
+                ) : null}
 
                 <View style={appStyles.dayTypeFilterRow}>
                   {(["all", "music", "book", "film"] as TypeFilter[]).map((value) => (

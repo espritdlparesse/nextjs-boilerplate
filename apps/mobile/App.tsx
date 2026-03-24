@@ -478,6 +478,8 @@ export default function App() {
                   app.startEdit(id);
                 }}
                 onDeleteItem={app.removeItem}
+                dailyStepsByDay={app.dailyStepsByDay}
+                healthStepsEnabled={app.healthStepsEnabled}
               />
             </View>
           ) : (
@@ -607,6 +609,8 @@ export default function App() {
                   musicCount={app.counters.byType.music}
                   bookCount={app.counters.byType.book}
                   filmCount={app.counters.byType.film}
+                  totalSteps={app.totalSteps}
+                  healthStepsEnabled={app.healthStepsEnabled}
                   exactCount={app.timeStats.exact}
                   importedCount={app.timeStats.imported}
                   estimatedCount={app.timeStats.estimated}
@@ -616,6 +620,7 @@ export default function App() {
                   onPickAvatarPress={app.pickAvatar}
                   onClearAvatarPress={app.clearAvatar}
                   onThemeChange={app.setThemeMode}
+                  onHealthStepsEnabledChange={app.setHealthStepsEnabled}
                   onCreateTelegramLinkCode={app.createTelegramLinkCode}
                   onOpenTelegramLinkFlow={app.openTelegramLinkFlow}
                   onReplayOnboarding={app.replayOnboarding}

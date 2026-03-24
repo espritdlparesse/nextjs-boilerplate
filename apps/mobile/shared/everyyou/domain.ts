@@ -9,6 +9,11 @@ export type ContentType = "music" | "book" | "film";
 export type SourceType = "manual" | "import_spotify" | "import_lastfm" | "import_letterboxd";
 export type TimeOrigin = "exact" | "imported" | "estimated";
 export type ThemeMode = "light" | "dark";
+export type DailyStepEntry = {
+  dayKey: string;
+  steps: number;
+  source: "apple_health";
+};
 
 export type LibraryItem = {
   id: string;
@@ -96,6 +101,8 @@ export const LEGACY_IMPORT_KEYS = ["everyyou.import.v2", "everyyou.import.v3"];
 
 export const STORAGE_KEY_ANALYSIS = "everyyou.analysis";
 export const LEGACY_ANALYSIS_KEYS = ["everyyou.analysis.v1", "everyyou.analysis.v2"];
+export const STORAGE_KEY_DAILY_STEPS = "everyyou.daily_steps";
+export const STORAGE_KEY_HEALTH_STEPS_ENABLED = "everyyou.health_steps_enabled";
 
 export function uid() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;

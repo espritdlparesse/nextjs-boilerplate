@@ -24,6 +24,8 @@ type ProfileScreenProps = {
   musicCount: number;
   bookCount: number;
   filmCount: number;
+  totalSteps: number;
+  healthStepsEnabled: boolean;
   exactCount: number;
   importedCount: number;
   estimatedCount: number;
@@ -33,6 +35,7 @@ type ProfileScreenProps = {
   onPickAvatarPress: () => void;
   onClearAvatarPress: () => void;
   onThemeChange: (mode: ThemeMode) => void;
+  onHealthStepsEnabledChange: (value: boolean) => void;
   onCreateTelegramLinkCode: () => void;
   onOpenTelegramLinkFlow: () => void;
   onReplayOnboarding: () => void;
@@ -62,6 +65,8 @@ export function ProfileScreen({
   musicCount,
   bookCount,
   filmCount,
+  totalSteps,
+  healthStepsEnabled,
   exactCount,
   importedCount,
   estimatedCount,
@@ -71,6 +76,7 @@ export function ProfileScreen({
   onPickAvatarPress,
   onClearAvatarPress,
   onThemeChange,
+  onHealthStepsEnabledChange,
   onCreateTelegramLinkCode,
   onOpenTelegramLinkFlow,
   onReplayOnboarding,
@@ -184,6 +190,31 @@ export function ProfileScreen({
         <Text style={[appStyles.metaText, { color: themeMode === "dark" ? theme.accentText : theme.accentMutedText }]}>
           чем больше точных дат и дат из сервисов, тем честнее календарь и тем лучше потом работает вайбчек.
         </Text>
+      </View>
+
+      <View style={[appStyles.card, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <Text style={[appStyles.label, { color: theme.mutedText }]}>здоровье</Text>
+        <Text style={[appStyles.helper, { color: theme.text }]}>
+          сюда можно будет подтянуть шаги с айфона и показывать их в календаре по дням.
+        </Text>
+        <View style={appStyles.row}>
+          <PillButton
+            label="шаги скрыты"
+            active={!healthStepsEnabled}
+            themeMode={themeMode}
+            onPress={() => onHealthStepsEnabledChange(false)}
+          />
+          <PillButton
+            label="показывать шаги"
+            active={healthStepsEnabled}
+            themeMode={themeMode}
+            onPress={() => onHealthStepsEnabledChange(true)}
+          />
+        </View>
+        <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
+          сейчас это подготовка под интеграцию с приложением «здоровье». когда подключим healthkit, шаги появятся здесь и в календаре.
+        </Text>
+        <Text style={[appStyles.metaText, { color: theme.mutedText }]}>всего шагов в сохраненном слое: {totalSteps}</Text>
       </View>
 
       <View style={[appStyles.card, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>

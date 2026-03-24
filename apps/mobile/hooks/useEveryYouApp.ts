@@ -13,11 +13,14 @@ import {
   LEGACY_LIBRARY_KEYS,
   normalizeLibrary,
   STORAGE_KEY_ANALYSIS,
+  STORAGE_KEY_DAILY_STEPS,
+  STORAGE_KEY_HEALTH_STEPS_ENABLED,
   STORAGE_KEY_IMPORT,
   STORAGE_KEY_LIBRARY,
   uid,
   type AnalysisRun,
   type ContentType,
+  type DailyStepEntry,
   type LibraryItem,
   type SourceType,
   type ThemeMode,
@@ -247,6 +250,8 @@ export function useEveryYouApp() {
   const [screenshotDateInsight, setScreenshotDateInsight] = useState<DateInsight | null>(null);
   const [spotifyDateInsight, setSpotifyDateInsight] = useState<DateInsight | null>(null);
   const [fileImportDateInsight, setFileImportDateInsight] = useState<DateInsight | null>(null);
+  const [dailySteps, setDailySteps] = useState<DailyStepEntry[]>([]);
+  const [healthStepsEnabled, setHealthStepsEnabled] = useState(false);
   const deferredLibrary = useDeferredValue(library);
 
   async function refreshLinkedLibrary(token: string, attempts = 4) {
@@ -297,6 +302,8 @@ export function useEveryYouApp() {
       const storedAvatarUri = await getStoredAvatarUri();
       const storedThemeMode = await getStoredThemeMode();
       const onboardingDone = await getStoredOnboardingDone();
+      const storedDailySteps = await loadJSON<DailyStepEntry[]>(STORAGE_KEY_DAILY_STEPS, [], []);
+      const storedHealthStepsEnabled = (await AsyncStorage.getItem(STORAGE_KEY_HEALTH_STEPS_ENABLED)) === "true";
 
       try {
         if (mounted) {
@@ -398,6 +405,8 @@ export function useEveryYouApp() {
       setNameDraft(hasValidCustomName(nextUser) ? getDisplayName(nextUser) : "");
       setAvatarUri(storedAvatarUri);
       setThemeMode(storedThemeMode);
+      setDailySteps(storedDailySteps);
+      setHealthStepsEnabled(storedHealthStepsEnabled);
       setApiToken(nextToken);
       setSyncStatus(nextSyncStatus);
       setSyncMessage(nextSyncMessage);
@@ -644,6 +653,16 @@ export function useEveryYouApp() {
     AsyncStorage.setItem(STORAGE_KEY_ANALYSIS, JSON.stringify(analysisHistory)).catch(() => undefined);
   }, [analysisHistory, loaded]);
 
+  useEffect(() => {
+    if (!loaded) return;
+    AsyncStorage.setItem(STORAGE_KEY_DAILY_STEPS, JSON.stringify(dailySteps)).catch(() => undefined);
+  }, [dailySteps, loaded]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    AsyncStorage.setItem(STORAGE_KEY_HEALTH_STEPS_ENABLED, healthStepsEnabled ? "true" : "false").catch(() => undefined);
+  }, [healthStepsEnabled, loaded]);
+
   const displayName = useMemo(() => getDisplayName(user), [user]);
   const hasCustomName = useMemo(() => hasValidCustomName(user), [user]);
   const namePlaceholder = useMemo(
@@ -688,6 +707,15 @@ export function useEveryYouApp() {
     () => visibleLibrary.filter((item) => item.source !== "manual" && item.consumedAt == null),
     [visibleLibrary]
   );
+  const dailyStepsByDay = useMemo(
+    () =>
+      dailySteps.reduce<Record<string, number>>((acc, entry) => {
+        acc[entry.dayKey] = entry.steps;
+        return acc;
+      }, {}),
+    [dailySteps]
+  );
+  const totalSteps = useMemo(() => dailySteps.reduce((sum, entry) => sum + entry.steps, 0), [dailySteps]);
   const selectedPendingImageItem = useMemo(
     () => pendingImageItems.find((item) => item.id === selectedPendingImageId) ?? null,
     [pendingImageItems, selectedPendingImageId]
@@ -1931,6 +1959,13 @@ export function useEveryYouApp() {
     setShowOnboarding(true);
   }
 
+  function updateHealthStepsEnabled(value: boolean) {
+    setHealthStepsEnabled(value);
+    if (value) {
+      setToastMessage("когда подключим здоровье, шаги появятся в календаре по дням");
+    }
+  }
+
   return {
     tab,
     setTab,
@@ -1986,6 +2021,9 @@ export function useEveryYouApp() {
     visibleLibrary,
     counters,
     timeStats,
+    dailyStepsByDay,
+    totalSteps,
+    healthStepsEnabled,
     analysisRunning,
     analysisResult,
     analysisHistory,
@@ -2001,6 +2039,7 @@ export function useEveryYouApp() {
     pickAvatar,
     clearAvatar,
     setThemeMode: updateThemeMode,
+    setHealthStepsEnabled: updateHealthStepsEnabled,
     createTelegramLinkCode,
     openTelegramLinkFlow,
     setType,
