@@ -227,6 +227,32 @@ function DateInsightBlock({ insight }: { insight: { title: string; body: string;
   );
 }
 
+function ImportStatusBlock({
+  title,
+  body,
+  themeMode,
+}: {
+  title: string;
+  body: string;
+  themeMode: ThemeMode;
+}) {
+  const theme = getTheme(themeMode);
+  return (
+    <View
+      style={[
+        appStyles.importStatusCard,
+        {
+          backgroundColor: themeMode === "dark" ? theme.surfaceMuted : "#FFFFFF",
+          borderColor: theme.border,
+        },
+      ]}
+    >
+      <Text style={[appStyles.importStatusTitle, { color: theme.text }]}>{title}</Text>
+      <Text style={[appStyles.importStatusBody, { color: theme.mutedText }]}>{body}</Text>
+    </View>
+  );
+}
+
 export function AddScreen({
   themeMode,
   editingId,
@@ -337,6 +363,7 @@ export function AddScreen({
 
   return (
     <View style={appStyles.screen}>
+      {editingId ? null : (
       <View style={[appStyles.card, themeMode === "dark" ? { backgroundColor: theme.accentPink, borderColor: theme.border } : appStyles.cardAccentPink]}>
         <Text style={appStyles.sectionTitle}>{editingId ? "редактировать" : "добавить"}</Text>
         <Text style={[appStyles.helper, { color: theme.accentText }]}>
@@ -355,9 +382,12 @@ export function AddScreen({
           disabled={isScreenshotImporting}
         />
 
+        {screenshotStatus ? (
+          <ImportStatusBlock title="что сейчас происходит" body={screenshotStatus} themeMode={themeMode} />
+        ) : null}
+
         <View style={appStyles.chipRow}>
           <StatusChip text={`импортировано: ${importedCount} треков`} />
-          {screenshotStatus ? <StatusChip text={screenshotStatus} /> : null}
         </View>
         {screenshotDateInsight ? <DateInsightBlock insight={screenshotDateInsight} /> : null}
 
@@ -465,7 +495,9 @@ export function AddScreen({
           </View>
         ) : null}
       </View>
+      )}
 
+      {editingId ? null : (
       <View style={[appStyles.card, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <Text style={[appStyles.label, { color: theme.mutedText }]}>импорт из площадок</Text>
         <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
@@ -505,19 +537,25 @@ export function AddScreen({
           </View>
         ) : null}
 
+        {fileImportStatus ? (
+          <ImportStatusBlock title="что сейчас происходит" body={fileImportStatus} themeMode={themeMode} />
+        ) : null}
+        {spotifyStatus ? (
+          <ImportStatusBlock title="spotify" body={spotifyStatus} themeMode={themeMode} />
+        ) : null}
+
         <View style={appStyles.chipRow}>
           {spotifyConnected ? (
             <StatusChip text={`spotify подключен: ${spotifyProfileName ?? "аккаунт найден"}`} />
           ) : null}
-          {fileImportStatus ? <StatusChip text={fileImportStatus} /> : null}
-          {spotifyStatus ? <StatusChip text={spotifyStatus} /> : null}
         </View>
         {fileImportDateInsight ? <DateInsightBlock insight={fileImportDateInsight} /> : null}
         {spotifyDateInsight ? <DateInsightBlock insight={spotifyDateInsight} /> : null}
       </View>
+      )}
 
       <View style={[appStyles.card, themeMode === "dark" ? { backgroundColor: theme.accentBlue, borderColor: theme.border } : appStyles.cardAccentBlue]}>
-        <Text style={[appStyles.label, { color: theme.accentMutedText }]}>добавить вручную</Text>
+        <Text style={[appStyles.label, { color: theme.accentMutedText }]}>{editingId ? "редактирование" : "добавить вручную"}</Text>
         <View style={appStyles.row}>
           {(["music", "book", "film"] as ContentType[]).map((value) => (
             <PillButton

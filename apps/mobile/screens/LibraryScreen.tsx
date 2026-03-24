@@ -35,7 +35,7 @@ type LibraryScreenProps = {
   onTypeFilterChange: (value: TypeFilter) => void;
   onSourceFilterChange: (value: SourceFilter) => void;
   onTimeQualityFilterChange: (value: "all" | "exact" | "imported" | "estimated" | "undated") => void;
-  onSelectItem: (id: string) => void;
+  onSelectItem: (id: string | null) => void;
   onSpreadThisMonth: () => void;
   onSpreadLastMonth: () => void;
   onSpreadLast6Months: () => void;
@@ -553,39 +553,6 @@ export function LibraryScreen({
           </View>
         ) : null}
 
-        {selectedItem ? (
-          <View style={[appStyles.tile, typeTileStyle(selectedItem.type)]}>
-            <View style={appStyles.tileTopRow}>
-              <View style={appStyles.typeBadge}>
-                <Text style={appStyles.typeBadgeText}>{TYPE_LABEL[selectedItem.type]}</Text>
-              </View>
-              <Text style={[appStyles.metaDate, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>
-                {getConsumptionDate(selectedItem)
-                  ? formatFullDate(getConsumptionDate(selectedItem) as number)
-                  : "выбери время"}
-              </Text>
-            </View>
-            <Text style={appStyles.itemTitle}>{selectedItem.title}</Text>
-            <Text style={appStyles.itemMeta}>{selectedItem.authorOrArtist || "без автора"}</Text>
-            {getTimeOriginLabel(selectedItem.timeOrigin) ? (
-              <Text style={[appStyles.metaText, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>{getTimeOriginLabel(selectedItem.timeOrigin)}</Text>
-            ) : null}
-            {!getConsumptionDate(selectedItem) ? (
-              <View style={appStyles.stack}>
-                <Text style={[appStyles.metaText, { color: themeMode === "dark" ? theme.accentMutedText : theme.mutedText }]}>когда это было примерно?</Text>
-                <View style={appStyles.row}>
-                  <PillButton themeMode={themeMode} label="недавно" onPress={onAssignSelectedThisMonth} disabled={timelineSpreading} />
-                  <PillButton themeMode={themeMode} label="прошлый месяц" onPress={onAssignSelectedLastMonth} disabled={timelineSpreading} />
-                  <PillButton themeMode={themeMode} label="полгода" onPress={onAssignSelectedLast6Months} disabled={timelineSpreading} />
-                  <PillButton themeMode={themeMode} label="этот год" onPress={onAssignSelectedThisYear} disabled={timelineSpreading} />
-                  <PillButton themeMode={themeMode} label="очень давно" onPress={onAssignSelectedVeryOld} disabled={timelineSpreading} />
-                </View>
-              </View>
-            ) : null}
-            <PillButton themeMode={themeMode} label="редактировать" onPress={() => onEditItem(selectedItem.id)} />
-            <PillButton themeMode={themeMode} label="удалить" variant="danger" onPress={() => onDeleteItem(selectedItem.id)} />
-          </View>
-        ) : null}
       </View>
     );
   }
@@ -886,6 +853,60 @@ export function LibraryScreen({
               <PillButton themeMode={themeMode} style={appStyles.dayActionPill} label="да, перенести" onPress={confirmMoveSelection} />
               <PillButton themeMode={themeMode} style={appStyles.dayActionPill} label="не сейчас" onPress={() => setPendingMoveTargetKey(null)} />
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={Boolean(selectedItem)} transparent animationType="fade" onRequestClose={() => onSelectItem(null)}>
+        <View style={[appStyles.dayModalBackdrop, { backgroundColor: theme.overlay }]}>
+          <View style={[appStyles.guideModalSheet, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            {selectedItem ? (
+              <>
+                <View style={appStyles.dayModalTopRow}>
+                  <View style={appStyles.dayModalHeading}>
+                    <Text style={[appStyles.sectionTitle, { color: theme.text }]}>карточка</Text>
+                  </View>
+                  <Pressable style={[appStyles.dayModalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} onPress={() => onSelectItem(null)}>
+                    <Text style={[appStyles.dayModalCloseText, { color: theme.text }]}>закрыть</Text>
+                  </Pressable>
+                </View>
+                <View style={[appStyles.tile, typeTileStyle(selectedItem.type)]}>
+                  <View style={appStyles.tileTopRow}>
+                    <View style={appStyles.typeBadge}>
+                      <Text style={appStyles.typeBadgeText}>{TYPE_LABEL[selectedItem.type]}</Text>
+                    </View>
+                    <Text style={[appStyles.metaDate, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>
+                      {getConsumptionDate(selectedItem)
+                        ? formatFullDate(getConsumptionDate(selectedItem) as number)
+                        : "выбери время"}
+                    </Text>
+                  </View>
+                  <Text style={appStyles.itemTitle}>{selectedItem.title}</Text>
+                  <Text style={appStyles.itemMeta}>{selectedItem.authorOrArtist || "без автора"}</Text>
+                  {getTimeOriginLabel(selectedItem.timeOrigin) ? (
+                    <Text style={[appStyles.metaText, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>
+                      {getTimeOriginLabel(selectedItem.timeOrigin)}
+                    </Text>
+                  ) : null}
+                  {!getConsumptionDate(selectedItem) ? (
+                    <View style={appStyles.stack}>
+                      <Text style={[appStyles.metaText, { color: themeMode === "dark" ? theme.accentMutedText : theme.mutedText }]}>когда это было примерно?</Text>
+                      <View style={appStyles.row}>
+                        <PillButton themeMode={themeMode} label="недавно" onPress={onAssignSelectedThisMonth} disabled={timelineSpreading} />
+                        <PillButton themeMode={themeMode} label="прошлый месяц" onPress={onAssignSelectedLastMonth} disabled={timelineSpreading} />
+                        <PillButton themeMode={themeMode} label="полгода" onPress={onAssignSelectedLast6Months} disabled={timelineSpreading} />
+                        <PillButton themeMode={themeMode} label="этот год" onPress={onAssignSelectedThisYear} disabled={timelineSpreading} />
+                        <PillButton themeMode={themeMode} label="очень давно" onPress={onAssignSelectedVeryOld} disabled={timelineSpreading} />
+                      </View>
+                    </View>
+                  ) : null}
+                </View>
+                <View style={appStyles.dayActionRow}>
+                  <PillButton themeMode={themeMode} style={appStyles.dayActionPill} label="редактировать" onPress={() => onEditItem(selectedItem.id)} />
+                  <PillButton themeMode={themeMode} style={appStyles.dayActionPill} label="удалить" variant="danger" onPress={() => onDeleteItem(selectedItem.id)} />
+                </View>
+              </>
+            ) : null}
           </View>
         </View>
       </Modal>

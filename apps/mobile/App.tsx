@@ -4,7 +4,7 @@ import * as ScreenCapture from "expo-screen-capture";
 import * as Sharing from "expo-sharing";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
-import { Image, Pressable, SafeAreaView, ScrollView, Share, Text, View } from "react-native";
+import { Image, Modal, Pressable, SafeAreaView, ScrollView, Share, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
   Easing,
@@ -40,6 +40,7 @@ export default function App() {
   const app = useEveryYouApp();
   const theme = getTheme(app.themeMode);
   const isLibraryTab = app.tab === "library";
+  const editModalVisible = Boolean(app.editingId);
   const [screenshotPromptVisible, setScreenshotPromptVisible] = useState(false);
   const [latestScreenshotUri, setLatestScreenshotUri] = useState<string | null>(null);
   const [screenshotActionLoading, setScreenshotActionLoading] = useState(false);
@@ -473,8 +474,8 @@ export default function App() {
                 onMoveItemsToDate={app.moveItemsToDate}
                 onDismissTimelinePrompt={app.dismissTimelinePrompt}
                 onEditItem={(id) => {
+                  app.setSelectedId(null);
                   app.startEdit(id);
-                  app.setTab("add");
                 }}
                 onDeleteItem={app.removeItem}
               />
@@ -622,6 +623,97 @@ export default function App() {
               )}
             </ScrollView>
           )}
+
+          <Modal visible={editModalVisible} transparent animationType="fade" onRequestClose={app.cancelEdit}>
+            <View style={[appStyles.dayModalBackdrop, { backgroundColor: theme.overlay }]}>
+              <View style={[appStyles.editModalSheet, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <View style={appStyles.dayModalTopRow}>
+                  <View style={appStyles.dayModalHeading}>
+                    <Text style={[appStyles.sectionTitle, { color: theme.text }]}>редактировать</Text>
+                    <Text style={[appStyles.editSheetMeta, { color: theme.mutedText }]}>
+                      поправь тип, название или автора и сохрани изменения
+                    </Text>
+                  </View>
+                  <Pressable
+                    style={[appStyles.dayModalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+                    onPress={app.cancelEdit}
+                  >
+                    <Text style={[appStyles.dayModalCloseText, { color: theme.text }]}>закрыть</Text>
+                  </Pressable>
+                </View>
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={appStyles.editSheetContent}
+                >
+                  <AddScreen
+                    themeMode={app.themeMode}
+                    editingId={app.editingId}
+                    isScreenshotImporting={app.isScreenshotImporting}
+                    importedCount={app.importedCount}
+                    screenshotStatus={app.screenshotStatus}
+                    screenshotDateInsight={app.screenshotDateInsight}
+                    pendingImageItems={app.pendingImageItems}
+                    selectedPendingImageItem={app.selectedPendingImageItem}
+                    confirmingPendingImageImport={app.confirmingPendingImageImport}
+                    spotifyUrl={app.spotifyUrl}
+                    spotifyStatus={app.spotifyStatus}
+                    spotifyDateInsight={app.spotifyDateInsight}
+                    spotifyConnected={app.spotifyConnected}
+                    spotifyProfileName={app.spotifyProfileName}
+                    spotifyPlaylists={app.spotifyPlaylists}
+                    spotifyOAuthLoading={app.spotifyOAuthLoading}
+                    spotifyPlaylistLoading={app.spotifyPlaylistLoading}
+                    lastfmUsername={app.lastfmUsername}
+                    letterboxdProfile={app.letterboxdProfile}
+                    connectedSources={app.connectedSources}
+                    fileImportStatus={app.fileImportStatus}
+                    fileImportDateInsight={app.fileImportDateInsight}
+                    type={app.type}
+                    title={app.title}
+                    authorOrArtist={app.authorOrArtist}
+                    placeholderIndex={app.phIdx}
+                    canSave={app.canSave}
+                    onScreenshotImportPress={app.importFromScreenshot}
+                    onConfirmPendingImageImport={app.confirmPendingImageImport}
+                    onCancelPendingImageImport={app.cancelPendingImageImport}
+                    onRemovePendingImageItem={app.removePendingImageItem}
+                    onSelectPendingImageItem={app.selectPendingImageItem}
+                    onUpdatePendingImageItem={app.updatePendingImageItem}
+                    onAssignPendingImageItemThisMonth={app.assignPendingImageItemThisMonth}
+                    onAssignPendingImageItemLastMonth={app.assignPendingImageItemLastMonth}
+                    onAssignPendingImageItemLast6Months={app.assignPendingImageItemLast6Months}
+                    onAssignPendingImageItemThisYear={app.assignPendingImageItemThisYear}
+                    onAssignPendingImageItemVeryOld={app.assignPendingImageItemVeryOld}
+                    onSpotifyUrlChange={app.setSpotifyUrl}
+                    onSpotifyImportPress={app.importSpotifyLink}
+                    onSpotifyConnectPress={app.connectSpotifyAccount}
+                    onSpotifyRefreshPress={app.refreshSpotifyConnection}
+                    onSpotifyLoadPlaylistsPress={app.loadSpotifyPlaylists}
+                    onSpotifyLikedSongsPress={app.importSpotifyLikedSongs}
+                    onSpotifyRecentlyPlayedPress={app.importSpotifyRecentlyPlayed}
+                    onSpotifyPlaylistImportPress={app.importSpotifyPlaylist}
+                    onLastfmUsernameChange={app.setLastfmUsername}
+                    onLetterboxdProfileChange={app.setLetterboxdProfile}
+                    onLastfmProfileImportPress={app.importLastfmProfileByUsername}
+                    onLetterboxdProfileImportPress={app.importLetterboxdPublicProfile}
+                    onLivelibImportPress={app.importLivelibFile}
+                    onGoodreadsImportPress={app.importGoodreadsFile}
+                    onLetterboxdImportPress={app.importLetterboxdFile}
+                    onLastfmImportPress={app.importLastfmFile}
+                    onKinopoiskImportPress={app.importKinopoiskFile}
+                    onMubiImportPress={app.importMubiFile}
+                    onTypeChange={app.setType}
+                    onSourceChange={app.setSource}
+                    onTitleChange={app.setTitle}
+                    onAuthorOrArtistChange={app.setAuthorOrArtist}
+                    onSavePress={app.saveEdit}
+                    onCancelPress={app.cancelEdit}
+                    onDone={() => undefined}
+                  />
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
 
           <View style={appStyles.bottomBarWrap}>
             {app.toastMessage ? (
