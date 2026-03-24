@@ -39,6 +39,17 @@ export async function POST(req: NextRequest) {
 
   const telegramOwnerKey = `tg:${tgUserId}`;
 
+  const { data: existingTelegramLink, error: existingTelegramLinkError } = await sb
+    .from("owner_links")
+    .select("app_owner_key, telegram_owner_key")
+    .eq("telegram_owner_key", telegramOwnerKey)
+    .neq("app_owner_key", linkRow.app_owner_key)
+    .maybeSingle();
+
+  if (existingTelegramLinkError) {
+    return NextResponse.json({ error: existingTelegramLinkError.message }, { status: 500 });
+  }
+
   const migrations = await Promise.allSettled([
     sb.from("items").update({ owner_key: telegramOwnerKey, owner_kind: "telegram", tg_user_id: tgUserId }).eq("owner_key", linkRow.app_owner_key),
     sb.from("app_events").update({ owner_key: telegramOwnerKey, owner_kind: "telegram" }).eq("owner_key", linkRow.app_owner_key),
@@ -52,6 +63,17 @@ export async function POST(req: NextRequest) {
       if (!message.includes("relation") && !message.includes("does not exist")) {
         return NextResponse.json({ error: result.value.error.message }, { status: 500 });
       }
+    }
+  }
+
+  if (existingTelegramLink?.app_owner_key) {
+    const { error: deleteConflictingLinkError } = await sb
+      .from("owner_links")
+      .delete()
+      .eq("app_owner_key", existingTelegramLink.app_owner_key);
+
+    if (deleteConflictingLinkError) {
+      return NextResponse.json({ error: deleteConflictingLinkError.message }, { status: 500 });
     }
   }
 
