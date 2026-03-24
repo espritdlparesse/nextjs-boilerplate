@@ -788,8 +788,13 @@ export default function Page() {
       }
 
       await loadLibrary();
-      setLibraryStatus(chosenItems.length === 1 ? "да, все ок: перенесли" : `да, все ок: перенесли ${chosenItems.length}`);
+      setLibraryStatus(
+        chosenItems.length === 1
+          ? `да, все ок: перенесли на ${pendingMoveTarget.date.toLocaleString("ru-RU", { day: "numeric", month: "long" })}`
+          : `да, все ок: перенесли ${chosenItems.length} на ${pendingMoveTarget.date.toLocaleString("ru-RU", { day: "numeric", month: "long" })}`
+      );
       setReturnDayKey(moveOriginDayKey);
+      setLastMovedTargetKey(pendingMoveTarget.key);
       setCalendarMoveMode(false);
       setPendingMoveTargetKey(null);
       setSelectedDayItems([]);
@@ -1151,6 +1156,7 @@ export default function Page() {
   const [pendingMoveTargetKey, setPendingMoveTargetKey] = useState<string | null>(null);
   const [moveOriginDayKey, setMoveOriginDayKey] = useState<string | null>(null);
   const [returnDayKey, setReturnDayKey] = useState<string | null>(null);
+  const [lastMovedTargetKey, setLastMovedTargetKey] = useState<string | null>(dayKey(new Date()));
   const [libraryStatus, setLibraryStatus] = useState("");
   const filteredItems = useMemo(() => {
     if (libFilter === "all") return items;
@@ -1191,7 +1197,8 @@ export default function Page() {
 
   const selectedDay = useMemo(() => {
     if (selectedDayKey) return calendarDays.find((entry) => entry.key === selectedDayKey) ?? null;
-    return null;
+    const todayKey = dayKey(new Date());
+    return calendarDays.find((entry) => entry.key === todayKey && entry.inMonth) ?? null;
   }, [calendarDays, selectedDayKey]);
 
   const selectedDayVisibleItems = useMemo(() => {
@@ -1219,6 +1226,10 @@ export default function Page() {
   const returnDay = useMemo(
     () => (returnDayKey ? calendarDays.find((entry) => entry.key === returnDayKey) ?? null : null),
     [calendarDays, returnDayKey]
+  );
+  const lastMovedTargetDay = useMemo(
+    () => (lastMovedTargetKey ? calendarDays.find((entry) => entry.key === lastMovedTargetKey) ?? null : null),
+    [calendarDays, lastMovedTargetKey]
   );
 
   return (
@@ -2682,7 +2693,11 @@ export default function Page() {
             {returnDay && !calendarMoveMode ? (
               <div className="calendar-move-banner" style={{ marginBottom: 16 }}>
                 <div className="calendar-move-copy">
-                  <div className="section-label" style={{ marginBottom: 4 }}>дату перенесли</div>
+                  <div className="section-label" style={{ marginBottom: 4 }}>
+                    {lastMovedTargetDay
+                      ? `перенесли на ${lastMovedTargetDay.date.toLocaleString("ru-RU", { day: "numeric", month: "long" })}`
+                      : "дату перенесли"}
+                  </div>
                   <div>если хочешь, можно сразу вернуться к прежнему дню.</div>
                 </div>
                 <button type="button" className="btn btn-outline btn-sm" onClick={jumpBackToReturnDay}>

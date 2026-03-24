@@ -254,6 +254,7 @@ export function LibraryScreen({
   const [pendingMoveTargetKey, setPendingMoveTargetKey] = useState<string | null>(null);
   const [moveOriginDayKey, setMoveOriginDayKey] = useState<string | null>(null);
   const [returnDayKey, setReturnDayKey] = useState<string | null>(null);
+  const [lastMovedTargetKey, setLastMovedTargetKey] = useState<string | null>(dayKey(new Date()));
 
   const typeFilterSummary = typeFilter === "all" ? "все" : TYPE_LABEL[typeFilter];
   const timeQualitySummary =
@@ -302,6 +303,9 @@ export function LibraryScreen({
     if (selectedDayKey) {
       return calendarDays.find((entry) => entry.key === selectedDayKey) ?? null;
     }
+    const todayKey = dayKey(new Date());
+    const todayInMonth = calendarDays.find((entry) => entry.key === todayKey && entry.inMonth);
+    if (todayInMonth) return todayInMonth;
     const firstWithItemsInMonth = calendarDays.find((entry) => entry.inMonth && entry.items.length > 0);
     return firstWithItemsInMonth ?? calendarDays.find((entry) => entry.inMonth) ?? null;
   }, [calendarDays, selectedDayKey]);
@@ -409,6 +413,7 @@ export function LibraryScreen({
     if (!pendingMoveTarget || daySelection.length === 0) return;
     onMoveItemsToDate(daySelection, pendingMoveTarget.date.getTime());
     setReturnDayKey(moveOriginDayKey);
+    setLastMovedTargetKey(pendingMoveTarget.key);
     setCalendarMoveMode(false);
     setPendingMoveTargetKey(null);
     setDaySelection([]);
@@ -418,6 +423,10 @@ export function LibraryScreen({
   const returnDay = useMemo(
     () => (returnDayKey ? calendarDays.find((entry) => entry.key === returnDayKey) ?? null : null),
     [calendarDays, returnDayKey]
+  );
+  const lastMovedTargetDay = useMemo(
+    () => (lastMovedTargetKey ? calendarDays.find((entry) => entry.key === lastMovedTargetKey) ?? null : null),
+    [calendarDays, lastMovedTargetKey]
   );
 
   function jumpBackToReturnDay() {
@@ -631,7 +640,11 @@ export function LibraryScreen({
             </View>
           ) : returnDay ? (
             <View style={[appStyles.card, appStyles.calendarMoveBanner, themeMode === "dark" && { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-              <Text style={[appStyles.sectionTitle, appStyles.calendarMoveTitle, { color: theme.text }]}>дату перенесли</Text>
+              <Text style={[appStyles.sectionTitle, appStyles.calendarMoveTitle, { color: theme.text }]}>
+                {lastMovedTargetDay
+                  ? `перенесли на ${lastMovedTargetDay.date.toLocaleString("ru-RU", { day: "numeric", month: "long" })}`
+                  : "дату перенесли"}
+              </Text>
               <Text style={[appStyles.helper, { color: theme.text }]}>
                 если хочешь, можно сразу вернуться к прежнему дню.
               </Text>
