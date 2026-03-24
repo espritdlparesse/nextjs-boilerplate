@@ -2261,25 +2261,49 @@ export default function Page() {
 
         .day-items-grid .item-card {
           min-height: 148px;
+          height: 148px;
           padding: 10px;
           gap: 5px;
           border-radius: 22px;
+          overflow: hidden;
         }
 
         .day-items-grid .item-title {
           font-size: 12px;
           line-height: 1.25;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
 
         .day-items-grid .item-creator {
           font-size: 13px;
           line-height: 1.05;
           letter-spacing: -0.03em;
+          display: -webkit-box;
+          -webkit-line-clamp: 4;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
 
         .day-items-grid .item-date {
           font-size: 10px;
           max-width: 54px;
+          flex: 0 0 auto;
+        }
+
+        .day-items-grid .item-topline {
+          min-height: 28px;
+          align-items: flex-start;
+        }
+
+        .day-items-grid .item-body {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          min-height: 0;
+          overflow: hidden;
         }
 
         .day-items-grid .tag {
