@@ -7,9 +7,23 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "platforms": ["ios", "android"],
+    "plugins": [
+      "expo-dev-client",
+      [
+        "react-native-health",
+        {
+          "healthSharePermission": "Everyyou uses step count to show how your days felt in motion.",
+          "healthUpdatePermission": "Everyyou can store your health connection settings."
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.everyyou.mobile"
+      "bundleIdentifier": "com.everyyou.mobile",
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "Everyyou uses step count to show how your days felt in motion.",
+        "NSHealthUpdateUsageDescription": "Everyyou can store your health connection settings."
+      }
     },
     "android": {
       "package": "com.everyyou.mobile"
