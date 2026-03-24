@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { resolveApiIdentity } from "@/lib/auth";
 import { buildOwnerReadFilter, getOwnerScope, type EffectiveOwner, type OwnerScope } from "@/lib/ownerLinks";
+import { safeTimelineIsoFromMs } from "@/lib/timeline";
 
 export const runtime = "nodejs";
 
@@ -122,13 +123,20 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "bad json" }, { status: 400 });
 
-  const { id, type, source, title, creator } = body;
+  const { id, type, source, title, creator, consumedAt, timeOrigin } = body;
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
   const sb = supabaseAdmin();
   const { data, error } = await sb
     .from("items")
-    .update({ type, source: normalizeLegacySource(source), title, creator: creator ?? null })
+    .update({
+      type,
+      source: normalizeLegacySource(source),
+      title,
+      creator: creator ?? null,
+      consumed_at: consumedAt == null ? null : safeTimelineIsoFromMs(consumedAt),
+      time_origin: timeOrigin ?? null,
+    })
     .eq("id", id)
     .or(buildOwnerReadFilter(auth.scope))
     .select("*")
