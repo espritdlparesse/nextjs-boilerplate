@@ -32,6 +32,19 @@ type CulturalContextRow = {
   source_url: string;
 };
 
+type CulturalMemoryResponse = {
+  cards?: Array<{
+    lookup_key?: string;
+    aliases?: string[];
+    display_name?: string;
+    kind?: "artist" | "author" | "director" | "work";
+    context_note?: string;
+    roast_angles?: string[];
+    source_outlet?: "meduza" | "wos";
+    source_url?: string;
+  }>;
+};
+
 function buildCreatorContext(
   items: Array<{ creator: string | null; title: string; type: string }>
 ) {
@@ -56,17 +69,17 @@ function buildCreatorContext(
     .join("\n");
 }
 
-function extractJson(text: string) {
+function extractJson<T = AnalysisPayload>(text: string) {
   const trimmed = text.trim();
   if (!trimmed) return null;
 
   try {
-    return JSON.parse(trimmed) as AnalysisPayload;
+    return JSON.parse(trimmed) as T;
   } catch {
     const match = trimmed.match(/\{[\s\S]*\}/);
     if (!match) return null;
     try {
-      return JSON.parse(match[0]) as AnalysisPayload;
+      return JSON.parse(match[0]) as T;
     } catch {
       return null;
     }
@@ -214,12 +227,85 @@ async function getCulturalContext(
     .limit(400);
 
   // The migration may not have reached a project yet. A missing memory must not block a vibecheck.
-  if (error || !data) return [] as CulturalContextRow[];
+  if (error || !data) return null;
 
   return (data as CulturalContextRow[]).filter((entry) => {
     const aliases = [entry.lookup_key, ...(entry.aliases ?? [])].map(normalizeContextKey);
     return aliases.some((alias) => keys.has(alias));
   });
+}
+
+function getMemoryCandidates(items: Array<{ title: string; creator: string | null }>) {
+  const creators = items.map((item) => item.creator ?? "");
+  const works = items.map((item) => item.title);
+  return Array.from(new Set([...creators, ...works].map((value) => value.trim()).filter((value) => value.length >= 3))).slice(0, 8);
+}
+
+function isAllowedMemorySource(url: string, outlet: string) {
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./, "");
+    return (
+      (outlet === "meduza" && hostname.endsWith("meduza.io")) ||
+      (outlet === "wos" && hostname.endsWith("w-o-s.ru"))
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function enrichCulturalContext(args: {
+  sb: ReturnType<typeof supabaseAdmin>;
+  apiKey: string;
+  model: string;
+  items: Array<{ title: string; creator: string | null }>;
+  existing: CulturalContextRow[];
+}) {
+  const knownKeys = new Set(
+    args.existing.flatMap((entry) => [entry.lookup_key, ...(entry.aliases ?? [])]).map(normalizeContextKey)
+  );
+  const candidates = getMemoryCandidates(args.items).filter((candidate) => !knownKeys.has(normalizeContextKey(candidate)));
+  if (candidates.length === 0) return;
+
+  const raw = await createWebAwareAnalysis({
+    apiKey: args.apiKey,
+    model: args.model,
+    instructions:
+      "Ты пополняешь маленькую культурную память для приложения Everyyou. Ищи сведения только в архивах WOS (w-o-s.ru) и «Медузы» (meduza.io). Для каждого имени из списка попробуй найти один материал в этих изданиях. Не используй другие сайты и не выдумывай URL. Добавляй карточку только если есть настоящая ссылка именно на WOS или «Медузу». Карточка — это короткий пересказ фактуры в 1-2 предложениях: репутация, сцена, узнаваемый образ или культурное значение. Не пиши биографию и не оценивай человека. roast_angles — 1-2 короткие опоры для будущего точного наблюдения, не готовые шутки. Верни только JSON без markdown: {cards:[{lookup_key,aliases,display_name,kind,context_note,roast_angles,source_outlet,source_url}]}. kind может быть только artist, author, director или work.",
+    prompt: `Найди карточки только для этих имен из личной библиотеки:\n${candidates.map((candidate) => `- ${candidate}`).join("\n")}`,
+  });
+  const parsed = extractJson<CulturalMemoryResponse>(raw);
+  const rows = (parsed?.cards ?? [])
+    .map((card) => {
+      const lookupKey = normalizeContextKey(card.lookup_key ?? card.display_name ?? "");
+      const outlet = card.source_outlet;
+      const sourceUrl = card.source_url?.trim() ?? "";
+      if (
+        !lookupKey ||
+        !card.display_name?.trim() ||
+        !card.context_note?.trim() ||
+        !outlet ||
+        !sourceUrl ||
+        !isAllowedMemorySource(sourceUrl, outlet)
+      ) {
+        return null;
+      }
+
+      return {
+        lookup_key: lookupKey,
+        aliases: Array.from(new Set([...(card.aliases ?? []), card.display_name])).map(normalizeContextKey).filter(Boolean),
+        display_name: card.display_name.trim(),
+        kind: card.kind ?? "work",
+        context_note: card.context_note.trim().slice(0, 420),
+        roast_angles: (card.roast_angles ?? []).map((angle) => angle.trim()).filter(Boolean).slice(0, 2),
+        source_outlet: outlet,
+        source_url: sourceUrl,
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null);
+
+  if (rows.length > 0) {
+    await args.sb.from("cultural_context").upsert(rows, { onConflict: "lookup_key" });
+  }
 }
 
 async function createWebAwareAnalysis(args: {
@@ -293,8 +379,18 @@ export async function POST(req: NextRequest) {
   });
   const recentLines = lines.slice(0, 40).join("\n");
   const creatorContext = buildCreatorContext(items);
-  const culturalContext = await getCulturalContext(sb, items);
-  const culturalMemory = culturalContext.length
+  let culturalContext = await getCulturalContext(sb, items);
+  if (culturalContext !== null) {
+    await enrichCulturalContext({
+      sb,
+      apiKey,
+      model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
+      items,
+      existing: culturalContext,
+    });
+    culturalContext = (await getCulturalContext(sb, items)) ?? culturalContext;
+  }
+  const culturalMemory = culturalContext?.length
     ? culturalContext
         .map(
           (entry) =>
