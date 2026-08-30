@@ -28,9 +28,22 @@ type CulturalContextRow = {
   kind: "artist" | "author" | "director" | "work";
   context_note: string;
   roast_angles: string[];
-  source_outlet: "meduza" | "wos";
+  source_outlet: CulturalSourceOutlet;
   source_url: string;
 };
+
+type CulturalSourceOutlet =
+  | "the_atlantic"
+  | "new_yorker"
+  | "nyt"
+  | "meduza"
+  | "the_bell"
+  | "kinopoisk"
+  | "wos"
+  | "afisha_archive"
+  | "x_ilya_krasilshchik"
+  | "facebook_ilya_krasilshchik"
+  | "wonderzine";
 
 type CulturalMemoryResponse = {
   cards?: Array<{
@@ -40,8 +53,9 @@ type CulturalMemoryResponse = {
     kind?: "artist" | "author" | "director" | "work";
     context_note?: string;
     roast_angles?: string[];
-    source_outlet?: "meduza" | "wos";
+    source_outlet?: CulturalSourceOutlet;
     source_url?: string;
+    source_published_at?: string;
   }>;
 };
 
@@ -241,13 +255,27 @@ function getMemoryCandidates(items: Array<{ title: string; creator: string | nul
   return Array.from(new Set([...creators, ...works].map((value) => value.trim()).filter((value) => value.length >= 3))).slice(0, 8);
 }
 
-function isAllowedMemorySource(url: string, outlet: string) {
+const CULTURAL_SOURCE_HOSTS: Record<CulturalSourceOutlet, string[]> = {
+  the_atlantic: ["theatlantic.com"],
+  new_yorker: ["newyorker.com"],
+  nyt: ["nytimes.com", "nyt.com"],
+  meduza: ["meduza.io"],
+  the_bell: ["thebell.io"],
+  kinopoisk: ["kinopoisk.ru"],
+  wos: ["w-o-s.ru"],
+  afisha_archive: ["afisha.ru"],
+  x_ilya_krasilshchik: ["x.com", "twitter.com"],
+  facebook_ilya_krasilshchik: ["facebook.com"],
+  wonderzine: ["wonderzine.com"],
+};
+
+function isAllowedMemorySource(url: string, outlet: CulturalSourceOutlet, publishedAt?: string) {
   try {
     const hostname = new URL(url).hostname.replace(/^www\./, "");
-    return (
-      (outlet === "meduza" && hostname.endsWith("meduza.io")) ||
-      (outlet === "wos" && hostname.endsWith("w-o-s.ru"))
-    );
+    const allowedHost = CULTURAL_SOURCE_HOSTS[outlet]?.some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
+    if (!allowedHost) return false;
+    if (outlet !== "afisha_archive") return true;
+    return Boolean(publishedAt) && new Date(`${publishedAt}T00:00:00Z`).getTime() < Date.UTC(2021, 0, 1);
   } catch {
     return false;
   }
@@ -270,7 +298,7 @@ async function enrichCulturalContext(args: {
     apiKey: args.apiKey,
     model: args.model,
     instructions:
-      "Ты пополняешь маленькую культурную память для приложения Everyyou. Ищи сведения только в архивах WOS (w-o-s.ru) и «Медузы» (meduza.io). Для каждого имени из списка попробуй найти один материал в этих изданиях. Не используй другие сайты и не выдумывай URL. Добавляй карточку только если есть настоящая ссылка именно на WOS или «Медузу». Карточка — это короткий пересказ фактуры в 1-2 предложениях: репутация, сцена, узнаваемый образ или культурное значение. Не пиши биографию и не оценивай человека. roast_angles — 1-2 короткие опоры для будущего точного наблюдения, не готовые шутки. Верни только JSON без markdown: {cards:[{lookup_key,aliases,display_name,kind,context_note,roast_angles,source_outlet,source_url}]}. kind может быть только artist, author, director или work.",
+      "Ты пополняешь маленькую культурную память для приложения Everyyou. Ищи сведения только в The Atlantic, The New Yorker, The New York Times, «Медузе», The Bell, Кинопоиске, WOS (w-o-s.ru), архиве «Афиши» до 1 января 2021 года, X/Twitter и Facebook Ильи Красильщика, Wonderzine. Для каждого имени из списка попробуй найти один материал в этих изданиях. Не используй другие сайты и не выдумывай URL. Для X/Facebook принимай только посты самого Ильи Красильщика, а не упоминания о нем. Добавляй карточку только если есть настоящая ссылка именно на разрешенный источник. Карточка — это короткий пересказ фактуры в 1-2 предложениях: репутация, сцена, узнаваемый образ или культурное значение. Не пиши биографию и не оценивай человека. roast_angles — 1-2 короткие опоры для будущего точного наблюдения, не готовые шутки. Если это «Афиша», верни дату публикации в source_published_at строго в формате YYYY-MM-DD и используй только дату до 2021-01-01. Верни только JSON без markdown: {cards:[{lookup_key,aliases,display_name,kind,context_note,roast_angles,source_outlet,source_url,source_published_at}]}. source_outlet должен быть одним из: the_atlantic, new_yorker, nyt, meduza, the_bell, kinopoisk, wos, afisha_archive, x_ilya_krasilshchik, facebook_ilya_krasilshchik, wonderzine. kind может быть только artist, author, director или work.",
     prompt: `Найди карточки только для этих имен из личной библиотеки:\n${candidates.map((candidate) => `- ${candidate}`).join("\n")}`,
   });
   const parsed = extractJson<CulturalMemoryResponse>(raw);
@@ -285,7 +313,7 @@ async function enrichCulturalContext(args: {
         !card.context_note?.trim() ||
         !outlet ||
         !sourceUrl ||
-        !isAllowedMemorySource(sourceUrl, outlet)
+        !isAllowedMemorySource(sourceUrl, outlet, card.source_published_at)
       ) {
         return null;
       }
@@ -299,6 +327,7 @@ async function enrichCulturalContext(args: {
         roast_angles: (card.roast_angles ?? []).map((angle) => angle.trim()).filter(Boolean).slice(0, 2),
         source_outlet: outlet,
         source_url: sourceUrl,
+        source_published_at: card.source_published_at ?? null,
       };
     })
     .filter((row): row is NonNullable<typeof row> => row !== null);

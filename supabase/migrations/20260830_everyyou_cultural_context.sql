@@ -5,8 +5,14 @@ create table if not exists public.cultural_context (
   kind text not null check (kind in ('artist', 'author', 'director', 'work')),
   context_note text not null,
   roast_angles text[] not null default '{}',
-  source_outlet text not null check (source_outlet in ('meduza', 'wos')),
+  source_outlet text not null check (source_outlet in (
+    'the_atlantic', 'new_yorker', 'nyt', 'meduza', 'the_bell',
+    'kinopoisk', 'wos', 'afisha_archive', 'x_ilya_krasilshchik',
+    'facebook_ilya_krasilshchik', 'wonderzine'
+  )),
   source_url text not null,
+  source_published_at date,
+  check (source_outlet <> 'afisha_archive' or source_published_at < date '2021-01-01'),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
