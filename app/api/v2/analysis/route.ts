@@ -408,17 +408,7 @@ export async function POST(req: NextRequest) {
   });
   const recentLines = lines.slice(0, 40).join("\n");
   const creatorContext = buildCreatorContext(items);
-  let culturalContext = await getCulturalContext(sb, items);
-  if (culturalContext !== null) {
-    await enrichCulturalContext({
-      sb,
-      apiKey,
-      model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
-      items,
-      existing: culturalContext,
-    });
-    culturalContext = (await getCulturalContext(sb, items)) ?? culturalContext;
-  }
+  const culturalContext = await getCulturalContext(sb, items);
   const culturalMemory = culturalContext?.length
     ? culturalContext
         .map(
