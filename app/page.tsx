@@ -970,7 +970,7 @@ export default function Page() {
   async function runVibeCheck() {
     setVibeLoading(true); setVibeError(""); setSummary("");
     try {
-      const res = await fetch("/api/summary", {
+      const res = await fetch("/api/v2/analysis", {
         method: "POST",
         headers: { "x-telegram-init-data": getTgInitData() },
       });
@@ -3140,7 +3140,7 @@ export default function Page() {
                 сейчас в библиотеке {counts.total}: музыка {counts.music}, книги {counts.books}, фильмы {counts.movies}.
               </div>
               <div className="vibe-meta">
-                быстрый вайбчек — это короткий культурный срез без глубокого анализа состояния.
+                быстрый вайбчек — это короткая прожарка по неожиданным сочетаниям в библиотеке.
               </div>
               <button
                 className="btn btn-outline"
