@@ -273,6 +273,12 @@ export default function Page() {
   const [showTelegramManualLink, setShowTelegramManualLink] = useState(false);
   const [culturalMemoryConsent, setCulturalMemoryConsent] = useState(false);
   const [culturalMemorySaving, setCulturalMemorySaving] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [profileNameDraft, setProfileNameDraft] = useState("");
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
+  const [profileTheme, setProfileTheme] = useState<"light" | "dark">("light");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const profileAvatarInputRef = useRef<HTMLInputElement>(null);
   const autoLinkHandledRef = useRef(false);
 
   function fireAnalytics(event: string, properties?: Record<string, unknown>) {
@@ -335,6 +341,56 @@ export default function Page() {
     } catch {}
   }
 
+  async function loadProfileSettings() {
+    try {
+      const res = await fetch("/api/v2/profile", { headers: { "x-telegram-init-data": getTgInitData() } });
+      const json = await safeJson(res);
+      if (!res.ok) return;
+      const name = typeof json?.displayName === "string" ? json.displayName : "";
+      setProfileName(name);
+      setProfileNameDraft(name);
+      setProfileAvatarUrl(typeof json?.avatarUrl === "string" ? json.avatarUrl : null);
+      setProfileTheme(json?.themeMode === "dark" ? "dark" : "light");
+    } catch {}
+  }
+
+  async function saveProfileSettings(next: { displayName?: string; avatarUrl?: string | null; themeMode?: "light" | "dark" }) {
+    setProfileSaving(true);
+    try {
+      const res = await fetch("/api/v2/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "x-telegram-init-data": getTgInitData() },
+        body: JSON.stringify({
+          displayName: "displayName" in next ? next.displayName : profileName,
+          avatarUrl: "avatarUrl" in next ? next.avatarUrl : profileAvatarUrl,
+          themeMode: "themeMode" in next ? next.themeMode : profileTheme,
+        }),
+      });
+      const json = await safeJson(res);
+      if (!res.ok) throw new Error(json?.error ?? "не удалось сохранить профиль");
+      setProfileName(json?.displayName ?? "");
+      setProfileNameDraft(json?.displayName ?? "");
+      setProfileAvatarUrl(json?.avatarUrl ?? null);
+      setProfileTheme(json?.themeMode === "dark" ? "dark" : "light");
+    } catch (error) {
+      setLibraryError(error instanceof Error ? error.message : "не удалось сохранить профиль");
+    } finally { setProfileSaving(false); }
+  }
+
+  async function uploadProfileAvatar(file: File) {
+    setProfileSaving(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/v2/profile/avatar", { method: "POST", headers: { "x-telegram-init-data": getTgInitData() }, body: form });
+      const json = await safeJson(res);
+      if (!res.ok) throw new Error(json?.error ?? "не удалось загрузить аватар");
+      setProfileAvatarUrl(json?.avatarUrl ?? null);
+    } catch (error) {
+      setLibraryError(error instanceof Error ? error.message : "не удалось загрузить аватар");
+    } finally { setProfileSaving(false); }
+  }
+
   async function updateCulturalMemoryConsent(enabled: boolean) {
     setCulturalMemorySaving(true);
     try {
@@ -350,7 +406,7 @@ export default function Page() {
     }
   }
 
-  useEffect(() => { loadLibrary(); loadCustomCategories(); fetchDeepVibeAccess(); loadConnectedProfiles(); loadCulturalMemoryConsent(); }, []);
+  useEffect(() => { loadLibrary(); loadCustomCategories(); fetchDeepVibeAccess(); loadConnectedProfiles(); loadCulturalMemoryConsent(); loadProfileSettings(); }, []);
 
   const counts = useMemo(() => ({
     total: items.length,
@@ -1615,6 +1671,12 @@ export default function Page() {
           text-transform: lowercase;
         }
 
+        .theme-dark { color: #f8f6f1; }
+        .theme-dark .card { background: #242320 !important; border-color: #4a4741; box-shadow: none; }
+        .theme-dark .card-title, .theme-dark .greeting, .theme-dark .header-avatar { color: #f8f6f1; }
+        .theme-dark .card-text, .theme-dark .sync-line, .theme-dark .input-label { color: #c8c3b9; }
+        .theme-dark .input, .theme-dark .brand-link { background: #302e2a; color: #f8f6f1; border-color: #4a4741; }
+
         .btn {
           width: 100%;
           padding: 16px 18px;
@@ -2526,12 +2588,12 @@ export default function Page() {
 
       `}</style>
 
-      <div className="app">
+      <div className={`app${profileTheme === "dark" ? " theme-dark" : ""}`}>
         <div className="header">
           <div className="header-row">
-            <div className="header-avatar">{headerAvatar}</div>
+            <div className="header-avatar">{profileAvatarUrl ? <img src={profileAvatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "999px" }} /> : headerAvatar}</div>
             <div className="header-copy">
-              <div className="greeting">{helloName}</div>
+              <div className="greeting">{profileName ? `привет, ${profileName}` : helloName}</div>
               <button className="brand-link" onClick={() => { setAboutStep(0); setTab("home"); }}>
                 everyyou
               </button>
@@ -2593,7 +2655,26 @@ export default function Page() {
           <>
             <div className="card" style={{ background: "#ffe8f7" }}>
               <div className="card-title">профиль</div>
-              <p className="card-text">{helloName}. здесь живут тихие настройки твоей библиотеки.</p>
+              <p className="card-text">{profileName ? `привет, ${profileName}.` : helloName}. здесь живут тихие настройки твоей библиотеки.</p>
+              <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 16 }}>
+                <div className="header-avatar">{profileAvatarUrl ? <img src={profileAvatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "999px" }} /> : headerAvatar}</div>
+                <div style={{ flex: 1 }}>
+                  <input ref={profileAvatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadProfileAvatar(file); event.target.value = ""; }} />
+                  <button className="btn btn-secondary btn-sm" onClick={() => profileAvatarInputRef.current?.click()} disabled={profileSaving}>загрузить аватар</button>
+                  {profileAvatarUrl ? <button className="btn btn-outline btn-sm" style={{ marginTop: 8 }} onClick={() => void saveProfileSettings({ avatarUrl: null })} disabled={profileSaving}>убрать</button> : null}
+                </div>
+              </div>
+              <div className="input-group" style={{ marginTop: 16 }}>
+                <div className="input-label">как тебя зовут</div>
+                <input className="input" value={profileNameDraft} placeholder="например, настя" onChange={(event) => setProfileNameDraft(event.target.value)} />
+              </div>
+              <button className="btn btn-secondary" style={{ marginTop: 10 }} onClick={() => void saveProfileSettings({ displayName: profileNameDraft })} disabled={profileSaving}>
+                {profileSaving ? "сохраняем..." : "сохранить имя"}
+              </button>
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => void saveProfileSettings({ themeMode: "light" })} disabled={profileSaving}>светлая</button>
+                <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => void saveProfileSettings({ themeMode: "dark" })} disabled={profileSaving}>темная</button>
+              </div>
               <div className="stats" style={{ marginTop: 16 }}>
                 <div className="stat-pill"><div className="stat-num">{counts.total}</div><div className="stat-label">всего</div></div>
                 <div className="stat-pill"><div className="stat-num">{counts.music}</div><div className="stat-label">музыка</div></div>

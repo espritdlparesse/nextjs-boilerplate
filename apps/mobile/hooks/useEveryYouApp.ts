@@ -43,6 +43,7 @@ import {
   fetchItems,
   fetchSpotifyConnectionStatus,
   fetchSpotifyPlaylists,
+  fetchSharedProfile,
   fetchTelegramLinkStatus,
   getStoredOnboardingDone,
   getStoredAvatarUri,
@@ -63,7 +64,9 @@ import {
   setStoredGuestName,
   setStoredOnboardingDone,
   setStoredThemeMode,
+  saveSharedProfile,
   trackAnalyticsEvent,
+  uploadSharedProfileAvatar,
   updateItem,
 } from "../lib/api";
 import { parseImportedFile } from "../lib/fileImports";
@@ -307,6 +310,8 @@ export function useEveryYouApp() {
       const storedGuestName = await getStoredGuestName("ios friend");
       const storedAvatarUri = await getStoredAvatarUri();
       const storedThemeMode = await getStoredThemeMode();
+      let nextAvatarUri = storedAvatarUri;
+      let nextThemeMode = storedThemeMode;
       const onboardingDone = await getStoredOnboardingDone();
       const storedDailySteps = await loadJSON<DailyStepEntry[]>(STORAGE_KEY_DAILY_STEPS, [], []);
       const storedHealthStepsEnabled = (await AsyncStorage.getItem(STORAGE_KEY_HEALTH_STEPS_ENABLED)) === "true";
@@ -378,6 +383,14 @@ export function useEveryYouApp() {
         }
         nextToken = session.token;
         nextUser = splitDisplayName(session.name ?? storedGuestName);
+        try {
+          const profile = await fetchSharedProfile(session.token);
+          if (profile.displayName) nextUser = splitDisplayName(profile.displayName);
+          if (profile.avatarUrl) nextAvatarUri = profile.avatarUrl;
+          nextThemeMode = profile.themeMode;
+        } catch {
+          // Local settings remain the fallback before the profile migration reaches every environment.
+        }
         if (linkStatus) {
           setTelegramLink(linkStatus);
           telegramLinkWasLinkedRef.current = linkStatus.linked;
@@ -409,8 +422,8 @@ export function useEveryYouApp() {
       setAnalysisHistory(storedAnalysis);
       setUser(nextUser);
       setNameDraft(hasValidCustomName(nextUser) ? getDisplayName(nextUser) : "");
-      setAvatarUri(storedAvatarUri);
-      setThemeMode(storedThemeMode);
+      setAvatarUri(nextAvatarUri);
+      setThemeMode(nextThemeMode);
       setDailySteps(storedDailySteps);
       setHealthStepsEnabled(storedHealthStepsEnabled);
       setApiToken(nextToken);
@@ -1990,6 +2003,9 @@ export function useEveryYouApp() {
     if (!normalized) return;
 
     await setStoredGuestName(normalized);
+    if (apiToken) {
+      await saveSharedProfile(apiToken, { displayName: normalized, avatarUrl: avatarUri, themeMode });
+    }
     setUser(splitDisplayName(normalized));
     setNameDraft(normalized);
     fireAnalytics("profile_saved", { hasName: true });
@@ -2004,14 +2020,16 @@ export function useEveryYouApp() {
     });
 
     if (result.canceled || !result.assets[0]?.uri) return;
-    await setStoredAvatarUri(result.assets[0].uri);
-    setAvatarUri(result.assets[0].uri);
+    const nextAvatarUri = apiToken ? await uploadSharedProfileAvatar(apiToken, result.assets[0].uri) : result.assets[0].uri;
+    await setStoredAvatarUri(nextAvatarUri);
+    setAvatarUri(nextAvatarUri);
     setToastMessage("аватар обновили");
     fireAnalytics("avatar_updated");
   }
 
   async function clearAvatar() {
     await clearStoredAvatarUri();
+    if (apiToken) await saveSharedProfile(apiToken, { displayName: nameDraft || null, avatarUrl: null, themeMode });
     setAvatarUri(null);
     setToastMessage("аватар убрали");
     fireAnalytics("avatar_cleared");
@@ -2019,6 +2037,7 @@ export function useEveryYouApp() {
 
   async function updateThemeMode(nextMode: ThemeMode) {
     await setStoredThemeMode(nextMode);
+    if (apiToken) await saveSharedProfile(apiToken, { displayName: nameDraft || null, avatarUrl, themeMode: nextMode });
     setThemeMode(nextMode);
     setToastMessage(nextMode === "dark" ? "включили темную тему" : "вернули светлую тему");
     fireAnalytics("theme_changed", { mode: nextMode });

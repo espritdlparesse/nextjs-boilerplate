@@ -160,6 +160,12 @@ type ConnectedSourcesResponse = {
   sources: ConnectedSource[];
 };
 
+type SharedProfileResponse = {
+  displayName: string | null;
+  avatarUrl: string | null;
+  themeMode: ThemeMode;
+};
+
 function getApiBaseUrl() {
   const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
   if (!baseUrl) {
@@ -314,6 +320,27 @@ export async function fetchItems(token: string) {
       return true;
     })
     .map(mapServerItem);
+}
+
+export async function fetchSharedProfile(token: string) {
+  return fetchJson<SharedProfileResponse>("/api/v2/profile", { method: "GET", headers: authHeaders(token) });
+}
+
+export async function saveSharedProfile(token: string, profile: SharedProfileResponse) {
+  return fetchJson<SharedProfileResponse>("/api/v2/profile", {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify(profile),
+  });
+}
+
+export async function uploadSharedProfileAvatar(token: string, uri: string) {
+  const form = new FormData();
+  form.append("file", { uri, name: "avatar.jpg", type: "image/jpeg" } as unknown as Blob);
+  const response = await fetch(`${getApiBaseUrl()}/api/v2/profile/avatar`, { method: "POST", headers: authHeaders(token), body: form });
+  const json = (await response.json().catch(() => null)) as { avatarUrl?: string; error?: string } | null;
+  if (!response.ok || !json?.avatarUrl) throw new Error(json?.error ?? "не удалось загрузить аватар");
+  return json.avatarUrl;
 }
 
 export async function createItem(
