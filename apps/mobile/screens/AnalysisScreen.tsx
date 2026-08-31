@@ -310,7 +310,7 @@ export function AnalysisScreen({
 
   return (
     <View style={appStyles.screen}>
-      <View
+      {false && <View
         style={[
           appStyles.sectionHero,
           appStyles.sectionHeroAlt,
@@ -385,7 +385,7 @@ export function AnalysisScreen({
         />
       </View>
 
-      <View
+      {false && <View
         style={[
           appStyles.sectionHero,
           themeMode === "dark" && { backgroundColor: theme.accentPink, borderColor: theme.border },
@@ -416,9 +416,9 @@ export function AnalysisScreen({
             2 бесплатных глубоких вайбчека уже использованы. следующим шагом сюда можно подключить оплату.
           </Text>
         ) : null}
-      </View>
+      </View>}
 
-      {deepAnalysisResult ? (
+      {false && deepAnalysisResult ? (
         <View
           style={[
             appStyles.tile,
