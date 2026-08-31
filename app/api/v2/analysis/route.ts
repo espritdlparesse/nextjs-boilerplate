@@ -8,6 +8,18 @@ export const runtime = "nodejs";
 // The vibecheck makes two editorial model calls in sequence, so the default function window is too short.
 export const maxDuration = 60;
 
+function vibeGenerationErrorResponse(error: unknown) {
+  const details = error as { status?: number; code?: string; error?: { code?: string } };
+  const code = details?.code ?? details?.error?.code;
+  if (details?.status === 429 && code === "credit_balance_exhausted") {
+    return NextResponse.json(
+      { error: "вайбчек временно недоступен: закончились кредиты OpenAI API." },
+      { status: 503 }
+    );
+  }
+  return NextResponse.json({ error: "сервис вайбчека временно недоступен. попробуй позже." }, { status: 503 });
+}
+
 type AnalysisPayload = {
   persona?: string;
   hook?: string;
@@ -518,13 +530,19 @@ export async function POST(req: NextRequest) {
     .map((item) => `[${item.type}] ${item.title}${item.creator ? ` — ${item.creator}` : ""}`)
     .join("\n");
   const planningPrompt = `Вот выборка из библиотеки:\n${libraryLines}\n\nПроверенная культурная фактура, если она относится к выбранной паре:\n${culturalMemory}\n\nПользователь уже забраковал эти формулировки. Не повторяй их приемы и не пересказывай их другими словами:\n${badFeedback.join("\n") || "пока нет"}`;
-  const planRaw = await createRoastText({
-    apiKey,
-    model,
-    instructions:
-      "Ты редактор, который сначала ищет материал для короткой прожарки. Не пиши сам вайбчек. Верни только JSON: {candidates:[{basis:string[],observation:string}]}. Дай ровно 3 кандидата. В basis укажи две реальные позиции из списка дословно. В каждом кандидате смешивай разные типы медиа, если они есть. Не выбирай одну и ту же пару или одного и того же артиста во всех вариантах. observation — одно простое, проверяемое наблюдение о столкновении именно этих двух позиций: культурная поза, переосмысление названия, видимая социальная или бытовая ситуация. Не пиши про звук, бас, громкость, жанры, атмосферу, ностальгию, абстрактные 'мысли' и внутренний мир пользователя. Не выдумывай факты. Твоя задача — дать автору конкретную опору, а не красивую фразу.",
-    prompt: planningPrompt,
-  });
+  let planRaw = "";
+  try {
+    planRaw = await createRoastText({
+      apiKey,
+      model,
+      instructions:
+        "Ты редактор, который сначала ищет материал для короткой прожарки. Не пиши сам вайбчек. Верни только JSON: {candidates:[{basis:string[],observation:string}]}. Дай ровно 3 кандидата. В basis укажи две реальные позиции из списка дословно. В каждом кандидате смешивай разные типы медиа, если они есть. Не выбирай одну и ту же пару или одного и того же артиста во всех вариантах. observation — одно простое, проверяемое наблюдение о столкновении именно этих двух позиций: культурная поза, переосмысление названия, видимая социальная или бытовая ситуация. Не пиши про звук, бас, громкость, жанры, атмосферу, ностальгию, абстрактные 'мысли' и внутренний мир пользователя. Не выдумывай факты. Твоя задача — дать автору конкретную опору, а не красивую фразу.",
+      prompt: planningPrompt,
+    });
+  } catch (error) {
+    console.error("vibecheck planning failed", error);
+    return vibeGenerationErrorResponse(error);
+  }
   const planned = extractJson<RoastPlanPayload>(planRaw)?.candidates ?? [];
   const plans = planned.filter((candidate) =>
     Array.isArray(candidate.basis) && candidate.basis.length >= 2 && Boolean(candidate.observation?.trim())
@@ -533,18 +551,26 @@ export async function POST(req: NextRequest) {
   const selectedBasis = selectedPlan?.basis?.slice(0, 3).join(" | ") ?? "выбери одну пару из списка";
   const selectedObservation = selectedPlan?.observation?.trim() ?? "найди одно точное столкновение этих позиций";
 
+  let generationError: unknown = null;
   const writeRoast = async (repair = false) => {
-    const raw = await createRoastText({
+    try {
+      const raw = await createRoastText({
       apiKey,
       model,
       instructions:
         "Ты финальный редактор вайбчека Everyyou. Верни только JSON: {persona:string,hook:string,body:string,closer:string,highlights:string[],basis:string[]}. Напиши ровно две короткие строки: hook и body; closer оставь пустым. В hook назови две реальные позиции из выбранной пары. В body сделай ясный, острый, но человеческий вывод, который невозможен без этой пары. Пиши по-русски, простыми словами, без сложного синтаксиса. Имена артистов и авторов передавай привычной русской транскрипцией и строчными буквами. Не описывай жанры, звук или настроение произведений. Не придумывай декорации и действия: нельзя писать про бас, громкость, кухню, бокалы, вечер, окна, танцпол, взрывы или 'мысли', если этого нет в самих позициях. Не используй 'вайб', 'атмосфера', 'ностальгия', 'разные вселенные', 'на одной волне', 'тебе нравится', 'ты умеешь', 'громкий/тихий + жанр'. Не ставь диагноз и не объясняй шутку. Не добавляй третью мысль. Если выбранная опора слабая, выбери более точную пару из списка. Текст должен звучать как точное замечание знакомого, а не как культурологический разбор.",
       prompt: `${planningPrompt}\n\nВыбранная пара: ${selectedBasis}\nНаблюдение редактора: ${selectedObservation}${repair ? "\n\nПредыдущий вариант был плохим: перепиши с нуля еще короче и конкретнее. Не используй метафору вместо наблюдения." : ""}`,
-    });
-    return extractJson<AnalysisPayload>(raw);
+      });
+      return extractJson<AnalysisPayload>(raw);
+    } catch (error) {
+      console.error("vibecheck writing failed", error);
+      generationError = error;
+      return null;
+    }
   };
 
   let finalRoast = await writeRoast();
+  if (generationError) return vibeGenerationErrorResponse(generationError);
   let hook = finalRoast?.hook?.trim() ?? "";
   let bodyText = finalRoast?.body?.trim() ?? "";
   let closer = finalRoast?.closer?.trim() ?? "";
@@ -558,6 +584,7 @@ export async function POST(req: NextRequest) {
   const candidateText = [hook, bodyText, closer].join(" ");
   if (!hook || !bodyText || looksTooComplicated(candidateText) || looksTooGenericRoast(candidateText)) {
     finalRoast = await writeRoast(true);
+    if (generationError) return vibeGenerationErrorResponse(generationError);
     hook = finalRoast?.hook?.trim() ?? hook;
     bodyText = finalRoast?.body?.trim() ?? bodyText;
     closer = finalRoast?.closer?.trim() ?? "";
