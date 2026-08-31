@@ -1596,7 +1596,8 @@ export default function Page() {
         .nav {
           position: fixed;
           bottom: 16px; left: 16px; right: 16px;
-          display: flex;
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
           background: rgba(255,255,255,0.92);
           z-index: 100;
           max-width: 480px;
@@ -1606,12 +1607,12 @@ export default function Page() {
           backdrop-filter: blur(18px);
           box-shadow: 0 8px 30px rgba(17,17,17,0.08);
           padding: 10px 8px 12px;
-          align-items: flex-end;
+          align-items: end;
           gap: 2px;
         }
+        .nav.admin-nav { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 
         .nav-btn {
-          flex: 1;
           min-width: 0;
           padding: 6px 2px 0;
           border: none;
@@ -1648,7 +1649,6 @@ export default function Page() {
           color: #ffffff;
         }
         .nav-btn.add-btn {
-          flex: 0 0 72px;
           padding-top: 0;
         }
         .nav-btn.add-btn .nav-icon {
@@ -3708,7 +3708,7 @@ export default function Page() {
       </div>
 
       {/* Bottom Nav */}
-      <nav className="nav">
+      <nav className={`nav${tgUserId === ADMIN_TG_ID ? " admin-nav" : ""}`}>
         {([
           ["profile", "◉", "профиль"],
           ["library", "▦", "библиотека"],
