@@ -2525,61 +2525,6 @@ export default function Page() {
             </div>
 
             <div className="card">
-              <div className="card-title">перенести в приложение</div>
-              <p className="card-text">
-                если у тебя уже есть библиотека в приложении на айфоне, просто открой этот же mini app оттуда. если код не подставился сам, его можно ввести вручную ниже.
-              </p>
-              {!showTelegramManualLink ? (
-                <button
-                  className="btn btn-secondary"
-                  style={{ marginTop: 16 }}
-                  onClick={() => setShowTelegramManualLink(true)}
-                >
-                  ввести код вручную
-                </button>
-              ) : (
-                <div className="input-group" style={{ marginTop: 16 }}>
-                  <div className="input-label">код из приложения, если не подставился сам</div>
-                  <input
-                    className="input"
-                    placeholder="например, A7K9QP"
-                    value={telegramLinkCode}
-                    onChange={(e) => setTelegramLinkCode(e.target.value.toUpperCase())}
-                    autoCapitalize="characters"
-                    autoCorrect="off"
-                  />
-                </div>
-              )}
-              <button
-                className="btn"
-                style={{ marginTop: 4 }}
-                onClick={() => void linkMobileAccount()}
-                disabled={telegramLinkLoading}
-              >
-                {telegramLinkLoading ? "связываем..." : "подключить приложение"}
-              </button>
-              {telegramLinkSuccess ? (
-                <div
-                  style={{
-                    marginTop: 12,
-                    padding: "12px 14px",
-                    borderRadius: 16,
-                    background: "#dff7d9",
-                    color: "#1f5a24",
-                    fontSize: 14,
-                    lineHeight: 1.5,
-                    fontWeight: 600,
-                  }}
-                >
-                  готово — теперь Telegram и приложение смотрят на одну библиотеку
-                </div>
-              ) : null}
-              {telegramLinkStatus ? (
-                <div style={{ marginTop: 10, fontSize: 13, color: "#666" }}>{telegramLinkStatus}</div>
-              ) : null}
-            </div>
-
-            <div className="card">
               <div className="card-title">что это</div>
               <p className="card-text">
                 EveryYou — место куда можно скидывать весь контент который ты потребляешь: музыку, книги, фильмы. Добавляй вручную или загружай скриншот — ИИ распознает что на нём.
@@ -2587,21 +2532,6 @@ export default function Page() {
               <p className="card-text" style={{ marginTop: 10 }}>
                 Когда накопится достаточно, жми вайбчек — получишь короткий портрет периода от не очень объективного, но довольно проницательного алгоритма.
               </p>
-            </div>
-
-            <div className="card" style={{ background: "#e9f7df" }}>
-              <div className="card-title">культурная память</div>
-              <p className="card-text">
-                можно помочь делать вайбчеки точнее. в общую очередь попадут только имена авторов и артистов: без твоего аккаунта, названий и истории.
-              </p>
-              <button
-                className="btn btn-secondary"
-                style={{ marginTop: 8 }}
-                onClick={() => void updateCulturalMemoryConsent(!culturalMemoryConsent)}
-                disabled={culturalMemorySaving}
-              >
-                {culturalMemorySaving ? "сохраняем..." : culturalMemoryConsent ? "помогаю памяти" : "помогать памяти"}
-              </button>
             </div>
 
             <div className="home-tiles">
@@ -2654,12 +2584,88 @@ export default function Page() {
             </div>
 
             <div className="card">
+              <div className="card-title">подключенные сервисы</div>
+              <p className="card-text">здесь можно обновить импорт или отвязать источник. новые ссылки, файлы и скриншоты добавляются во вкладке «добавить».</p>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
+                <div style={{ padding: "14px", border: "1px solid #e7e2d9", borderRadius: 18 }}>
+                  <div style={{ fontWeight: 800 }}>Spotify</div>
+                  <div className="card-text" style={{ marginTop: 4 }}>
+                    {spotifyConnected ? `подключен${spotifyProfileName ? `: ${spotifyProfileName}` : ""}` : "не подключен"}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                    {spotifyConnected ? (
+                      <>
+                        <button className="btn btn-secondary btn-sm" onClick={() => void syncSpotify()} disabled={spotifySyncing}>
+                          {spotifySyncing ? "обновляем..." : "обновить импорт"}
+                        </button>
+                        <button className="btn btn-outline btn-sm" onClick={() => void disconnectSpotify(false)} disabled={spotifySyncing}>
+                          отвязать
+                        </button>
+                      </>
+                    ) : (
+                      <button className="btn btn-secondary btn-sm" onClick={() => void connectSpotify()}>
+                        подключить
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ padding: "14px", border: "1px solid #e7e2d9", borderRadius: 18 }}>
+                  <div style={{ fontWeight: 800 }}>last.fm</div>
+                  <div className="card-text" style={{ marginTop: 4 }}>
+                    {connectedProfiles.lastfm ? `подключен: ${connectedProfiles.lastfm.profile}` : "не подключен"}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setSelectedImportService(importServices.find((service) => service.id === "lastfm") ?? null)} disabled={importLoading}>
+                      {connectedProfiles.lastfm ? "обновить импорт" : "подключить"}
+                    </button>
+                    {connectedProfiles.lastfm ? (
+                      <button className="btn btn-outline btn-sm" onClick={() => void disconnectConnectedProfile("lastfm", false)} disabled={importLoading}>
+                        отвязать
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div style={{ padding: "14px", border: "1px solid #e7e2d9", borderRadius: 18 }}>
+                  <div style={{ fontWeight: 800 }}>Letterboxd</div>
+                  <div className="card-text" style={{ marginTop: 4 }}>
+                    {connectedProfiles.letterboxd ? `подключен: ${connectedProfiles.letterboxd.profile}` : "не подключен"}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setSelectedImportService(importServices.find((service) => service.id === "letterboxd") ?? null)} disabled={importLoading}>
+                      {connectedProfiles.letterboxd ? "обновить импорт" : "подключить"}
+                    </button>
+                    {connectedProfiles.letterboxd ? (
+                      <button className="btn btn-outline btn-sm" onClick={() => void disconnectConnectedProfile("letterboxd", false)} disabled={importLoading}>
+                        отвязать
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              <button className="btn btn-outline" style={{ marginTop: 14 }} onClick={() => setTab("add")}>
+                добавить из другого сервиса
+              </button>
+              {importStatus ? <div style={{ marginTop: 10, fontSize: 13, color: "#666" }}>{importStatus}</div> : null}
+              {importError ? <div className="error" style={{ marginTop: 10 }}>{importError}</div> : null}
+            </div>
+
+            <div className="card">
               <div className="card-title">iPhone и Telegram</div>
               <p className="card-text">свяжи приложения, чтобы библиотека и импорты были общими.</p>
-              <div className="input-group" style={{ marginTop: 14 }}>
-                <div className="input-label">код из приложения</div>
-                <input className="input" placeholder="например, A7K9QP" value={telegramLinkCode} onChange={(e) => setTelegramLinkCode(e.target.value.toUpperCase())} autoCapitalize="characters" autoCorrect="off" />
-              </div>
+              {!showTelegramManualLink ? (
+                <button className="btn btn-secondary" style={{ marginTop: 14 }} onClick={() => setShowTelegramManualLink(true)}>
+                  ввести код вручную
+                </button>
+              ) : (
+                <div className="input-group" style={{ marginTop: 14 }}>
+                  <div className="input-label">код из приложения</div>
+                  <input className="input" placeholder="например, A7K9QP" value={telegramLinkCode} onChange={(e) => setTelegramLinkCode(e.target.value.toUpperCase())} autoCapitalize="characters" autoCorrect="off" />
+                </div>
+              )}
               <button className="btn" style={{ marginTop: 10 }} onClick={() => void linkMobileAccount()} disabled={telegramLinkLoading}>
                 {telegramLinkLoading ? "связываем..." : "подключить приложение"}
               </button>
