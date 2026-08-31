@@ -987,6 +987,7 @@ export default function Page() {
   const [summary, setSummary] = useState("");
   const [vibeLoading, setVibeLoading] = useState(false);
   const [vibeError, setVibeError] = useState("");
+  const [vibeFeedback, setVibeFeedback] = useState<"good" | "bad" | null>(null);
   const [mentalAge, setMentalAge] = useState("");
   const [mentalAgeLoading, setMentalAgeLoading] = useState(false);
   const [deepVibeResult, setDeepVibeResult] = useState("");
@@ -1097,7 +1098,7 @@ export default function Page() {
   }
 
   async function runVibeCheck() {
-    setVibeLoading(true); setVibeError(""); setSummary("");
+    setVibeLoading(true); setVibeError(""); setSummary(""); setVibeFeedback(null);
     try {
       const res = await fetch("/api/v2/analysis", {
         method: "POST",
@@ -1111,6 +1112,16 @@ export default function Page() {
     } finally {
       setVibeLoading(false);
     }
+  }
+
+  async function rateVibeCheck(rating: "good" | "bad") {
+    if (!summary || vibeFeedback) return;
+    setVibeFeedback(rating);
+    await fetch("/api/v2/vibe-feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-telegram-init-data": getTgInitData() },
+      body: JSON.stringify({ summary, rating }),
+    }).catch(() => undefined);
   }
 
   async function fetchDeepVibeAccess() {
@@ -3427,6 +3438,14 @@ export default function Page() {
                 >
                   ↗ поделиться вайбчеком
                 </button>
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => void rateVibeCheck("good")} disabled={Boolean(vibeFeedback)}>
+                    {vibeFeedback === "good" ? "запомнили" : "нормально"}
+                  </button>
+                  <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => void rateVibeCheck("bad")} disabled={Boolean(vibeFeedback)}>
+                    {vibeFeedback === "bad" ? "перепишем" : "плохо"}
+                  </button>
+                </div>
               </div>
             )}
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { resolveApiIdentity } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { buildOwnerReadFilter, getOwnerScope } from "@/lib/ownerLinks";
+import { buildOwnerReadFilter, getEffectiveOwner, getOwnerScope } from "@/lib/ownerLinks";
 
 export const runtime = "nodejs";
 
@@ -260,6 +260,12 @@ function looksTooGenericRoast(text: string) {
     "говорит бас и",
     "бьет бас",
     "бьёт бас",
+    "проверяют, выдержишь ли",
+    "в одном ряду оказались",
+    "одна растаскивает",
+    "другая собирает себя",
+    "болезненная честность про",
+    "желание всё превратить в игру",
   ];
 
   return genericSignals.some((signal) => normalized.includes(signal));
@@ -310,6 +316,12 @@ async function getCulturalContext(
     const aliases = [entry.lookup_key, ...(entry.aliases ?? [])].map(normalizeContextKey);
     return aliases.some((alias) => keys.has(alias));
   });
+}
+
+async function getRecentBadVibes(sb: ReturnType<typeof supabaseAdmin>, auth: Parameters<typeof getEffectiveOwner>[0]) {
+  const owner = await getEffectiveOwner(auth);
+  const { data } = await sb.from("vibe_feedback").select("summary").eq("owner_key", owner.ownerKey).eq("rating", "bad").order("created_at", { ascending: false }).limit(5);
+  return (data ?? []).map((row) => row.summary).filter((summary): summary is string => typeof summary === "string");
 }
 
 function getMemoryCandidates(items: Array<{ title: string; creator: string | null }>) {
@@ -496,13 +508,14 @@ export async function POST(req: NextRequest) {
         )
         .join("\n")
     : "карточек для этих имен пока нет";
+  const badFeedback = await getRecentBadVibes(sb, auth);
 
   // A vibecheck is the product, not a background summary: use the stronger editor by default.
   const model = process.env.OPENAI_VIBECHECK_MODEL ?? "gpt-4.1";
   const libraryLines = vibeSample
     .map((item) => `[${item.type}] ${item.title}${item.creator ? ` — ${item.creator}` : ""}`)
     .join("\n");
-  const planningPrompt = `Вот выборка из библиотеки:\n${libraryLines}\n\nПроверенная культурная фактура, если она относится к выбранной паре:\n${culturalMemory}`;
+  const planningPrompt = `Вот выборка из библиотеки:\n${libraryLines}\n\nПроверенная культурная фактура, если она относится к выбранной паре:\n${culturalMemory}\n\nПользователь уже забраковал эти формулировки. Не повторяй их приемы и не пересказывай их другими словами:\n${badFeedback.join("\n") || "пока нет"}`;
   const planRaw = await createRoastText({
     apiKey,
     model,
