@@ -38,6 +38,7 @@ import {
   ensureGuestSession,
   fetchBackendHealth,
   fetchConnectedSources,
+  fetchCulturalMemoryConsent,
   fetchDeepVibeCheckAccess,
   fetchItems,
   fetchSpotifyConnectionStatus,
@@ -54,6 +55,7 @@ import {
   importFromSpotifyUrl,
   runDeepVibeCheck,
   runVibeCheck,
+  updateCulturalMemoryConsent,
   resetGuestSession,
   saveConnectedSource,
   startTelegramLink,
@@ -216,6 +218,7 @@ export function useEveryYouApp() {
   const filePickerBusyRef = useRef(false);
   const filePickerCancelledRef = useRef(false);
   const [analysisRunning, setAnalysisRunning] = useState(false);
+  const [analysisRunningScope, setAnalysisRunningScope] = useState<"full" | "range" | null>(null);
   const [analysisHistory, setAnalysisHistory] = useState<AnalysisRun[]>([]);
   const [analysisResult, setAnalysisResult] = useState<AnalysisRun | null>(null);
   const [deepAnalysisRunning, setDeepAnalysisRunning] = useState(false);
@@ -254,6 +257,7 @@ export function useEveryYouApp() {
   const [fileImportDateInsight, setFileImportDateInsight] = useState<DateInsight | null>(null);
   const [dailySteps, setDailySteps] = useState<DailyStepEntry[]>([]);
   const [healthStepsEnabled, setHealthStepsEnabled] = useState(false);
+  const [culturalMemoryConsent, setCulturalMemoryConsent] = useState(false);
   const deferredLibrary = useDeferredValue(library);
 
   async function refreshLinkedLibrary(token: string, attempts = 4) {
@@ -450,6 +454,26 @@ export function useEveryYouApp() {
     if (!loaded || !apiToken) return;
     fireAnalytics("screen_view", { screen: tab });
   }, [tab, loaded, apiToken]);
+
+  useEffect(() => {
+    if (!apiToken) return;
+
+    fetchCulturalMemoryConsent(apiToken).then((data) => setCulturalMemoryConsent(data.enabled)).catch(() => undefined);
+  }, [apiToken]);
+
+  async function setCulturalMemoryConsentEnabled(enabled: boolean) {
+    if (!apiToken) {
+      setToastMessage("сначала подключимся к серверу");
+      return;
+    }
+    try {
+      const data = await updateCulturalMemoryConsent(apiToken, enabled);
+      setCulturalMemoryConsent(data.enabled);
+      setToastMessage(data.enabled ? "помогаешь культурной памяти" : "участие выключено");
+    } catch {
+      setToastMessage("не получилось сохранить настройку");
+    }
+  }
 
   useEffect(() => {
     if (!apiToken) return;
@@ -1285,24 +1309,27 @@ export function useEveryYouApp() {
   async function importSpotifyLink() {
     const normalizedUrl = spotifyUrl.trim();
     if (!normalizedUrl) {
-      setSpotifyStatus("вставь spotify track, album или playlist link");
+      setSpotifyStatus("вставь ссылку spotify или Яндекс.Музыки");
       return;
     }
 
+    const isYandexMusic = /(^|\.)music\.yandex\.(ru|com)(\/|$)/i.test(normalizedUrl);
+    const service = isYandexMusic ? "Яндекс.Музыки" : "spotify";
+
     try {
-      setSpotifyStatus("тянем данные из spotify...");
+      setSpotifyStatus(`тянем данные из ${service}...`);
       setSpotifyDateInsight(null);
       const parsedItems = await importFromSpotifyUrl(normalizedUrl);
 
       if (parsedItems.length === 0) {
-        setSpotifyStatus("spotify ничего не вернул");
+        setSpotifyStatus(`${service} ничего не вернул`);
         return;
       }
 
       const importedItems: LibraryItem[] = parsedItems.map((item) => ({
         id: uid(),
         type: item.type,
-        source: "import_spotify",
+        source: isYandexMusic ? "import_yandex_music" : "import_spotify",
         title: item.title,
         authorOrArtist: item.authorOrArtist,
         createdAt: Date.now(),
@@ -1327,15 +1354,15 @@ export function useEveryYouApp() {
       const coverage = describeDateCoverage(importedItems);
       setSpotifyDateInsight(buildDateInsight(importedItems));
       setSpotifyStatus(
-        `добавили ${importedItems.length} трек(ов) из spotify${coverage ? ` · ${coverage}` : ""}`
+        `добавили ${importedItems.length} трек(ов) из ${service}${coverage ? ` · ${coverage}` : ""}`
       );
       setSpotifyUrl("");
       setTab("library");
       setToastMessage(`импортировали ${importedItems.length} трек(ов)`);
       setTimelinePromptVisible(true);
-      fireAnalytics("spotify_link_import_completed", { count: importedItems.length });
+      fireAnalytics("music_link_import_completed", { count: importedItems.length, service: isYandexMusic ? "yandex_music" : "spotify" });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "не удалось импортировать из spotify";
+      const message = error instanceof Error ? error.message : `не удалось импортировать из ${service}`;
       setSpotifyStatus(message);
       setToastMessage("импорт не удался");
     }
@@ -1788,26 +1815,40 @@ export function useEveryYouApp() {
     }
   }
 
-  async function runFakeAnalysis() {
+  async function runFakeAnalysis(range?: { from: number; to: number; label: string }) {
     if (analysisRunning) return;
     setAnalysisRunning(true);
-    fireAnalytics("vibecheck_started", { librarySize: counters.total, tier: "regular" });
+    setAnalysisRunningScope(range ? "range" : "full");
+    fireAnalytics("vibecheck_started", {
+      librarySize: counters.total,
+      tier: "regular",
+      periodLabel: range?.label ?? null,
+      periodFrom: range?.from ?? null,
+      periodTo: range?.to ?? null,
+    });
 
     try {
       if (apiToken) {
-        const data = await runVibeCheck(apiToken);
+        const data = await runVibeCheck(apiToken, range ? { from: range.from, to: range.to } : undefined);
         const result: AnalysisRun = {
           id: uid(),
           createdAt: Date.now(),
           itemCount: data.itemCount,
+          persona: data.persona,
           summary: data.summary,
           highlights: data.highlights,
+          basis: data.basis ?? [],
+          periodLabel: range?.label,
         };
 
         setAnalysisResult(result);
         setAnalysisHistory([result]);
         setToastMessage("вайбчек готов");
-        fireAnalytics("vibecheck_completed", { itemCount: data.itemCount, tier: "regular" });
+        fireAnalytics("vibecheck_completed", {
+          itemCount: data.itemCount,
+          tier: "regular",
+          periodLabel: range?.label ?? null,
+        });
         return;
       }
 
@@ -1820,6 +1861,7 @@ export function useEveryYouApp() {
         id: uid(),
         createdAt: Date.now(),
         itemCount: total,
+        persona: total === 0 ? "" : "вкус пока без легенды",
         summary:
           total === 0
             ? "пока пусто. добавьте пару айтемов и мы начнем собирать ваш паттерн вкуса."
@@ -1829,9 +1871,14 @@ export function useEveryYouApp() {
             ? ["можно начать с импорта spotify", "или добавить что-то вручную"]
             : [
                 "вкусу явно нравится ходить между поп-крючками и вещами посложнее",
-                "повторяющиеся имена и настроения быстро выдают твой текущий эмоциональный коридор",
-                "это быстрый вайбчек: он скорее намечает настроение, чем копает глубоко",
+              "повторяющиеся имена и настроения быстро выдают твой текущий эмоциональный коридор",
+              "это быстрый вайбчек: он скорее намечает настроение, чем копает глубоко",
               ],
+        basis:
+          total === 0
+            ? []
+            : ["последние добавленные айтемы", "повторяющиеся имена и настроения"],
+        periodLabel: range?.label,
       };
 
       setAnalysisResult(result);
@@ -1842,17 +1889,21 @@ export function useEveryYouApp() {
         id: uid(),
         createdAt: Date.now(),
         itemCount: counters.total,
+        persona: "",
         summary: `не удалось провести серверный вайбчек: ${message}`,
         highlights: ["проверь настройки сервера", "и попробуй еще раз"],
+        basis: [],
+        periodLabel: range?.label,
       };
       setAnalysisResult(fallback);
       setAnalysisHistory([fallback]);
     } finally {
       setAnalysisRunning(false);
+      setAnalysisRunningScope(null);
     }
   }
 
-  async function runDeepAnalysis() {
+  async function runDeepAnalysis(range?: { from: number; to: number; label: string }) {
     if (deepAnalysisRunning) return;
     if (deepAnalysisAccess === "paywall") {
       setToastMessage("2 бесплатных глубоких вайбчека уже использованы");
@@ -1861,22 +1912,31 @@ export function useEveryYouApp() {
     }
 
     setDeepAnalysisRunning(true);
-    fireAnalytics("vibecheck_started", { librarySize: counters.total, tier: "deep", usesLeft: deepAnalysisUsesLeft });
+    fireAnalytics("vibecheck_started", {
+      librarySize: counters.total,
+      tier: "deep",
+      usesLeft: deepAnalysisUsesLeft,
+      periodLabel: range?.label ?? null,
+      periodFrom: range?.from ?? null,
+      periodTo: range?.to ?? null,
+    });
 
     try {
       if (!apiToken) {
         throw new Error("для вайбчека без прикола нужен backend");
       }
 
-      const data = await runDeepVibeCheck(apiToken);
+      const data = await runDeepVibeCheck(apiToken, range ? { from: range.from, to: range.to } : undefined);
       const result: AnalysisRun = {
         id: uid(),
         createdAt: Date.now(),
         itemCount: data.itemCount,
         summary: data.summary,
         highlights: data.highlights,
+        basis: data.basis ?? [],
         recommendations: data.recommendations ?? [],
         usesLeft: data.usesLeft,
+        periodLabel: range?.label,
       };
 
       setDeepAnalysisResult(result);
@@ -1884,7 +1944,12 @@ export function useEveryYouApp() {
       setDeepAnalysisUsesLeft(data.usesLeft);
       setDeepAnalysisTotalFreeUses(data.totalFreeUses);
       setToastMessage("вайбчек без прикола готов");
-      fireAnalytics("vibecheck_completed", { itemCount: data.itemCount, tier: "deep", usesLeft: data.usesLeft });
+      fireAnalytics("vibecheck_completed", {
+        itemCount: data.itemCount,
+        tier: "deep",
+        usesLeft: data.usesLeft,
+        periodLabel: range?.label ?? null,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "deep vibe failed";
       if (message === "paywall") {
@@ -1909,8 +1974,10 @@ export function useEveryYouApp() {
         itemCount: counters.total,
         summary: friendlySummary,
         highlights: friendlyHighlights,
+        basis: [],
         recommendations: [],
         usesLeft: deepAnalysisUsesLeft,
+        periodLabel: range?.label,
       };
       setDeepAnalysisResult(fallback);
     } finally {
@@ -2083,6 +2150,7 @@ export function useEveryYouApp() {
     timeQualityFilter,
     undatedVisibleLibrary,
     selectedItem,
+    library,
     visibleLibrary,
     counters,
     timeStats,
@@ -2090,6 +2158,7 @@ export function useEveryYouApp() {
     totalSteps,
     healthStepsEnabled,
     analysisRunning,
+    analysisRunningScope,
     analysisResult,
     analysisHistory,
     deepAnalysisRunning,

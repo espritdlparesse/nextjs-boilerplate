@@ -6,7 +6,10 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "plugins": [
       "expo-dev-client",
       [
@@ -22,11 +25,17 @@
       "bundleIdentifier": "com.everyyou.mobile",
       "infoPlist": {
         "NSHealthShareUsageDescription": "Everyyou uses step count to show how your days felt in motion.",
-        "NSHealthUpdateUsageDescription": "Everyyou can store your health connection settings."
+        "NSHealthUpdateUsageDescription": "Everyyou can store your health connection settings.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.everyyou.mobile"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "b67f7cd2-038d-4b12-b452-802a658b0c29"
+      }
     }
   }
 }

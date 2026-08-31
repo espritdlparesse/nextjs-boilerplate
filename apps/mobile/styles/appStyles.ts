@@ -223,6 +223,24 @@ export const appStyles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 8,
   },
+  spotifyActionGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  spotifyDangerBlock: {
+    gap: 8,
+    paddingTop: 4,
+  },
+  spotifyDangerRow: {
+    flexDirection: "row",
+    flexWrap: "nowrap",
+    gap: 8,
+  },
+  spotifyDangerButton: {
+    flex: 1,
+    minWidth: 0,
+  },
   statusChip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -1250,6 +1268,21 @@ export const appStyles = StyleSheet.create({
     fontWeight: "900",
     color: colors.black,
     textTransform: "lowercase",
+  },
+  resultModalClose: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  resultModalCloseText: {
+    fontSize: 24,
+    lineHeight: 24,
+    fontWeight: "500",
+    color: colors.black,
+    marginTop: -2,
   },
   dayModalScroll: {
     flex: 1,

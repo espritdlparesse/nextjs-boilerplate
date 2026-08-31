@@ -6,7 +6,7 @@ export type TgUser = {
 };
 
 export type ContentType = "music" | "book" | "film";
-export type SourceType = "manual" | "import_spotify" | "import_lastfm" | "import_letterboxd";
+export type SourceType = "manual" | "import_spotify" | "import_yandex_music" | "import_lastfm" | "import_letterboxd";
 export type TimeOrigin = "exact" | "imported" | "estimated";
 export type ThemeMode = "light" | "dark";
 export type DailyStepEntry = {
@@ -32,10 +32,13 @@ export type AnalysisRun = {
   id: string;
   createdAt: number;
   itemCount: number;
+  persona?: string;
   summary: string;
   highlights: string[];
+  basis?: string[];
   recommendations?: string[];
   usesLeft?: number | null;
+  periodLabel?: string;
 };
 
 export const TYPE_LABEL: Record<ContentType, string> = {
@@ -47,51 +50,44 @@ export const TYPE_LABEL: Record<ContentType, string> = {
 export const SOURCE_LABEL: Record<SourceType, string> = {
   manual: "сами добавили",
   import_spotify: "импорт",
+  import_yandex_music: "импорт",
   import_lastfm: "импорт",
   import_letterboxd: "импорт",
 };
 
 export const PLACEHOLDERS: Record<ContentType, Array<{ title: string; authorOrArtist: string }>> = {
   music: [
-    { title: "любой трек", authorOrArtist: "the national" },
-    { title: "about today", authorOrArtist: "the national" },
-    { title: "codex", authorOrArtist: "radiohead" },
-    { title: "movies", authorOrArtist: "weyes blood" },
-    { title: "i know the end", authorOrArtist: "phoebe bridgers" },
-    { title: "cellophane", authorOrArtist: "fka twigs" },
-    { title: "not strong enough", authorOrArtist: "boygenius" },
-    { title: "seventeen", authorOrArtist: "sharon van etten" },
-    { title: "sparks", authorOrArtist: "beach house" },
-    { title: "the rip", authorOrArtist: "portishead" },
-    { title: "night shift", authorOrArtist: "lucy dacus" },
+    { title: "505", authorOrArtist: "arctic monkeys" },
+    { title: "obedient", authorOrArtist: "bladee" },
+    { title: "how soon is now?", authorOrArtist: "morrissey" },
+    { title: "название трека", authorOrArtist: "имя исполнителя" },
   ],
   film: [
-    { title: "трудности перевода", authorOrArtist: "коппола" },
-    { title: "lost in translation", authorOrArtist: "sofia coppola" },
-    { title: "personal shopper", authorOrArtist: "olivier assayas" },
-    { title: "american beauty", authorOrArtist: "sam mendes" },
-    { title: "her", authorOrArtist: "spike jonze" },
-    { title: "under the skin", authorOrArtist: "jonathan glazer" },
-    { title: "melancholia", authorOrArtist: "lars von etrier" },
-    { title: "the lobster", authorOrArtist: "yorgos lanthimos" },
-    { title: "drive my car", authorOrArtist: "ryusuke hamaguchi" },
-    { title: "eternal sunshine", authorOrArtist: "michel gondry" },
-    { title: "call me by your name", authorOrArtist: "luca guadagnino" },
+    { title: "lost in translation", authorOrArtist: "софия коппола" },
+    { title: "сериал the sopranos", authorOrArtist: "не помню кто режиссер" },
+    { title: "солярис", authorOrArtist: "андрей тарковский" },
+    { title: "melancholia", authorOrArtist: "lars von trier" },
   ],
   book: [
-    { title: "котлован", authorOrArtist: "платонов" },
-    { title: "hot milk", authorOrArtist: "deborah levy" },
-    { title: "the cost of living", authorOrArtist: "deborah levy" },
-    { title: "how should a person be?", authorOrArtist: "sheila heti" },
-    { title: "motherhood", authorOrArtist: "sheila heti" },
-    { title: "simple passion", authorOrArtist: "annie ernaux" },
-    { title: "outline", authorOrArtist: "rachel cusk" },
-    { title: "second place", authorOrArtist: "rachel cusk" },
-    { title: "weather", authorOrArtist: "jenny offill" },
     { title: "котлован", authorOrArtist: "андрей платонов" },
-    { title: "night", authorOrArtist: "elie wiesel" },
+    { title: "название книги", authorOrArtist: "имя писателя" },
+    { title: "кольца сатурна", authorOrArtist: "зебальд" },
+    { title: "радуга тяготения", authorOrArtist: "пинчон" },
+    { title: "hot milk", authorOrArtist: "deborah levy" },
   ],
 };
+
+export function getManualTitlePlaceholder(type: ContentType) {
+  if (type === "music") return "название трека";
+  if (type === "book") return "название книги";
+  return "название фильма или сериала";
+}
+
+export function getManualCreatorPlaceholder(type: ContentType) {
+  if (type === "music") return "имя исполнителя";
+  if (type === "book") return "имя писателя";
+  return "режиссер или шоураннер";
+}
 
 export const STORAGE_KEY_LIBRARY = "everyyou.library";
 export const LEGACY_LIBRARY_KEYS = ["everyyou.library.v2", "everyyou.library.v3"];
@@ -151,7 +147,9 @@ export function normalizeLibrary(raw: unknown[]): LibraryItem[] {
           ? "film"
           : "music";
     const source: SourceType =
-      item.source === "manual" || item.source === "import_spotify" ? item.source : "manual";
+      item.source === "manual" || item.source === "import_spotify" || item.source === "import_yandex_music"
+        ? item.source
+        : "manual";
     const title = clampText(String(item.title ?? "")).toLowerCase();
     const authorOrArtist = clampText(String(item.authorOrArtist ?? "")).toLowerCase();
 

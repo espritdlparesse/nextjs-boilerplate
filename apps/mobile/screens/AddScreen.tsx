@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { PLACEHOLDERS, TYPE_LABEL, type ContentType, type SourceType, type ThemeMode } from "../shared/everyyou/domain";
+import {
+  getManualCreatorPlaceholder,
+  getManualTitlePlaceholder,
+  PLACEHOLDERS,
+  TYPE_LABEL,
+  type ContentType,
+  type SourceType,
+  type ThemeMode,
+} from "../shared/everyyou/domain";
 import { BrandLogo } from "../components/BrandLogo";
 import { PillButton } from "../components/PillButton";
 import { appStyles } from "../styles/appStyles";
@@ -329,6 +337,11 @@ export function AddScreen({
   const [showSpotifyPlaylists, setShowSpotifyPlaylists] = useState(false);
   const activeType = (type || "music") as ContentType;
   const currentPh = PLACEHOLDERS[activeType][placeholderIndex % PLACEHOLDERS[activeType].length];
+  const manualExample = `${currentPh.authorOrArtist} — ${currentPh.title}`;
+  const titlePlaceholder = editingId ? getManualTitlePlaceholder(activeType) : `например: ${currentPh.title}`;
+  const creatorPlaceholder = editingId
+    ? getManualCreatorPlaceholder(activeType)
+    : `например: ${currentPh.authorOrArtist}`;
 
   function runGuideAction(currentGuide: Exclude<GuideKey, null>) {
     if (currentGuide === "spotify") {
@@ -532,21 +545,30 @@ export function AddScreen({
                 letterboxd подключен: {connectedSources.letterboxd.profile}
               </Text>
             ) : null}
-            <View style={appStyles.row}>
+            <View style={appStyles.spotifyActionGrid}>
               {connectedSources.lastfm || lastfmUsername.trim() ? (
-                <>
-                  <PillButton themeMode={themeMode} label="обновить last.fm" onPress={onLastfmProfileImportPress} />
-                  <PillButton themeMode={themeMode} label="отвязать last.fm" onPress={() => onDisconnectLastfmPress(false)} />
-                </>
+                <PillButton themeMode={themeMode} label="обновить last.fm" onPress={onLastfmProfileImportPress} />
               ) : null}
               {connectedSources.letterboxd || letterboxdProfile.trim() ? (
-                <>
-                  <PillButton themeMode={themeMode} label="обновить letterboxd" onPress={onLetterboxdProfileImportPress} />
-                  <PillButton themeMode={themeMode} label="отвязать letterboxd" onPress={() => onDisconnectLetterboxdPress(false)} />
-                  <PillButton themeMode={themeMode} label="убрать импорт letterboxd" onPress={() => onDisconnectLetterboxdPress(true)} />
-                </>
+                <PillButton themeMode={themeMode} label="обновить letterboxd" onPress={onLetterboxdProfileImportPress} />
               ) : null}
             </View>
+            {(connectedSources.lastfm || connectedSources.letterboxd || lastfmUsername.trim() || letterboxdProfile.trim()) ? (
+              <View style={appStyles.spotifyDangerBlock}>
+                <Text style={[appStyles.metaText, { color: theme.mutedText }]}>если нужно, можно отвязать профили и убрать их импорт из библиотеки</Text>
+                <View style={appStyles.spotifyDangerRow}>
+                  {connectedSources.lastfm || lastfmUsername.trim() ? (
+                    <PillButton themeMode={themeMode} label="отвязать last.fm" onPress={() => onDisconnectLastfmPress(false)} />
+                  ) : null}
+                  {connectedSources.letterboxd || letterboxdProfile.trim() ? (
+                    <>
+                      <PillButton themeMode={themeMode} label="отвязать letterboxd" onPress={() => onDisconnectLetterboxdPress(false)} />
+                      <PillButton themeMode={themeMode} label="убрать импорт letterboxd" onPress={() => onDisconnectLetterboxdPress(true)} />
+                    </>
+                  ) : null}
+                </View>
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -586,9 +608,13 @@ export function AddScreen({
           ))}
         </View>
 
+        <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
+          {editingId ? "тут можно спокойно поправить название и автора или исполнителя." : `например: ${manualExample}`}
+        </Text>
+
         <TextInput
           style={[appStyles.input, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
-          placeholder={`например: ${currentPh.title}`}
+          placeholder={titlePlaceholder}
           placeholderTextColor={theme.inputPlaceholder}
           value={title}
           onChangeText={onTitleChange}
@@ -598,7 +624,7 @@ export function AddScreen({
 
         <TextInput
           style={[appStyles.input, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
-          placeholder={`например: ${currentPh.authorOrArtist}`}
+          placeholder={creatorPlaceholder}
           placeholderTextColor={theme.inputPlaceholder}
           value={authorOrArtist}
           onChangeText={onAuthorOrArtistChange}
@@ -643,7 +669,7 @@ export function AddScreen({
 
       <View style={[appStyles.card, themeMode === "dark" ? { backgroundColor: theme.accentGreen, borderColor: theme.border } : appStyles.cardAccentGreen, appStyles.compactCard]}>
         <Text style={[appStyles.label, { color: theme.accentMutedText }]}>обновить spotify</Text>
-        <View style={appStyles.row}>
+        <View style={appStyles.spotifyActionGrid}>
           <PillButton themeMode={themeMode} label="обновить" onPress={onSpotifyRefreshPress} />
           <PillButton
             label={spotifyPlaylistLoading ? "грузим..." : spotifyPlaylists.length > 0 ? "обновить плейлисты" : "плейлисты"}
@@ -656,13 +682,12 @@ export function AddScreen({
           />
           <PillButton themeMode={themeMode} label="любимые треки" onPress={onSpotifyLikedSongsPress} />
           <PillButton themeMode={themeMode} label="недавнее" onPress={onSpotifyRecentlyPlayedPress} />
-          {spotifyConnected ? <PillButton themeMode={themeMode} label="отвязать spotify" onPress={() => onDisconnectSpotifyPress(false)} /> : null}
-          {spotifyConnected ? <PillButton themeMode={themeMode} label="убрать импорт spotify" onPress={() => onDisconnectSpotifyPress(true)} /> : null}
         </View>
 
+        <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>или импортируй плейлист или релиз по ссылке</Text>
         <TextInput
           style={[appStyles.input, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
-          placeholder="ссылка на трек, альбом или плейлист"
+          placeholder="ссылка spotify или Яндекс.Музыки"
           placeholderTextColor={theme.inputPlaceholder}
           value={spotifyUrl}
           onChangeText={onSpotifyUrlChange}
@@ -670,6 +695,26 @@ export function AddScreen({
           autoCorrect={false}
         />
         <PillButton themeMode={themeMode} label="импортировать ссылку" onPress={onSpotifyImportPress} />
+
+        {spotifyConnected ? (
+          <View style={appStyles.spotifyDangerBlock}>
+            <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>если нужно, можно отвязать spotify или убрать его импорт из библиотеки</Text>
+            <View style={appStyles.spotifyDangerRow}>
+              <PillButton
+                themeMode={themeMode}
+                label="отвязать spotify"
+                onPress={() => onDisconnectSpotifyPress(false)}
+                style={appStyles.spotifyDangerButton}
+              />
+              <PillButton
+                themeMode={themeMode}
+                label="убрать импорт spotify"
+                onPress={() => onDisconnectSpotifyPress(true)}
+                style={appStyles.spotifyDangerButton}
+              />
+            </View>
+          </View>
+        ) : null}
 
         {spotifyPlaylists.length > 0 ? (
           <View style={appStyles.stack}>

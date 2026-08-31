@@ -584,8 +584,10 @@ export default function App() {
               {app.tab === "analysis" && (
                 <AnalysisScreen
                   themeMode={app.themeMode}
+                  library={app.library}
                   counters={app.counters}
                   analysisRunning={app.analysisRunning}
+                  analysisRunningScope={app.analysisRunningScope}
                   analysisResult={app.analysisResult}
                   deepAnalysisRunning={app.deepAnalysisRunning}
                   deepAnalysisAccess={app.deepAnalysisAccess}
@@ -614,6 +616,7 @@ export default function App() {
                   filmCount={app.counters.byType.film}
                   totalSteps={app.totalSteps}
                   healthStepsEnabled={app.healthStepsEnabled}
+                  culturalMemoryConsent={app.culturalMemoryConsent}
                   exactCount={app.timeStats.exact}
                   importedCount={app.timeStats.imported}
                   estimatedCount={app.timeStats.estimated}
@@ -624,6 +627,7 @@ export default function App() {
                   onClearAvatarPress={app.clearAvatar}
                   onThemeChange={app.setThemeMode}
                   onHealthStepsEnabledChange={app.setHealthStepsEnabled}
+                  onCulturalMemoryConsentChange={app.setCulturalMemoryConsentEnabled}
                   onCreateTelegramLinkCode={app.createTelegramLinkCode}
                   onOpenTelegramLinkFlow={app.openTelegramLinkFlow}
                   onReplayOnboarding={app.replayOnboarding}

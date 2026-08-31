@@ -26,6 +26,7 @@ type ProfileScreenProps = {
   filmCount: number;
   totalSteps: number;
   healthStepsEnabled: boolean;
+  culturalMemoryConsent: boolean;
   exactCount: number;
   importedCount: number;
   estimatedCount: number;
@@ -36,6 +37,7 @@ type ProfileScreenProps = {
   onClearAvatarPress: () => void;
   onThemeChange: (mode: ThemeMode) => void;
   onHealthStepsEnabledChange: (value: boolean) => void;
+  onCulturalMemoryConsentChange: (value: boolean) => void;
   onCreateTelegramLinkCode: () => void;
   onOpenTelegramLinkFlow: () => void;
   onReplayOnboarding: () => void;
@@ -67,6 +69,7 @@ export function ProfileScreen({
   filmCount,
   totalSteps,
   healthStepsEnabled,
+  culturalMemoryConsent,
   exactCount,
   importedCount,
   estimatedCount,
@@ -77,6 +80,7 @@ export function ProfileScreen({
   onClearAvatarPress,
   onThemeChange,
   onHealthStepsEnabledChange,
+  onCulturalMemoryConsentChange,
   onCreateTelegramLinkCode,
   onOpenTelegramLinkFlow,
   onReplayOnboarding,
@@ -139,7 +143,7 @@ export function ProfileScreen({
             placeholderTextColor={theme.inputPlaceholder}
             value={nameDraft}
             onChangeText={onNameDraftChange}
-            autoCapitalize="words"
+            autoCapitalize="none"
             autoCorrect={false}
           />
           <View style={appStyles.row}>
@@ -218,6 +222,16 @@ export function ProfileScreen({
       </View>
 
       <View style={[appStyles.card, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <Text style={[appStyles.label, { color: theme.mutedText }]}>культурная память</Text>
+        <Text style={[appStyles.helper, { color: theme.text }]}>можно помочь сделать вайбчеки точнее для всех.</Text>
+        <Text style={[appStyles.metaText, { color: theme.mutedText }]}>в общую очередь попадут только имена авторов и артистов. без твоего аккаунта, названий и истории.</Text>
+        <View style={appStyles.row}>
+          <PillButton label="не участвовать" active={!culturalMemoryConsent} themeMode={themeMode} onPress={() => onCulturalMemoryConsentChange(false)} />
+          <PillButton label="помогать памяти" active={culturalMemoryConsent} themeMode={themeMode} onPress={() => onCulturalMemoryConsentChange(true)} />
+        </View>
+      </View>
+
+      <View style={[appStyles.card, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <Text style={[appStyles.label, { color: theme.mutedText }]}>настройки</Text>
         <Text style={[appStyles.helper, { color: theme.text }]}>выбери, как тебе комфортнее смотреть на свой культурный таймлайн.</Text>
         <View style={appStyles.row}>
@@ -245,26 +259,18 @@ export function ProfileScreen({
         <Text style={[appStyles.helper, { color: theme.text }]}>
           {telegramLink.linked
             ? "аккаунты уже связаны. теперь библиотека в Telegram и на айфоне общая."
-            : "свяжи mini app и приложение на айфоне, чтобы библиотека, спотифай и вайбчеки жили как один аккаунт."}
+            : telegramLink.code
+              ? "код уже готов. просто открой mini app, и мы попробуем подставить его сами."
+              : "свяжи mini app и приложение на айфоне, чтобы библиотека, спотифай и вайбчеки жили как один аккаунт."}
         </Text>
 
         {telegramLink.linked ? (
           <Text style={[appStyles.metaText, { color: theme.mutedText }]}>telegram подключен</Text>
         ) : telegramLink.code ? (
           <View>
-            <Text style={[appStyles.itemTitle, { color: theme.text, marginBottom: 8 }]}>{telegramLink.code}</Text>
             <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
-              можешь сразу открыть mini app или показать qr на другом устройстве.
+              если mini app не откроется сам, можно ввести код вручную: {telegramLink.code}
             </Text>
-            {telegramLinkQrDataUrl ? (
-              <View style={appStyles.telegramQrCard}>
-                <Image source={{ uri: telegramLinkQrDataUrl }} style={appStyles.telegramQrImage} />
-                <Text style={[appStyles.label, { color: theme.text }]}>qr для Telegram</Text>
-                <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
-                  qr сам откроет mini app и уже подставит код.
-                </Text>
-              </View>
-            ) : null}
           </View>
         ) : null}
 
@@ -273,16 +279,25 @@ export function ProfileScreen({
         ) : null}
 
         <View style={appStyles.row}>
-          <PillButton
-            label={telegramLinkLoading ? "готовим код..." : telegramLink.linked ? "обновить код" : "подключить Telegram"}
-            onPress={onCreateTelegramLinkCode}
-            themeMode={themeMode}
-            disabled={telegramLinkLoading}
-          />
-          {telegramLink.code ? (
+          {!telegramLink.linked ? (
+            <PillButton
+              label={telegramLinkLoading ? "готовим код..." : "подключить Telegram"}
+              onPress={onCreateTelegramLinkCode}
+              themeMode={themeMode}
+              disabled={telegramLinkLoading}
+            />
+          ) : null}
+          {telegramLink.code || telegramLink.linked ? (
             <PillButton label="открыть mini app" onPress={onOpenTelegramLinkFlow} themeMode={themeMode} />
           ) : null}
         </View>
+        {telegramLink.linked ? (
+          <Pressable onPress={onCreateTelegramLinkCode} style={{ marginTop: 10 }}>
+            <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
+              переподключить Telegram
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );

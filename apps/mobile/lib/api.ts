@@ -120,8 +120,10 @@ type SpotifyUserImportResponse = {
 
 type VibeCheckResponse = {
   itemCount: number;
+  persona?: string;
   summary: string;
   highlights: string[];
+  basis?: string[];
 };
 
 type DeepVibeCheckResponse = {
@@ -131,6 +133,7 @@ type DeepVibeCheckResponse = {
   itemCount: number;
   summary: string;
   highlights: string[];
+  basis?: string[];
   recommendations?: string[];
 };
 
@@ -372,7 +375,8 @@ export async function analyzeScreenshot(input: { imageBase64: string; mimeType: 
 }
 
 export async function importFromSpotifyUrl(url: string) {
-  const data = await fetchJson<SpotifyImportResponse>("/api/spotify/import", {
+  const isYandexMusic = /(^|\.)music\.yandex\.(ru|com)(\/|$)/i.test(url.trim());
+  const data = await fetchJson<SpotifyImportResponse>(isYandexMusic ? "/api/yandex-music/import" : "/api/spotify/import", {
     method: "POST",
     body: JSON.stringify({ url }),
   });
@@ -430,10 +434,26 @@ export async function importFromSpotifyUser(
   });
 }
 
-export async function runVibeCheck(token: string) {
+export async function runVibeCheck(token: string, input?: { from?: number; to?: number }) {
   return fetchJson<VibeCheckResponse>("/api/v2/analysis", {
     method: "POST",
     headers: authHeaders(token),
+    body: JSON.stringify({
+      from: input?.from ?? null,
+      to: input?.to ?? null,
+    }),
+  });
+}
+
+export async function fetchCulturalMemoryConsent(token: string) {
+  return fetchJson<{ enabled: boolean }>("/api/v2/cultural-memory-consent", { headers: authHeaders(token) });
+}
+
+export async function updateCulturalMemoryConsent(token: string, enabled: boolean) {
+  return fetchJson<{ enabled: boolean }>("/api/v2/cultural-memory-consent", {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify({ enabled }),
   });
 }
 
@@ -444,10 +464,14 @@ export async function fetchDeepVibeCheckAccess(token: string) {
   });
 }
 
-export async function runDeepVibeCheck(token: string) {
+export async function runDeepVibeCheck(token: string, input?: { from?: number; to?: number }) {
   return fetchJson<DeepVibeCheckResponse>("/api/v2/deep-analysis", {
     method: "POST",
     headers: authHeaders(token),
+    body: JSON.stringify({
+      from: input?.from ?? null,
+      to: input?.to ?? null,
+    }),
   });
 }
 

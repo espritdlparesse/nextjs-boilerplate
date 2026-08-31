@@ -1,5 +1,6 @@
 "use client";
 
+import Script from "next/script";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { parseImportedFile } from "@/apps/mobile/lib/fileImports";
 
@@ -223,6 +224,7 @@ export default function Page() {
     autoLinkHandledRef.current = true;
     const code = match[1].toUpperCase();
     setTelegramLinkCode(code);
+    setShowTelegramManualLink(true);
     setTelegramLinkStatus("код из qr уже подставили");
     void linkMobileAccount(code);
   }, []);
@@ -262,6 +264,7 @@ export default function Page() {
   const [telegramLinkLoading, setTelegramLinkLoading] = useState(false);
   const [telegramLinkStatus, setTelegramLinkStatus] = useState("");
   const [telegramLinkSuccess, setTelegramLinkSuccess] = useState(false);
+  const [showTelegramManualLink, setShowTelegramManualLink] = useState(false);
   const autoLinkHandledRef = useRef(false);
 
   function fireAnalytics(event: string, properties?: Record<string, unknown>) {
@@ -1375,6 +1378,10 @@ export default function Page() {
 
   return (
     <>
+      <Script
+        src="https://telegram.org/js/telegram-web-app.js"
+        strategy="beforeInteractive"
+      />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
@@ -2493,26 +2500,36 @@ export default function Page() {
             <div className="card">
               <div className="card-title">перенести в приложение</div>
               <p className="card-text">
-                если у тебя уже есть библиотека в приложении на айфоне, открой этот же mini app по qr или просто введи код оттуда — и мы свяжем аккаунты.
+                если у тебя уже есть библиотека в приложении на айфоне, просто открой этот же mini app оттуда. если код не подставился сам, его можно ввести вручную ниже.
               </p>
-              <div className="input-group" style={{ marginTop: 16 }}>
-                <div className="input-label">код из mobile</div>
-                <input
-                  className="input"
-                  placeholder="например, A7K9QP"
-                  value={telegramLinkCode}
-                  onChange={(e) => setTelegramLinkCode(e.target.value.toUpperCase())}
-                  autoCapitalize="characters"
-                  autoCorrect="off"
-                />
-              </div>
+              {!showTelegramManualLink ? (
+                <button
+                  className="btn btn-secondary"
+                  style={{ marginTop: 16 }}
+                  onClick={() => setShowTelegramManualLink(true)}
+                >
+                  ввести код вручную
+                </button>
+              ) : (
+                <div className="input-group" style={{ marginTop: 16 }}>
+                  <div className="input-label">код из приложения, если не подставился сам</div>
+                  <input
+                    className="input"
+                    placeholder="например, A7K9QP"
+                    value={telegramLinkCode}
+                    onChange={(e) => setTelegramLinkCode(e.target.value.toUpperCase())}
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                  />
+                </div>
+              )}
               <button
                 className="btn"
                 style={{ marginTop: 4 }}
                 onClick={() => void linkMobileAccount()}
                 disabled={telegramLinkLoading}
               >
-                {telegramLinkLoading ? "связываем..." : "связать с приложением"}
+                {telegramLinkLoading ? "связываем..." : "подключить приложение"}
               </button>
               {telegramLinkSuccess ? (
                 <div

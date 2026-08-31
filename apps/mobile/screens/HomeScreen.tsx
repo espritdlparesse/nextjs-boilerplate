@@ -57,7 +57,7 @@ export function HomeScreen({
             placeholderTextColor={theme.inputPlaceholder}
             value={nameDraft}
             onChangeText={onNameDraftChange}
-            autoCapitalize="words"
+            autoCapitalize="none"
             autoCorrect={false}
           />
           <PillButton

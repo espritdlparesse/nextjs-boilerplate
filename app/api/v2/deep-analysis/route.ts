@@ -9,10 +9,40 @@ export const runtime = "nodejs";
 type AnalysisPayload = {
   summary?: string;
   highlights?: string[];
+  basis?: string[];
   recommendations?: string[];
 };
 
+type DeepAnalysisRequestBody = {
+  from?: number | null;
+  to?: number | null;
+};
+
 const FREE_DEEP_VIBE_USES = 2;
+
+function buildCreatorContext(
+  items: Array<{ creator: string | null; title: string; type: string }>
+) {
+  const counts = new Map<string, { count: number; sampleTitle: string; type: string }>();
+
+  for (const item of items) {
+    const creator = item.creator?.trim();
+    if (!creator) continue;
+    const key = creator.toLowerCase();
+    const current = counts.get(key);
+    if (current) {
+      current.count += 1;
+      continue;
+    }
+    counts.set(key, { count: 1, sampleTitle: item.title, type: item.type });
+  }
+
+  return Array.from(counts.entries())
+    .sort((left, right) => right[1].count - left[1].count)
+    .slice(0, 15)
+    .map(([creator, meta]) => `${creator} — ${meta.count} (${meta.type}; например, ${meta.sampleTitle})`)
+    .join("\n");
+}
 
 function extractJson(text: string) {
   const trimmed = text.trim();
@@ -28,6 +58,26 @@ function extractJson(text: string) {
       return null;
     }
   }
+}
+
+async function createWebAwareDeepAnalysis(args: {
+  apiKey: string;
+  model: string;
+  prompt: string;
+  instructions: string;
+}) {
+  const client = new OpenAI({ apiKey: args.apiKey });
+
+  const response = await client.responses.create({
+    model: args.model,
+    instructions: args.instructions,
+    input: args.prompt,
+    max_output_tokens: 1900,
+    tools: [{ type: "web_search_preview", search_context_size: "high" }],
+    tool_choice: "auto",
+  });
+
+  return response.output_text ?? "";
 }
 
 export async function GET(req: NextRequest) {
@@ -56,6 +106,10 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
   const scope = await getOwnerScope(auth);
   const owner = scope.primaryOwner;
+  const body = (await req.json().catch(() => null)) as DeepAnalysisRequestBody | null;
+  const from = typeof body?.from === "number" && Number.isFinite(body.from) ? body.from : null;
+  const to = typeof body?.to === "number" && Number.isFinite(body.to) ? body.to : null;
+  const hasRange = from !== null && to !== null;
 
   const sb = supabaseAdmin();
   const { count: usageCount, error: usageError } = await sb
@@ -77,17 +131,31 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const baseQuery = sb
+  let baseQuery = sb
     .from("items")
     .select("type, title, creator, consumed_at, created_at, time_origin")
     .or(buildOwnerReadFilter(scope));
+  if (hasRange) {
+    baseQuery = baseQuery
+      .gte("consumed_at", new Date(from).toISOString())
+      .lte("consumed_at", new Date(to).toISOString());
+  }
 
   let { data: items, error } = await baseQuery
     .order("consumed_at", { ascending: false, nullsFirst: false })
-    .limit(300);
+    .limit(hasRange ? 1000 : 300);
 
   if (error?.message?.toLowerCase().includes("consumed_at")) {
-    const fallback = await baseQuery.order("created_at", { ascending: false }).limit(300);
+    let fallbackQuery = sb
+      .from("items")
+      .select("type, title, creator, consumed_at, created_at, time_origin")
+      .or(buildOwnerReadFilter(scope));
+    if (hasRange) {
+      fallbackQuery = fallbackQuery
+        .gte("created_at", new Date(from).toISOString())
+        .lte("created_at", new Date(to).toISOString());
+    }
+    const fallback = await fallbackQuery.order("created_at", { ascending: false }).limit(hasRange ? 1000 : 300);
     items = fallback.data;
     error = fallback.error;
   }
@@ -100,6 +168,7 @@ export async function POST(req: NextRequest) {
       itemCount: 0,
       summary: "пока нечего анализировать. добавь хотя бы несколько треков, книг или фильмов.",
       highlights: ["начни со spotify import", "или добавь что-то вручную"],
+      basis: [],
       recommendations: [],
     });
   }
@@ -136,43 +205,37 @@ export async function POST(req: NextRequest) {
     .slice(0, 6)
     .map(([month, bucket]) => `${month}:\n${bucket.slice(0, 8).join("\n")}`)
     .join("\n\n");
+  const creatorContext = buildCreatorContext(items);
 
-  const client = new OpenAI({ apiKey });
   const model = process.env.OPENAI_DEEP_MODEL ?? "gpt-4.1";
-
-  const response = await client.chat.completions.create({
+  const raw = await createWebAwareDeepAnalysis({
+    apiKey,
     model,
-    temperature: 0.8,
-    max_tokens: 1500,
-    messages: [
-      {
-        role: "system",
-        content:
-          "Ты внимательный культурный аналитик на стыке психотерапевта, коуча и умного друга. Ты не ставишь диагнозы, а делаешь тонкий срез текущего периода человека по его культурному таймлайну. Особое внимание уделяй самым последним добавленным айтемам: именно они сильнее всего отражают эмоциональный фон настоящего момента. Верни только JSON без markdown с полями summary:string, highlights:string[], recommendations:string[]. summary — 4-6 предложений о том, что человек проживает сейчас, какие темы его тянут, что происходит с эмоциональным фоном и как недавний контент это выдает. highlights — 4-6 коротких конкретных наблюдений про последние айтемы, повторяющиеся темы, скрытые противоречия и предположения о периоде жизни. recommendations — 3-5 конкретных произведений, книг, фильмов или авторов, которые могли бы поддержать, углубить или мягко развернуть этот период. Тон: теплый, внимательный, очень конкретный, культурный, немного ироничный, но без злости.",
-      },
-      {
-        role: "user",
-        content: `Сделай глубокий вайбчек по этому культурному таймлайну и верни JSON.
+    instructions:
+      "Ты пишешь глубокий вайбчек в духе лучших roast-ботов и культурных телеграм-аналитиков, но не как шутку на отъебись, а как реально сильный разбор. Представь, что у roast-бота появился мозг культурного редактора и человеческая глубина психотерапевтического собеседника. Ты не пересказываешь банальности вроде 'этот артист популярен у молодежи', не сюсюкаешь и не ставишь диагнозы. Ты читаешь культурный таймлайн как живую карту сцен, эстетик, мемов, репутаций, интернет-контекста, повторов и эмоциональных состояний. Используй собственное знание культурного контекста произведений, их мемности, статуса, среды и того, как они обычно считываются в интернете и в культуре. Когда это реально усиливает понимание периода, используй веб-поиск, но не трать его на все подряд: ищи контекст по самым повторяющимся авторам, по самым свежим айтемам и по странным, симптоматичным сочетаниям. Не выдумывай факты. Если не уверен, говори вероятностно. Особое внимание уделяй самым последним айтемам: именно они сильнее всего отражают фон текущего момента. Верни только JSON без markdown с полями summary:string, highlights:string[], basis:string[], recommendations:string[]. summary — 2-3 плотных абзаца о том, что человек проживает сейчас, какой у него культурный нерв, что в нем живое, что показное, что тревожное, а что по-настоящему тянет. highlights — 4-6 коротких, но плотных наблюдений: сцены, эстетики, повторяющиеся мотивы, мемные переклички, сильные и слабые места вкуса, скрытые противоречия и предположения о периоде жизни. basis — 2-3 конкретные опоры вывода: какие именно произведения, авторы, сцены или сочетания стали главными доказательствами. recommendations — 3-5 конкретных произведений, книг, фильмов или авторов, которые действительно могут расширить или поддержать этот период; у рекомендаций должен быть ощутимый культурный смысл, а не случайный список. Тон: современный, конкретный, культурно насмотренный, немного колкий, но не злой и не снобский.",
+    prompt: `Сделай глубокий вайбчек по этому культурному таймлайну и верни JSON.
 
 Последние айтемы:
 ${recentItems.join("\n")}
+
+Повторяющиеся авторы и артисты:
+${creatorContext || "повторов почти нет"}
 
 Контекст старше:
 ${olderItems.join("\n")}
 
 По месяцам:
 ${monthlyContext}`,
-      },
-    ],
   });
-
-  const raw = response.choices[0]?.message?.content ?? "";
   const parsed = extractJson(raw);
   const summary =
     parsed?.summary?.trim() ||
     "в последних айтемах явно есть повторяющийся эмоциональный контур, но ответ модели вернулся не в том формате.";
   const highlights = Array.isArray(parsed?.highlights)
     ? parsed.highlights.map((item) => item.trim()).filter(Boolean).slice(0, 6)
+    : [];
+  const basis = Array.isArray(parsed?.basis)
+    ? parsed.basis.map((item) => item.trim()).filter(Boolean).slice(0, 3)
     : [];
   const recommendations = Array.isArray(parsed?.recommendations)
     ? parsed.recommendations.map((item) => item.trim()).filter(Boolean).slice(0, 5)
@@ -191,6 +254,10 @@ ${monthlyContext}`,
     totalFreeUses: FREE_DEEP_VIBE_USES,
     itemCount: items.length,
     summary,
+    basis:
+      basis.length > 0
+        ? basis
+        : ["самые свежие айтемы периода", "повторы артистов и авторов"],
     highlights:
       highlights.length > 0
         ? highlights
