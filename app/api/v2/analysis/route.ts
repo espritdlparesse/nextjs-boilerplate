@@ -202,6 +202,12 @@ function looksTooGenericRoast(text: string) {
     "бокалом на кухне",
     "с бокалом на кухне",
     "умеешь и",
+    "болеешь за",
+    "андерграундный шум",
+    "легкие поп-романсы",
+    "лёгкие поп-романсы",
+    "одновременно болеешь",
+    "одновременно любишь",
   ];
 
   return genericSignals.some((signal) => normalized.includes(signal));

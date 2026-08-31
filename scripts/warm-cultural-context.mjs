@@ -2,7 +2,8 @@ import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import { readFile, writeFile } from "node:fs/promises";
 
-const ownerKey = process.env.CULTURAL_OWNER_KEY ?? process.argv[2];
+const useConsentedLibraries = process.argv[2] === "--consented";
+const ownerKey = process.env.CULTURAL_OWNER_KEY ?? (useConsentedLibraries ? "shared-consented" : process.argv[2]);
 const limit = Number(process.env.CULTURAL_OWNER_KEY ? process.argv[2] ?? "0" : process.argv[3] ?? "0");
 
 if (!ownerKey || !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.OPENAI_API_KEY) {
@@ -49,12 +50,20 @@ function normalizePublishedAt(value) {
 }
 
 async function allItems() {
+  let ownerKeys = [ownerKey];
+  if (useConsentedLibraries) {
+    const { data, error } = await supabase.from("cultural_memory_consents").select("owner_key").eq("enabled", true);
+    if (error) throw error;
+    ownerKeys = (data ?? []).map((row) => row.owner_key);
+    if (ownerKeys.length === 0) return [];
+  }
+
   const items = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabase
       .from("items")
       .select("title, creator")
-      .eq("owner_key", ownerKey)
+      .in("owner_key", ownerKeys)
       .range(from, from + 999);
     if (error) throw error;
     items.push(...data);
