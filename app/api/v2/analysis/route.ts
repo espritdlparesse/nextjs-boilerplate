@@ -5,6 +5,8 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { buildOwnerReadFilter, getEffectiveOwner, getOwnerScope } from "@/lib/ownerLinks";
 
 export const runtime = "nodejs";
+// The vibecheck makes two editorial model calls in sequence, so the default function window is too short.
+export const maxDuration = 60;
 
 type AnalysisPayload = {
   persona?: string;

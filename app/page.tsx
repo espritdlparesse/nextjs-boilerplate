@@ -1109,7 +1109,16 @@ export default function Page() {
         headers: { "x-telegram-init-data": getTgInitData() },
       });
       const json = await safeJson(res);
-      if (!res.ok) { setVibeError(json?.error ?? "Ошибка"); return; }
+      if (!res.ok) {
+        setVibeError(
+          json?.error ??
+            (res.status === 504 || res.status === 408
+              ? "вайбчек не успел ответить. попробуй еще раз."
+              : `не удалось провести вайбчек (код ${res.status}).`
+            )
+        );
+        return;
+      }
       setSummary(json?.summary ?? "");
     } catch (e: any) {
       setVibeError(e?.message ?? "Network error");
