@@ -93,7 +93,13 @@ for (const [index, batch] of targetBatches.entries()) {
   const raw = response.output_text ?? "";
   if (process.env.CULTURAL_CONTEXT_DEBUG === "1") console.log(raw);
   const match = raw.match(/\{[\s\S]*\}/);
-  const parsed = match ? JSON.parse(match[0]) : { cards: [] };
+  let parsed = { cards: [] };
+  try {
+    parsed = match ? JSON.parse(match[0]) : parsed;
+  } catch {
+    console.warn(`batch ${index + 1}/${targetBatches.length}: invalid JSON, skipped`);
+    continue;
+  }
   const rows = (parsed.cards ?? []).map((card) => {
     const lookupKey = key(card.lookup_key ?? card.display_name ?? "");
     const outlet = String(card.source_outlet ?? "").trim().toLowerCase().replace(/\s+/g, "_");
