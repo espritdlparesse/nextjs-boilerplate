@@ -1660,6 +1660,8 @@ export default function Page() {
           box-shadow: 0 4px 18px rgba(17,17,17,0.18);
         }
         .nav-label-spacer { visibility: hidden; }
+        .vibe-nav .nav-icon,
+        .nav-btn.vibe-nav.active .nav-icon { background: transparent; }
         .vibe-nav .nav-icon img { display: none; }
         .vibe-nav .nav-icon::before { content: "👀"; font-size: 20px; }
 
