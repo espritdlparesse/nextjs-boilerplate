@@ -230,6 +230,12 @@ function looksTooGenericRoast(text: string) {
     "громко гремит",
     "шепчет о любви",
     "гремит, и тех",
+    "громкий трэп",
+    "тихие стихи",
+    "тихие стихи про память",
+    "слушаешь громкий",
+    "читаешь тихие",
+    "трэп и читаешь",
   ];
 
   return genericSignals.some((signal) => normalized.includes(signal));
@@ -454,8 +460,9 @@ export async function POST(req: NextRequest) {
         .join("\n")
     : "карточек для этих имен пока нет";
 
-  const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
-  const prompt = `Сделай вайбчек по этому списку и верни JSON. Не выбирай двух артистов, если в выборке есть книги или фильмы: ищи более неожиданное столкновение между типами.
+  // A vibecheck is the product, not a background summary: use the stronger editor by default.
+  const model = process.env.OPENAI_VIBECHECK_MODEL ?? "gpt-4.1";
+  const prompt = `Сделай вайбчек по этому списку и верни JSON. Не выбирай двух артистов, если в выборке есть книги или фильмы: ищи более неожиданное столкновение между типами. Ответ недействителен, если он сводится к формуле «громкий/тихий + жанр», например «громкий трэп и тихие стихи». Нужен поворот смысла: переиначенное название, узнаваемая культурная поза или точное человеческое наблюдение.
 
 Последние и самые заметные айтемы:
 ${recentLines}
