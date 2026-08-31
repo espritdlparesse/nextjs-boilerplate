@@ -275,6 +275,7 @@ export default function Page() {
   const [culturalMemorySaving, setCulturalMemorySaving] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [profileNameDraft, setProfileNameDraft] = useState("");
+  const [editingProfileName, setEditingProfileName] = useState(false);
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
   const [profileTheme, setProfileTheme] = useState<"light" | "dark">("light");
   const [profileSaving, setProfileSaving] = useState(false);
@@ -349,6 +350,7 @@ export default function Page() {
       const name = typeof json?.displayName === "string" ? json.displayName : "";
       setProfileName(name);
       setProfileNameDraft(name);
+      setEditingProfileName(!name);
       setProfileAvatarUrl(typeof json?.avatarUrl === "string" ? json.avatarUrl : null);
       setProfileTheme(json?.themeMode === "dark" ? "dark" : "light");
     } catch {}
@@ -372,8 +374,10 @@ export default function Page() {
       setProfileNameDraft(json?.displayName ?? "");
       setProfileAvatarUrl(json?.avatarUrl ?? null);
       setProfileTheme(json?.themeMode === "dark" ? "dark" : "light");
+      return true;
     } catch (error) {
       setLibraryError(error instanceof Error ? error.message : "не удалось сохранить профиль");
+      return false;
     } finally { setProfileSaving(false); }
   }
 
@@ -2604,7 +2608,6 @@ export default function Page() {
           <div className="header-row">
             <div className="header-avatar">{profileAvatarUrl ? <img src={profileAvatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "999px" }} /> : headerAvatar}</div>
             <div className="header-copy">
-              <div className="greeting">{profileName ? `привет, ${profileName}` : helloName}</div>
               <button className="brand-link" onClick={() => { setAboutStep(0); setTab("home"); }}>
                 everyyou
               </button>
@@ -2666,7 +2669,7 @@ export default function Page() {
           <>
             <div className="card" style={{ background: "#ffe8f7" }}>
               <div className="card-title">профиль</div>
-              <p className="card-text">{profileName ? `привет, ${profileName}.` : helloName}. здесь живут тихие настройки твоей библиотеки.</p>
+              <p className="card-text">здесь живут тихие настройки твоей библиотеки.</p>
               <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 16 }}>
                 <div className="header-avatar">{profileAvatarUrl ? <img src={profileAvatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "999px" }} /> : headerAvatar}</div>
                 <div style={{ flex: 1 }}>
@@ -2675,13 +2678,25 @@ export default function Page() {
                   {profileAvatarUrl ? <button className="btn btn-outline btn-sm" style={{ marginTop: 8 }} onClick={() => void saveProfileSettings({ avatarUrl: null })} disabled={profileSaving}>убрать</button> : null}
                 </div>
               </div>
-              <div className="input-group" style={{ marginTop: 16 }}>
-                <div className="input-label">как тебя зовут</div>
-                <input className="input" value={profileNameDraft} placeholder="например, настя" onChange={(event) => setProfileNameDraft(event.target.value)} />
-              </div>
-              <button className="btn btn-secondary" style={{ marginTop: 10 }} onClick={() => void saveProfileSettings({ displayName: profileNameDraft })} disabled={profileSaving}>
-                {profileSaving ? "сохраняем..." : "сохранить имя"}
-              </button>
+              {editingProfileName || !profileName ? (
+                <>
+                  <div className="input-group" style={{ marginTop: 16 }}>
+                    <div className="input-label">как тебя зовут</div>
+                    <input className="input" value={profileNameDraft} placeholder="например, настя" onChange={(event) => setProfileNameDraft(event.target.value)} />
+                  </div>
+                  <button className="btn btn-secondary" style={{ marginTop: 10 }} onClick={async () => { if (await saveProfileSettings({ displayName: profileNameDraft })) setEditingProfileName(false); }} disabled={profileSaving}>
+                    {profileSaving ? "сохраняем..." : "сохранить"}
+                  </button>
+                </>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 16 }}>
+                  <div>
+                    <div className="input-label">имя</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, marginTop: 3 }}>{profileName}</div>
+                  </div>
+                  <button className="btn btn-outline btn-sm" style={{ width: "auto" }} onClick={() => setEditingProfileName(true)}>изменить</button>
+                </div>
+              )}
               <div className="stats" style={{ marginTop: 16 }}>
                 <div className="stat-pill"><div className="stat-num">{counts.total}</div><div className="stat-label">всего</div></div>
                 <div className="stat-pill"><div className="stat-num">{counts.music}</div><div className="stat-label">музыка</div></div>
