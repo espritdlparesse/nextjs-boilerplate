@@ -2599,7 +2599,7 @@ export default function Page() {
 
       `}</style>
 
-      <div className={`app${profileTheme === "dark" ? " theme-dark" : ""}`}>
+      <div className="app">
         <div className="header">
           <div className="header-row">
             <div className="header-avatar">{profileAvatarUrl ? <img src={profileAvatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "999px" }} /> : headerAvatar}</div>
@@ -2682,10 +2682,6 @@ export default function Page() {
               <button className="btn btn-secondary" style={{ marginTop: 10 }} onClick={() => void saveProfileSettings({ displayName: profileNameDraft })} disabled={profileSaving}>
                 {profileSaving ? "сохраняем..." : "сохранить имя"}
               </button>
-              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => void saveProfileSettings({ themeMode: "light" })} disabled={profileSaving}>светлая</button>
-                <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => void saveProfileSettings({ themeMode: "dark" })} disabled={profileSaving}>темная</button>
-              </div>
               <div className="stats" style={{ marginTop: 16 }}>
                 <div className="stat-pill"><div className="stat-num">{counts.total}</div><div className="stat-label">всего</div></div>
                 <div className="stat-pill"><div className="stat-num">{counts.music}</div><div className="stat-label">музыка</div></div>
@@ -2772,24 +2768,6 @@ export default function Page() {
               {importError ? <div className="error" style={{ marginTop: 10 }}>{importError}</div> : null}
             </div>
 
-            <div className="card">
-              <div className="card-title">iPhone и Telegram</div>
-              <p className="card-text">свяжи приложения, чтобы библиотека и импорты были общими.</p>
-              {!showTelegramManualLink ? (
-                <button className="btn btn-secondary" style={{ marginTop: 14 }} onClick={() => setShowTelegramManualLink(true)}>
-                  ввести код вручную
-                </button>
-              ) : (
-                <div className="input-group" style={{ marginTop: 14 }}>
-                  <div className="input-label">код из приложения</div>
-                  <input className="input" placeholder="например, A7K9QP" value={telegramLinkCode} onChange={(e) => setTelegramLinkCode(e.target.value.toUpperCase())} autoCapitalize="characters" autoCorrect="off" />
-                </div>
-              )}
-              <button className="btn" style={{ marginTop: 10 }} onClick={() => void linkMobileAccount()} disabled={telegramLinkLoading}>
-                {telegramLinkLoading ? "связываем..." : "подключить приложение"}
-              </button>
-              {telegramLinkStatus ? <div style={{ marginTop: 10, fontSize: 13, color: "#666" }}>{telegramLinkStatus}</div> : null}
-            </div>
           </>
         )}
 
