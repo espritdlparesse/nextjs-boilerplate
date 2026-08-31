@@ -265,6 +265,8 @@ export default function Page() {
   const [telegramLinkStatus, setTelegramLinkStatus] = useState("");
   const [telegramLinkSuccess, setTelegramLinkSuccess] = useState(false);
   const [showTelegramManualLink, setShowTelegramManualLink] = useState(false);
+  const [culturalMemoryConsent, setCulturalMemoryConsent] = useState(false);
+  const [culturalMemorySaving, setCulturalMemorySaving] = useState(false);
   const autoLinkHandledRef = useRef(false);
 
   function fireAnalytics(event: string, properties?: Record<string, unknown>) {
@@ -317,7 +319,32 @@ export default function Page() {
     } catch {}
   }
 
-  useEffect(() => { loadLibrary(); loadCustomCategories(); fetchDeepVibeAccess(); loadConnectedProfiles(); }, []);
+  async function loadCulturalMemoryConsent() {
+    try {
+      const res = await fetch("/api/v2/cultural-memory-consent", {
+        headers: { "x-telegram-init-data": getTgInitData() },
+      });
+      const json = await safeJson(res);
+      if (res.ok) setCulturalMemoryConsent(Boolean(json?.enabled));
+    } catch {}
+  }
+
+  async function updateCulturalMemoryConsent(enabled: boolean) {
+    setCulturalMemorySaving(true);
+    try {
+      const res = await fetch("/api/v2/cultural-memory-consent", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "x-telegram-init-data": getTgInitData() },
+        body: JSON.stringify({ enabled }),
+      });
+      const json = await safeJson(res);
+      if (res.ok) setCulturalMemoryConsent(Boolean(json?.enabled));
+    } finally {
+      setCulturalMemorySaving(false);
+    }
+  }
+
+  useEffect(() => { loadLibrary(); loadCustomCategories(); fetchDeepVibeAccess(); loadConnectedProfiles(); loadCulturalMemoryConsent(); }, []);
 
   const counts = useMemo(() => ({
     total: items.length,
@@ -2560,6 +2587,21 @@ export default function Page() {
               <p className="card-text" style={{ marginTop: 10 }}>
                 Когда накопится достаточно, жми вайбчек — получишь короткий портрет периода от не очень объективного, но довольно проницательного алгоритма.
               </p>
+            </div>
+
+            <div className="card" style={{ background: "#e9f7df" }}>
+              <div className="card-title">культурная память</div>
+              <p className="card-text">
+                можно помочь делать вайбчеки точнее. в общую очередь попадут только имена авторов и артистов: без твоего аккаунта, названий и истории.
+              </p>
+              <button
+                className="btn btn-secondary"
+                style={{ marginTop: 8 }}
+                onClick={() => void updateCulturalMemoryConsent(!culturalMemoryConsent)}
+                disabled={culturalMemorySaving}
+              >
+                {culturalMemorySaving ? "сохраняем..." : culturalMemoryConsent ? "помогаю памяти" : "помогать памяти"}
+              </button>
             </div>
 
             <div className="home-tiles">
