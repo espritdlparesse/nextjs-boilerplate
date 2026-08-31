@@ -16,6 +16,13 @@ type AnalysisPayload = {
   basis?: string[];
 };
 
+type RoastPlanPayload = {
+  candidates?: Array<{
+    basis?: string[];
+    observation?: string;
+  }>;
+};
+
 type AnalysisRequestBody = {
   from?: number | null;
   to?: number | null;
@@ -86,15 +93,28 @@ function buildCreatorContext(
 function buildVibeSample(items: Array<{ type: string; title: string; creator: string | null }>) {
   const picked: Array<{ type: string; title: string; creator: string | null }> = [];
   const usedCreators = new Set<string>();
+  const daySeed = new Date().toISOString().slice(0, 10);
+
+  function score(item: { type: string; title: string; creator: string | null }) {
+    const value = `${daySeed}:${item.type}:${item.title}:${item.creator ?? ""}`;
+    let hash = 0;
+    for (let index = 0; index < value.length; index += 1) {
+      hash = (hash * 31 + value.charCodeAt(index)) | 0;
+    }
+    return hash >>> 0;
+  }
 
   for (const type of ["book", "film", "movie", "music"]) {
-    for (const item of items) {
-      if (item.type !== type || picked.length >= 48) continue;
+    const candidates = items
+      .filter((item) => item.type === type)
+      .sort((left, right) => score(left) - score(right));
+    for (const item of candidates) {
+      if (picked.length >= 32) continue;
       const creator = item.creator?.trim().toLowerCase() ?? "";
       if (creator && usedCreators.has(creator)) continue;
       picked.push(item);
       if (creator) usedCreators.add(creator);
-      if (picked.filter((candidate) => candidate.type === type).length >= 12) break;
+      if (picked.filter((candidate) => candidate.type === type).length >= 8) break;
     }
   }
 
@@ -200,7 +220,6 @@ function looksTooComplicated(text: string) {
 function looksTooGenericRoast(text: string) {
   const normalized = text.toLowerCase();
   const genericSignals = [
-    "тебе нравится",
     "уличный вайб",
     "странная ностальгия",
     "ностальгия в обручальной",
@@ -236,6 +255,11 @@ function looksTooGenericRoast(text: string) {
     "слушаешь громкий",
     "читаешь тихие",
     "трэп и читаешь",
+    "не отпускаешь мысль",
+    "говорит бас",
+    "говорит бас и",
+    "бьет бас",
+    "бьёт бас",
   ];
 
   return genericSignals.some((signal) => normalized.includes(signal));
@@ -396,6 +420,23 @@ async function createWebAwareAnalysis(args: {
   return response.output_text ?? "";
 }
 
+async function createRoastText(args: {
+  apiKey: string;
+  model: string;
+  prompt: string;
+  instructions: string;
+}) {
+  const client = new OpenAI({ apiKey: args.apiKey });
+  const response = await client.responses.create({
+    model: args.model,
+    instructions: args.instructions,
+    input: args.prompt,
+    max_output_tokens: 550,
+  });
+
+  return response.output_text ?? "";
+}
+
 export async function POST(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
@@ -441,10 +482,6 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY missing" }, { status: 500 });
 
-  const lines = items.map((item) => {
-    const creator = item.creator ? ` — ${item.creator}` : "";
-    return `[${item.type}] ${item.title}${creator}`;
-  });
   const vibeSample = buildVibeSample(items);
   const recentLines = vibeSample
     .map((item) => `[${item.type}] ${item.title}${item.creator ? ` — ${item.creator}` : ""}`)
@@ -462,6 +499,85 @@ export async function POST(req: NextRequest) {
 
   // A vibecheck is the product, not a background summary: use the stronger editor by default.
   const model = process.env.OPENAI_VIBECHECK_MODEL ?? "gpt-4.1";
+  const libraryLines = vibeSample
+    .map((item) => `[${item.type}] ${item.title}${item.creator ? ` — ${item.creator}` : ""}`)
+    .join("\n");
+  const planningPrompt = `Вот выборка из библиотеки:\n${libraryLines}\n\nПроверенная культурная фактура, если она относится к выбранной паре:\n${culturalMemory}`;
+  const planRaw = await createRoastText({
+    apiKey,
+    model,
+    instructions:
+      "Ты редактор, который сначала ищет материал для короткой прожарки. Не пиши сам вайбчек. Верни только JSON: {candidates:[{basis:string[],observation:string}]}. Дай ровно 3 кандидата. В basis укажи две реальные позиции из списка дословно. В каждом кандидате смешивай разные типы медиа, если они есть. Не выбирай одну и ту же пару или одного и того же артиста во всех вариантах. observation — одно простое, проверяемое наблюдение о столкновении именно этих двух позиций: культурная поза, переосмысление названия, видимая социальная или бытовая ситуация. Не пиши про звук, бас, громкость, жанры, атмосферу, ностальгию, абстрактные 'мысли' и внутренний мир пользователя. Не выдумывай факты. Твоя задача — дать автору конкретную опору, а не красивую фразу.",
+    prompt: planningPrompt,
+  });
+  const planned = extractJson<RoastPlanPayload>(planRaw)?.candidates ?? [];
+  const plans = planned.filter((candidate) =>
+    Array.isArray(candidate.basis) && candidate.basis.length >= 2 && Boolean(candidate.observation?.trim())
+  );
+  const selectedPlan = plans.length > 0 ? plans[Math.floor(Math.random() * plans.length)] : null;
+  const selectedBasis = selectedPlan?.basis?.slice(0, 3).join(" | ") ?? "выбери одну пару из списка";
+  const selectedObservation = selectedPlan?.observation?.trim() ?? "найди одно точное столкновение этих позиций";
+
+  const writeRoast = async (repair = false) => {
+    const raw = await createRoastText({
+      apiKey,
+      model,
+      instructions:
+        "Ты финальный редактор вайбчека Everyyou. Верни только JSON: {persona:string,hook:string,body:string,closer:string,highlights:string[],basis:string[]}. Напиши ровно две короткие строки: hook и body; closer оставь пустым. В hook назови две реальные позиции из выбранной пары. В body сделай ясный, острый, но человеческий вывод, который невозможен без этой пары. Пиши по-русски, простыми словами, без сложного синтаксиса. Имена артистов и авторов передавай привычной русской транскрипцией и строчными буквами. Не описывай жанры, звук или настроение произведений. Не придумывай декорации и действия: нельзя писать про бас, громкость, кухню, бокалы, вечер, окна, танцпол, взрывы или 'мысли', если этого нет в самих позициях. Не используй 'вайб', 'атмосфера', 'ностальгия', 'разные вселенные', 'на одной волне', 'тебе нравится', 'ты умеешь', 'громкий/тихий + жанр'. Не ставь диагноз и не объясняй шутку. Не добавляй третью мысль. Если выбранная опора слабая, выбери более точную пару из списка. Текст должен звучать как точное замечание знакомого, а не как культурологический разбор.",
+      prompt: `${planningPrompt}\n\nВыбранная пара: ${selectedBasis}\nНаблюдение редактора: ${selectedObservation}${repair ? "\n\nПредыдущий вариант был плохим: перепиши с нуля еще короче и конкретнее. Не используй метафору вместо наблюдения." : ""}`,
+    });
+    return extractJson<AnalysisPayload>(raw);
+  };
+
+  let finalRoast = await writeRoast();
+  let hook = finalRoast?.hook?.trim() ?? "";
+  let bodyText = finalRoast?.body?.trim() ?? "";
+  let closer = finalRoast?.closer?.trim() ?? "";
+  let highlights = Array.isArray(finalRoast?.highlights)
+    ? finalRoast.highlights.map((item) => item.trim()).filter(Boolean).slice(0, 3)
+    : [];
+  let basis = Array.isArray(finalRoast?.basis)
+    ? finalRoast.basis.map((item) => item.trim()).filter(Boolean).slice(0, 3)
+    : selectedPlan?.basis?.slice(0, 3) ?? [];
+
+  const candidateText = [hook, bodyText, closer].join(" ");
+  if (!hook || !bodyText || looksTooComplicated(candidateText) || looksTooGenericRoast(candidateText)) {
+    finalRoast = await writeRoast(true);
+    hook = finalRoast?.hook?.trim() ?? hook;
+    bodyText = finalRoast?.body?.trim() ?? bodyText;
+    closer = finalRoast?.closer?.trim() ?? "";
+    highlights = Array.isArray(finalRoast?.highlights)
+      ? finalRoast.highlights.map((item) => item.trim()).filter(Boolean).slice(0, 3)
+      : highlights;
+    basis = Array.isArray(finalRoast?.basis)
+      ? finalRoast.basis.map((item) => item.trim()).filter(Boolean).slice(0, 3)
+      : basis;
+  }
+
+  hook = normalizeRoastNames(hook);
+  bodyText = normalizeRoastNames(bodyText);
+  closer = normalizeRoastNames(closer);
+  highlights = highlights.map(normalizeRoastNames);
+  basis = basis.map(normalizeRoastNames);
+
+  const combinedSummary = [hook, bodyText, closer].filter(Boolean).join(" ");
+  if (!hook || !bodyText || looksTooComplicated(combinedSummary) || looksTooGenericRoast(combinedSummary)) {
+    return NextResponse.json(
+      { error: "сегодня алгоритм не нашел достаточно точную пару. попробуй еще раз — лучше пусто, чем банально." },
+      { status: 422 }
+    );
+  }
+  if (combinedSummary) {
+    return NextResponse.json({
+      itemCount: items.length,
+      persona: finalRoast?.persona?.trim() ?? "",
+      summary: combinedSummary,
+      basis: basis.length > 0 ? basis : selectedPlan?.basis?.slice(0, 3) ?? [],
+      highlights,
+    });
+  }
+
+  {
   const prompt = `Сделай вайбчек по этому списку и верни JSON. Не выбирай двух артистов, если в выборке есть книги или фильмы: ищи более неожиданное столкновение между типами. Ответ недействителен, если он сводится к формуле «громкий/тихий + жанр», например «громкий трэп и тихие стихи». Нужен поворот смысла: переиначенное название, узнаваемая культурная поза или точное человеческое наблюдение.
 
 Последние и самые заметные айтемы:
@@ -579,6 +695,7 @@ ${recentLines}`;
     highlights:
       highlights.length > 0
         ? highlights
-        : ["многое держится вокруг повторяющихся авторов и артистов", "у вкуса уже есть понятный эмоциональный контур"],
+      : ["многое держится вокруг повторяющихся авторов и артистов", "у вкуса уже есть понятный эмоциональный контур"],
   });
+  }
 }
