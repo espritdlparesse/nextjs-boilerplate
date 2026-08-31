@@ -23,6 +23,7 @@ function badRequest(message: string) {
 function normalizeLegacySource(raw: unknown) {
   const source = String(raw ?? "").toLowerCase();
   if (source === "spotify" || source === "import_spotify") return "spotify";
+  if (source === "yandex_music" || source === "import_yandex_music") return "import_yandex_music";
   if (source === "goodreads") return "goodreads";
   if (source === "letterboxd" || source === "import_letterboxd") return "letterboxd";
   return "manual";

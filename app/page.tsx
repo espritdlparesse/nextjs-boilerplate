@@ -14,6 +14,7 @@ type ItemSource =
   | "manual"
   | "livelib"
   | "import_spotify"
+  | "import_yandex_music"
   | "import_lastfm"
   | "import_letterboxd"
   | "lastfm"
@@ -341,6 +342,7 @@ export default function Page() {
   const [selectedImportService, setSelectedImportService] = useState<ImportService | null>(null);
   const [lastfmProfileInput, setLastfmProfileInput] = useState("");
   const [letterboxdProfileInput, setLetterboxdProfileInput] = useState("");
+  const [yandexMusicUrl, setYandexMusicUrl] = useState("");
 
   const importServices: ImportService[] = [
     { id: "spotify", title: "Spotify", subtitle: "музыка", icon: "◉", kind: "oauth", actionLabel: "подключить spotify" },
@@ -452,6 +454,41 @@ export default function Page() {
       setSelectedImportService(null);
     } catch (e: any) {
       setImportError(e?.message ?? "ошибка при чтении файла");
+    } finally {
+      setImportLoading(false);
+    }
+  }
+
+  async function importYandexMusicPlaylist() {
+    const url = yandexMusicUrl.trim();
+    if (!url) {
+      setImportError("вставь публичную ссылку на плейлист Яндекс.Музыки");
+      return;
+    }
+    setImportLoading(true);
+    setImportError("");
+    setImportStatus("читаем плейлист Яндекс.Музыки...");
+    try {
+      const res = await fetch("/api/yandex-music/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const json = await safeJson(res);
+      if (!res.ok) throw new Error(json?.error ?? "не удалось прочитать плейлист");
+      const result: ImportedItem[] = (json?.items ?? []).map((item: any) => ({
+        type: "music",
+        source: "import_yandex_music",
+        title: String(item.title ?? ""),
+        creator: String(item.authorOrArtist ?? "") || undefined,
+      })).filter((item: ImportedItem) => item.title && item.creator);
+      if (!result.length) throw new Error("в этом плейлисте не нашлось доступных треков");
+      setImported(result);
+      setSelectedIdx(new Set(result.map((_, index) => index)));
+      setYandexMusicUrl("");
+      setImportStatus(`нашли ${result.length} трек(ов) — выбери, что добавить`);
+    } catch (error: any) {
+      setImportError(error?.message ?? "не удалось импортировать плейлист Яндекс.Музыки");
     } finally {
       setImportLoading(false);
     }
@@ -2736,6 +2773,23 @@ export default function Page() {
                       </button>
                     </div>
                   ))}
+                </div>
+
+                <div className="input-group" style={{ marginTop: 16 }}>
+                  <div className="input-label">плейлист Яндекс.Музыки</div>
+                  <input
+                    className="input"
+                    placeholder="вставь публичную ссылку на плейлист"
+                    value={yandexMusicUrl}
+                    onChange={(e) => setYandexMusicUrl(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && importYandexMusicPlaylist()}
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                  />
+                  <div className="card-text" style={{ marginTop: 6 }}>плейлист должен быть открыт по ссылке</div>
+                  <button className="btn btn-outline" style={{ marginTop: 10 }} onClick={importYandexMusicPlaylist} disabled={importLoading}>
+                    {importLoading ? "читаем плейлист..." : "импортировать плейлист"}
+                  </button>
                 </div>
 
                 <input
