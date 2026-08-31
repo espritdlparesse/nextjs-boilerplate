@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
+import { readFile, writeFile } from "node:fs/promises";
 
 const ownerKey = process.env.CULTURAL_OWNER_KEY ?? process.argv[2];
 const limit = Number(process.env.CULTURAL_OWNER_KEY ? process.argv[2] ?? "0" : process.argv[3] ?? "0");
@@ -13,6 +14,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 });
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
+const progressPath = new URL("./.cultural-context-progress.json", import.meta.url);
 
 const hosts = {
   the_atlantic: ["theatlantic.com"],
@@ -60,6 +62,18 @@ async function allItems() {
   }
 }
 
+async function readProgress() {
+  try {
+    return JSON.parse(await readFile(progressPath, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+async function saveProgress(progress) {
+  await writeFile(progressPath, `${JSON.stringify(progress, null, 2)}\n`);
+}
+
 const items = await allItems();
 const { data: existing, error: contextError } = await supabase
   .from("cultural_context")
@@ -67,13 +81,15 @@ const { data: existing, error: contextError } = await supabase
 if (contextError) throw contextError;
 
 const known = new Set((existing ?? []).flatMap((row) => [row.lookup_key, ...(row.aliases ?? [])]).map(key));
+const progress = await readProgress();
+const attempted = new Set(progress[ownerKey] ?? []);
 const creatorCounts = new Map();
 for (const item of items) {
   const creator = key(item.creator ?? "");
   if (creator.length >= 3) creatorCounts.set(creator, (creatorCounts.get(creator) ?? 0) + 1);
 }
 const candidates = Array.from(creatorCounts.entries())
-  .filter(([creator]) => !known.has(creator))
+  .filter(([creator]) => !known.has(creator) && !attempted.has(creator))
   .sort((left, right) => right[1] - left[1])
   .map(([creator]) => creator);
 const batches = Array.from({ length: Math.ceil(candidates.length / 8) }, (_, index) => candidates.slice(index * 8, index * 8 + 8));
@@ -122,5 +138,8 @@ for (const [index, batch] of targetBatches.entries()) {
     const { error } = await supabase.from("cultural_context").upsert(rows, { onConflict: "lookup_key" });
     if (error) throw error;
   }
+  for (const creator of batch) attempted.add(creator);
+  progress[ownerKey] = Array.from(attempted);
+  await saveProgress(progress);
   console.log(`batch ${index + 1}/${targetBatches.length}: saved=${rows.length}`);
 }
