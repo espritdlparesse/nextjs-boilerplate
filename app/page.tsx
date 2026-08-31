@@ -1659,6 +1659,9 @@ export default function Page() {
           font-size: 32px;
           box-shadow: 0 4px 18px rgba(17,17,17,0.18);
         }
+        .nav-label-spacer { visibility: hidden; }
+        .vibe-nav .nav-icon img { display: none; }
+        .vibe-nav .nav-icon::before { content: "👀"; font-size: 20px; }
 
         .card {
           background: #ffffff;
@@ -3724,9 +3727,10 @@ export default function Page() {
           onClick={() => setTab("add")}
         >
           <span className="nav-icon">+</span>
+          <span className="nav-label-spacer" aria-hidden="true">добавить</span>
         </button>
         <button
-          className={`nav-btn${tab === "vibe" ? " active" : ""}`}
+          className={`nav-btn vibe-nav${tab === "vibe" ? " active" : ""}`}
           onClick={() => setTab("vibe")}
 
         >
