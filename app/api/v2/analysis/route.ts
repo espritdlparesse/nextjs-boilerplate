@@ -83,6 +83,24 @@ function buildCreatorContext(
     .join("\n");
 }
 
+function buildVibeSample(items: Array<{ type: string; title: string; creator: string | null }>) {
+  const picked: Array<{ type: string; title: string; creator: string | null }> = [];
+  const usedCreators = new Set<string>();
+
+  for (const type of ["book", "film", "movie", "music"]) {
+    for (const item of items) {
+      if (item.type !== type || picked.length >= 48) continue;
+      const creator = item.creator?.trim().toLowerCase() ?? "";
+      if (creator && usedCreators.has(creator)) continue;
+      picked.push(item);
+      if (creator) usedCreators.add(creator);
+      if (picked.filter((candidate) => candidate.type === type).length >= 12) break;
+    }
+  }
+
+  return picked.length > 0 ? picked : items.slice(0, 48);
+}
+
 function extractJson<T = AnalysisPayload>(text: string) {
   const trimmed = text.trim();
   if (!trimmed) return null;
@@ -208,6 +226,10 @@ function looksTooGenericRoast(text: string) {
     "лёгкие поп-романсы",
     "одновременно болеешь",
     "одновременно любишь",
+    "умеешь слушать",
+    "громко гремит",
+    "шепчет о любви",
+    "гремит, и тех",
   ];
 
   return genericSignals.some((signal) => normalized.includes(signal));
@@ -417,7 +439,10 @@ export async function POST(req: NextRequest) {
     const creator = item.creator ? ` — ${item.creator}` : "";
     return `[${item.type}] ${item.title}${creator}`;
   });
-  const recentLines = lines.slice(0, 40).join("\n");
+  const vibeSample = buildVibeSample(items);
+  const recentLines = vibeSample
+    .map((item) => `[${item.type}] ${item.title}${item.creator ? ` — ${item.creator}` : ""}`)
+    .join("\n");
   const creatorContext = buildCreatorContext(items);
   const culturalContext = await getCulturalContext(sb, items);
   const culturalMemory = culturalContext?.length
@@ -430,7 +455,7 @@ export async function POST(req: NextRequest) {
     : "карточек для этих имен пока нет";
 
   const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
-  const prompt = `Сделай вайбчек по этому списку и верни JSON.
+  const prompt = `Сделай вайбчек по этому списку и верни JSON. Не выбирай двух артистов, если в выборке есть книги или фильмы: ищи более неожиданное столкновение между типами.
 
 Последние и самые заметные айтемы:
 ${recentLines}
@@ -441,8 +466,8 @@ ${creatorContext || "повторов почти нет"}
 Культурная память (используй только если она делает вывод точнее; не пересказывай карточки и не упоминай источники):
 ${culturalMemory}
 
-Общий список:
-${lines.slice(0, 120).join("\n")}`;
+Представительная выборка из разных типов:
+${recentLines}`;
 
   const raw = await createWebAwareAnalysis({
     apiKey,
