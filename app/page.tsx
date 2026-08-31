@@ -181,7 +181,8 @@ const TYPE_COLORS: Record<ItemType, string> = {
 };
 
 export default function Page() {
-  const [tab, setTab] = useState<Tab>("home");
+  const [tab, setTab] = useState<Tab>("profile");
+  const [aboutStep, setAboutStep] = useState(0);
   const [libraryView, setLibraryView] = useState<"tiles" | "calendar">("calendar");
   const [helloName, setHelloName] = useState("привет!");
   const [tgUserId, setTgUserId] = useState<number | null>(null);
@@ -1471,6 +1472,36 @@ export default function Page() {
           text-transform: lowercase;
         }
 
+        .brand-link {
+          width: fit-content;
+          border: 1px solid #e1d9cb;
+          border-radius: 999px;
+          background: #ffffff;
+          color: #111111;
+          padding: 7px 11px;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 12px;
+          font-weight: 900;
+          letter-spacing: -0.03em;
+          cursor: pointer;
+          text-transform: lowercase;
+        }
+
+        .about-progress {
+          display: flex;
+          gap: 8px;
+          margin: 18px 0;
+        }
+
+        .about-progress-dot {
+          height: 6px;
+          flex: 1;
+          border-radius: 999px;
+          background: #e7e2d9;
+        }
+
+        .about-progress-dot.active { background: #111111; }
+
         .greeting {
           font-size: 18px;
           font-weight: 400;
@@ -2495,71 +2526,62 @@ export default function Page() {
           <div className="header-row">
             <div className="header-avatar">{headerAvatar}</div>
             <div className="header-copy">
-              <div className="brand">everyyou</div>
               <div className="greeting">{helloName}</div>
+              <button className="brand-link" onClick={() => { setAboutStep(0); setTab("home"); }}>
+                everyyou
+              </button>
             </div>
           </div>
           <div className="sync-line">культурный таймлайн, который собирается сам.</div>
         </div>
 
-        {/* HOME */}
+        {/* ABOUT / ONBOARDING */}
         {tab === "home" && (
-          <>
-            <div className="stats">
-              <div className="stat-pill">
-                <div className="stat-num">{counts.total}</div>
-                <div className="stat-label">всего</div>
-              </div>
-              <div className="stat-pill">
-                <div className="stat-num">{counts.music}</div>
-                <div className="stat-label">музыка</div>
-              </div>
-              <div className="stat-pill">
-                <div className="stat-num">{counts.books}</div>
-                <div className="stat-label">книги</div>
-              </div>
-              <div className="stat-pill">
-                <div className="stat-num">{counts.movies}</div>
-                <div className="stat-label">фильмы</div>
-              </div>
+          <div className="card" style={{ background: aboutStep === 0 ? "#38C0FF" : aboutStep === 1 ? "#FF79D5" : "#49DE4E" }}>
+            <div className="card-title">
+              {aboutStep === 0 ? "твой культурный таймлайн" : aboutStep === 1 ? "добавляй как удобно" : "потом станет интереснее"}
             </div>
+            <p className="card-text">
+              {aboutStep === 0
+                ? "сюда можно скидывать музыку, книги и фильмы, которые реально были с тобой. не список на потом, а след того, что происходило."
+                : aboutStep === 1
+                  ? "можно подключить сервис, загрузить скриншот, фотку книжной полки или просто вписать все вручную."
+                  : "из этого собираются библиотека, календарь и вайбчек, который начинает замечать темы, периоды и сдвиги в настроении."}
+            </p>
 
-            <div className="card">
-              <div className="card-title">что это</div>
-              <p className="card-text">
-                EveryYou — место куда можно скидывать весь контент который ты потребляешь: музыку, книги, фильмы. Добавляй вручную или загружай скриншот — ИИ распознает что на нём.
-              </p>
-              <p className="card-text" style={{ marginTop: 10 }}>
-                Когда накопится достаточно, жми вайбчек — получишь короткий портрет периода от не очень объективного, но довольно проницательного алгоритма.
-              </p>
+            {aboutStep === 0 ? (
+              <div className="home-tiles" style={{ marginTop: 18 }}>
+                <div className="home-tile" style={{ minHeight: 138, background: "#ffffff" }}>
+                  <div className="home-tile-label">не вишлист</div>
+                  <div className="home-tile-title">то, что было с тобой</div>
+                </div>
+                <div className="home-tile" style={{ minHeight: 138, background: "#FFC804" }}>
+                  <div className="home-tile-label">в одном месте</div>
+                  <div className="home-tile-title">музыка, книги, фильмы</div>
+                </div>
+              </div>
+            ) : aboutStep === 1 ? (
+              <div className="home-tiles" style={{ marginTop: 18 }}>
+                <div className="home-tile tile-pink" style={{ minHeight: 138 }}><div className="home-tile-label">музыка</div><div className="home-tile-title">сервисы и плейлисты</div></div>
+                <div className="home-tile tile-green" style={{ minHeight: 138 }}><div className="home-tile-label">все остальное</div><div className="home-tile-title">фото, csv и вручную</div></div>
+              </div>
+            ) : (
+              <div className="home-tiles" style={{ marginTop: 18 }}>
+                <div className="home-tile tile-blue" style={{ minHeight: 138 }}><div className="home-tile-label">библиотека</div><div className="home-tile-title">собирается сама</div></div>
+                <div className="home-tile tile-yellow" style={{ minHeight: 138 }}><div className="home-tile-label">вайбчек</div><div className="home-tile-title">замечает сдвиги</div></div>
+              </div>
+            )}
+
+            <div className="about-progress">
+              {[0, 1, 2].map((step) => <div key={step} className={`about-progress-dot${step <= aboutStep ? " active" : ""}`} />)}
             </div>
-
-            <div className="home-tiles">
-              <button className="home-tile tile-pink" onClick={() => setTab("add")}>
-                <div className="home-tile-label">музыка</div>
-                <div className="home-tile-title">всё, что ты слушаешь</div>
-                <div className="home-tile-copy">подключи spotify, импортируй из last.fm, загрузи по скриншоту или впиши вручную</div>
-              </button>
-
-              <button className="home-tile tile-green" onClick={() => setTab("add")}>
-                <div className="home-tile-label">книги</div>
-                <div className="home-tile-title">книжная полка</div>
-                <div className="home-tile-copy">скинь фотку книги или книжной полки, загрузи статистику из livelib, goodreads или другого сервиса</div>
-              </button>
-
-              <button className="home-tile tile-blue" onClick={() => setTab("add")}>
-                <div className="home-tile-label">фильмы</div>
-                <div className="home-tile-title">все просмотры</div>
-                <div className="home-tile-copy">импортируй контент из letterboxd, кинопоиска, mubi и других подключенных источников</div>
-              </button>
-
-              <button className="home-tile tile-yellow" onClick={() => setTab("vibe")}>
-                <div className="home-tile-label">вайбчек</div>
-                <div className="home-tile-title">узнай себя получше</div>
-                <div className="home-tile-copy">когда будешь готов — нажми «вайбчек» и сам все поймешь</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {aboutStep > 0 ? <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setAboutStep((step) => step - 1)}>назад</button> : null}
+              <button className="btn" style={{ flex: 1 }} onClick={() => aboutStep === 2 ? setTab("profile") : setAboutStep((step) => step + 1)}>
+                {aboutStep === 2 ? "к профилю" : "дальше"}
               </button>
             </div>
-          </>
+          </div>
         )}
 
         {tab === "profile" && (
@@ -3587,9 +3609,8 @@ export default function Page() {
       {/* Bottom Nav */}
       <nav className="nav">
         {([
-          ["home", "◎", "главная"],
-          ["library", "▦", "библиотека"],
           ["profile", "◉", "профиль"],
+          ["library", "▦", "библиотека"],
         ] as [Tab, string, string][]).map(([t, icon, label]) => (
           <button
             key={t}
