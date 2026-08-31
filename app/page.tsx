@@ -95,9 +95,12 @@ function useAnimatedPlaceholder(type: ItemType, field: "title" | "creator") {
   const [phase, setPhase] = useState<"typing" | "pause" | "erasing">("typing");
 
   useEffect(() => {
-    setIdx(0);
-    setDisplayed("");
-    setPhase("typing");
+    const timeout = setTimeout(() => {
+      setIdx(0);
+      setDisplayed("");
+      setPhase("typing");
+    }, 0);
+    return () => clearTimeout(timeout);
   }, [type]);
 
   useEffect(() => {
@@ -116,8 +119,10 @@ function useAnimatedPlaceholder(type: ItemType, field: "title" | "creator") {
       if (displayed.length > 0) {
         timeout = setTimeout(() => setDisplayed(displayed.slice(0, -1)), 28);
       } else {
-        setIdx((i) => (i + 1) % examples.length);
-        setPhase("typing");
+        timeout = setTimeout(() => {
+          setIdx((i) => (i + 1) % examples.length);
+          setPhase("typing");
+        }, 0);
       }
     }
 

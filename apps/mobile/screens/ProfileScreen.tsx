@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Image, Pressable, Text, TextInput, View } from "react-native";
 import { type ThemeMode } from "../shared/everyyou/domain";
 import { PillButton } from "../components/PillButton";
@@ -87,12 +87,6 @@ export function ProfileScreen({
 }: ProfileScreenProps) {
   const theme = getTheme(themeMode);
   const [editingName, setEditingName] = useState(!hasCustomName);
-
-  useEffect(() => {
-    if (!hasCustomName) {
-      setEditingName(true);
-    }
-  }, [hasCustomName]);
 
   return (
     <View style={appStyles.screen}>

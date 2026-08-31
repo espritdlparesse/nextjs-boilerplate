@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { type ContentType, type ThemeMode } from "../shared/everyyou/domain";
 import { PillButton } from "../components/PillButton";
@@ -30,14 +30,6 @@ export function HomeScreen({
 }: HomeScreenProps) {
   const theme = getTheme(themeMode);
   const [editingName, setEditingName] = useState(!hasCustomName);
-
-  useEffect(() => {
-    if (!hasCustomName) {
-      setEditingName(true);
-      return;
-    }
-    setEditingName(false);
-  }, [hasCustomName]);
 
   return (
     <View style={appStyles.screen}>

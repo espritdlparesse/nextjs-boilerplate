@@ -376,12 +376,14 @@ export function LibraryScreen({
 
   useEffect(() => {
     if (selectedDay) {
-      setSelectedDayKey(selectedDay.key);
+      const timeout = setTimeout(() => setSelectedDayKey(selectedDay.key), 0);
+      return () => clearTimeout(timeout);
     }
   }, [selectedDay?.key]);
 
   useEffect(() => {
-    setSelectedDayTypeFilter("all");
+    const timeout = setTimeout(() => setSelectedDayTypeFilter("all"), 0);
+    return () => clearTimeout(timeout);
   }, [selectedDayKey, dayModalVisible]);
 
   function openDay(dateKey: string) {

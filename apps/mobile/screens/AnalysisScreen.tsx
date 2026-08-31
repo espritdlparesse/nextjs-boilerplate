@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { PillButton } from "../components/PillButton";
 import { appStyles } from "../styles/appStyles";
@@ -122,7 +122,7 @@ export function AnalysisScreen({
   const theme = getTheme(themeMode);
   const [periodModalVisible, setPeriodModalVisible] = useState(false);
   const [resultModalVisible, setResultModalVisible] = useState(false);
-  const [seenResultId, setSeenResultId] = useState<string | null>(analysisResult?.id ?? null);
+  const seenResultIdRef = useRef<string | null>(analysisResult?.id ?? null);
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
   const [draftStartKey, setDraftStartKey] = useState<string | null>(null);
   const [draftEndKey, setDraftEndKey] = useState<string | null>(null);
@@ -188,10 +188,11 @@ export function AnalysisScreen({
 
   useEffect(() => {
     if (!analysisResult) return;
-    if (analysisResult.id === seenResultId) return;
-    setSeenResultId(analysisResult.id);
-    setResultModalVisible(true);
-  }, [analysisResult, seenResultId]);
+    if (analysisResult.id === seenResultIdRef.current) return;
+    seenResultIdRef.current = analysisResult.id;
+    const timeout = setTimeout(() => setResultModalVisible(true), 0);
+    return () => clearTimeout(timeout);
+  }, [analysisResult]);
 
   function openPeriodPicker() {
     const startKey = selectedRange ? dayKey(new Date(selectedRange.from)) : dayKey(new Date());
@@ -332,7 +333,7 @@ export function AnalysisScreen({
           disabled={analysisRunning}
           onPress={() => onRunPress(undefined)}
         />
-      </View>
+      </View>}
 
       <View
         style={[

@@ -16,11 +16,10 @@ function toDayKey(dateLike: string) {
   return `${year}-${month}-${day}`;
 }
 
-function loadAppleHealthKit() {
+async function loadAppleHealthKit() {
   if (appleHealthKitModule) return appleHealthKitModule;
   // Loaded lazily so the app can still run in Expo Go before the dev build is ready.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
-  appleHealthKitModule = require("react-native-health") as AppleHealthKitModule;
+  appleHealthKitModule = await import("react-native-health");
   return appleHealthKitModule;
 }
 
@@ -38,7 +37,7 @@ function callAsync<T>(runner: (done: (error: string | null, value: T) => void) =
 
 export async function importDailyStepsFromHealthKit(daysBack = 30): Promise<HealthImportResult> {
   try {
-    const AppleHealthKit = loadAppleHealthKit().default;
+    const AppleHealthKit = (await loadAppleHealthKit()).default;
 
     const isAvailable = await callAsync<boolean>((done) => {
       AppleHealthKit.isAvailable((error, result) => done(error ? String(error) : null, result));

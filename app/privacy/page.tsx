@@ -31,7 +31,7 @@ export default function PrivacyPage() {
 
         <h3 style={{ fontSize: 15, fontWeight: 600, marginTop: 24 }}>2. How we use your data</h3>
         <p style={{ fontSize: 14, color: "#444" }}>
-          We use your data exclusively to provide the app's features: storing your content library,
+          We use your data exclusively to provide the app&apos;s features: storing your content library,
           generating AI-based vibe checks, and processing payments. We do not sell, share, or transfer
           your data to third parties, except as required to operate the service (Supabase for database
           hosting, OpenAI for AI analysis, Spotify for music import).
