@@ -4,7 +4,7 @@ import Script from "next/script";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { parseImportedFile } from "@/apps/mobile/lib/fileImports";
 
-type Tab = "home" | "add" | "library" | "vibe" | "admin";
+type Tab = "home" | "add" | "library" | "vibe" | "profile" | "admin";
 
 const ADMIN_TG_ID = 394657396; // espritdlparesse
 type ItemType = "music" | "book" | "movie" | "custom";
@@ -2632,6 +2632,42 @@ export default function Page() {
           </>
         )}
 
+        {tab === "profile" && (
+          <>
+            <div className="card" style={{ background: "#ffe8f7" }}>
+              <div className="card-title">профиль</div>
+              <p className="card-text">{helloName}. здесь живут тихие настройки твоей библиотеки.</p>
+              <div className="stats" style={{ marginTop: 16 }}>
+                <div className="stat-pill"><div className="stat-num">{counts.total}</div><div className="stat-label">всего</div></div>
+                <div className="stat-pill"><div className="stat-num">{counts.music}</div><div className="stat-label">музыка</div></div>
+                <div className="stat-pill"><div className="stat-num">{counts.books}</div><div className="stat-label">книги</div></div>
+                <div className="stat-pill"><div className="stat-num">{counts.movies}</div><div className="stat-label">фильмы</div></div>
+              </div>
+            </div>
+
+            <div className="card" style={{ background: "#e9f7df" }}>
+              <div className="card-title">культурная память</div>
+              <p className="card-text">в общую очередь попадут только имена авторов и артистов: без аккаунта, названий и истории.</p>
+              <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={() => void updateCulturalMemoryConsent(!culturalMemoryConsent)} disabled={culturalMemorySaving}>
+                {culturalMemorySaving ? "сохраняем..." : culturalMemoryConsent ? "помогаю памяти" : "помогать памяти"}
+              </button>
+            </div>
+
+            <div className="card">
+              <div className="card-title">iPhone и Telegram</div>
+              <p className="card-text">свяжи приложения, чтобы библиотека и импорты были общими.</p>
+              <div className="input-group" style={{ marginTop: 14 }}>
+                <div className="input-label">код из приложения</div>
+                <input className="input" placeholder="например, A7K9QP" value={telegramLinkCode} onChange={(e) => setTelegramLinkCode(e.target.value.toUpperCase())} autoCapitalize="characters" autoCorrect="off" />
+              </div>
+              <button className="btn" style={{ marginTop: 10 }} onClick={() => void linkMobileAccount()} disabled={telegramLinkLoading}>
+                {telegramLinkLoading ? "связываем..." : "подключить приложение"}
+              </button>
+              {telegramLinkStatus ? <div style={{ marginTop: 10, fontSize: 13, color: "#666" }}>{telegramLinkStatus}</div> : null}
+            </div>
+          </>
+        )}
+
         {/* ADD */}
         {tab === "add" && (
           <div className="card">
@@ -3547,6 +3583,7 @@ export default function Page() {
         {([
           ["home", "◎", "главная"],
           ["library", "▦", "библиотека"],
+          ["profile", "◉", "профиль"],
         ] as [Tab, string, string][]).map(([t, icon, label]) => (
           <button
             key={t}
