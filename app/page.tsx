@@ -1658,8 +1658,14 @@ export default function Page() {
           color: #ffffff;
         }
         .nav-btn.add-btn {
+          position: absolute;
+          left: 50%;
+          bottom: 12px;
+          transform: translateX(-50%);
+          width: 72px;
           padding-top: 0;
         }
+        .nav:not(.admin-nav) .vibe-nav { grid-column: 4; }
         .nav-btn.add-btn .nav-icon {
           width: 56px;
           height: 56px;
