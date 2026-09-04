@@ -13,6 +13,21 @@
     "plugins": [
       "expo-dev-client",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Everyyou uses access to your photos so you can pick a screenshot to import.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Everyyou reads photos from your library to offer them for quick import.",
+          "savePhotosPermission": "Everyyou can save images to your photo library."
+        }
+      ],
+      [
         "react-native-health",
         {
           "healthSharePermission": "Everyyou uses step count to show how your days felt in motion.",
