@@ -50,8 +50,9 @@ function capitalize(s: string) {
   return s.length > 0 ? s[0].toUpperCase() + s.slice(1) : s;
 }
 
-// Сортируем детерминированно, но каждый день по-разному (сид завязан на
-// дату), чтобы фича не отвечала одним и тем же одну и ту же неделю подряд.
+// Сортируем детерминированно относительно переданного сида, но сам сид
+// теперь случайный на каждый вызов (см. generateFallbackVibecheck) —
+// так что реального повторения не будет.
 function shuffleDeterministic(items: VibecheckItem[], seed: number) {
   return items
     .map((item, index) => ({ item, score: mulberry32(seed + index * 7919)() }))
@@ -115,8 +116,10 @@ function computePersona(items: VibecheckItem[], rng: () => number) {
 export function generateFallbackVibecheck(items: VibecheckItem[]): VibecheckFallbackResult | null {
   if (items.length === 0) return null;
 
+  // Случайный сид на каждый вызов — повторное нажатие кнопки должно
+  // давать новую пару и новую фразу, а не залипать на одном результате.
   const seed = hashSeed(
-    `${new Date().toISOString().slice(0, 10)}|${items.map((i) => `${i.type}|${i.title}|${i.creator ?? ""}`).join("~")}`
+    `${Math.random()}|${Date.now()}|${items.map((i) => `${i.type}|${i.title}|${i.creator ?? ""}`).join("~")}`
   );
   const rng = mulberry32(seed);
   const persona = computePersona(items, rng);
