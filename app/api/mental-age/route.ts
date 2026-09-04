@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { verifyTelegramInitData } from "@/lib/telegram";
+import { generateRuleBasedMentalAge } from "@/lib/mentalAgeEngine";
 
 export const runtime = "nodejs";
 
@@ -45,6 +46,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ result: "Добавь хоть что-нибудь — тогда посчитаем." });
     }
 
+    // Без единого вызова ИИ, в духе pudding.cool: считаем цифры по данным
+    // и подставляем в заготовленные фразы. Быстро и бесплатно.
+    const ruleBasedResult = generateRuleBasedMentalAge(items);
+    if (ruleBasedResult) {
+      return NextResponse.json({ result: ruleBasedResult });
+    }
+
+    // Фолбэк на GPT — срабатывает только когда данных слишком мало
+    // для уверенного rule-based вывода (см. generateRuleBasedMentalAge).
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY missing" }, { status: 500 });
 
