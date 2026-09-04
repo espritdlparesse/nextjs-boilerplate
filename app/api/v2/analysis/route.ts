@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { resolveApiIdentity } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { buildOwnerReadFilter, getEffectiveOwner, getOwnerScope } from "@/lib/ownerLinks";
+import { generateFallbackVibecheck } from "@/lib/vibecheckFallback";
 
 export const runtime = "nodejs";
 // The vibecheck makes two editorial model calls in sequence, so the default function window is too short.
@@ -541,6 +542,8 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("vibecheck planning failed", error);
+    const fallback = generateFallbackVibecheck(items);
+    if (fallback) return NextResponse.json(fallback);
     return vibeGenerationErrorResponse(error);
   }
   const planned = extractJson<RoastPlanPayload>(planRaw)?.candidates ?? [];
@@ -570,7 +573,11 @@ export async function POST(req: NextRequest) {
   };
 
   let finalRoast = await writeRoast();
-  if (generationError) return vibeGenerationErrorResponse(generationError);
+  if (generationError) {
+    const fallback = generateFallbackVibecheck(items);
+    if (fallback) return NextResponse.json(fallback);
+    return vibeGenerationErrorResponse(generationError);
+  }
   let hook = finalRoast?.hook?.trim() ?? "";
   let bodyText = finalRoast?.body?.trim() ?? "";
   let closer = finalRoast?.closer?.trim() ?? "";
@@ -584,7 +591,11 @@ export async function POST(req: NextRequest) {
   const candidateText = [hook, bodyText, closer].join(" ");
   if (!hook || !bodyText || looksTooComplicated(candidateText) || looksTooGenericRoast(candidateText)) {
     finalRoast = await writeRoast(true);
-    if (generationError) return vibeGenerationErrorResponse(generationError);
+    if (generationError) {
+      const fallback = generateFallbackVibecheck(items);
+      if (fallback) return NextResponse.json(fallback);
+      return vibeGenerationErrorResponse(generationError);
+    }
     hook = finalRoast?.hook?.trim() ?? hook;
     bodyText = finalRoast?.body?.trim() ?? bodyText;
     closer = finalRoast?.closer?.trim() ?? "";
