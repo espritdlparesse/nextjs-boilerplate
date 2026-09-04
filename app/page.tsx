@@ -3435,7 +3435,13 @@ export default function Page() {
                 onClick={runVibeCheck}
                 disabled={vibeLoading || counts.total === 0}
               >
-                {vibeLoading ? "анализирую..." : counts.total === 0 ? "сначала добавь контент" : "провести вайбчек"}
+                {vibeLoading
+                  ? "анализирую..."
+                  : counts.total === 0
+                    ? "сначала добавь контент"
+                    : summary
+                      ? "ещё раз!"
+                      : "провести вайбчек"}
               </button>
             </div>
 
