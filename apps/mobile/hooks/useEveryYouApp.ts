@@ -2037,7 +2037,7 @@ export function useEveryYouApp() {
 
   async function updateThemeMode(nextMode: ThemeMode) {
     await setStoredThemeMode(nextMode);
-    if (apiToken) await saveSharedProfile(apiToken, { displayName: nameDraft || null, avatarUrl, themeMode: nextMode });
+    if (apiToken) await saveSharedProfile(apiToken, { displayName: nameDraft || null, avatarUrl: avatarUri, themeMode: nextMode });
     setThemeMode(nextMode);
     setToastMessage(nextMode === "dark" ? "включили темную тему" : "вернули светлую тему");
     fireAnalytics("theme_changed", { mode: nextMode });
@@ -2281,6 +2281,8 @@ export function useEveryYouApp() {
     skipOnboarding,
     finishOnboarding,
     replayOnboarding,
+    culturalMemoryConsent,
+    setCulturalMemoryConsentEnabled,
   };
 }
 

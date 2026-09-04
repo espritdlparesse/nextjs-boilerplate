@@ -419,48 +419,54 @@ export function AnalysisScreen({
         ) : null}
       </View>}
 
-      {false && deepAnalysisResult ? (
-        <View
-          style={[
-            appStyles.tile,
-            themeMode === "dark" ? { backgroundColor: theme.accentBlue, borderColor: theme.border } : appStyles.tileBlue,
-          ]}
-        >
-          <Text style={appStyles.itemTitle}>разбор без прикола</Text>
-          {deepAnalysisResult.periodLabel ? (
-            <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
-              период: {deepAnalysisResult.periodLabel.toLowerCase()}
-            </Text>
-          ) : null}
-          <Text style={[appStyles.helper, { color: theme.accentText }]}>{deepAnalysisResult.summary}</Text>
-          {deepAnalysisResult.basis?.length ? (
-            <View style={appStyles.stack}>
-              <Text style={[appStyles.label, { color: theme.accentMutedText }]}>на чем основан вывод</Text>
-              {deepAnalysisResult.basis.map((item) => (
-                <Text key={item} style={[appStyles.metaText, { color: theme.accentMutedText }]}>
-                  {item}
-                </Text>
-              ))}
-            </View>
-          ) : null}
-          {deepAnalysisResult.highlights.map((item) => (
-            <Text key={item} style={[appStyles.metaText, { color: theme.accentMutedText }]}>
-              {item}
-            </Text>
-          ))}
-          {deepAnalysisResult.recommendations?.length ? (
-            <View style={appStyles.stack}>
-              <Text style={[appStyles.label, { color: theme.accentMutedText }]}>что может поддержать сейчас</Text>
-              {deepAnalysisResult.recommendations.map((item) => (
-                <Text key={item} style={[appStyles.metaText, { color: theme.accentMutedText }]}>
-                  {item}
-                </Text>
-              ))}
-            </View>
-          ) : null}
-          <Text style={[appStyles.metaDate, { color: theme.accentMutedText }]}>{formatFullDate(deepAnalysisResult.createdAt)}</Text>
-        </View>
-      ) : null}
+      {false && deepAnalysisResult
+        ? (() => {
+            const result = deepAnalysisResult;
+            if (!result) return null;
+            return (
+              <View
+                style={[
+                  appStyles.tile,
+                  themeMode === "dark" ? { backgroundColor: theme.accentBlue, borderColor: theme.border } : appStyles.tileBlue,
+                ]}
+              >
+                <Text style={appStyles.itemTitle}>разбор без прикола</Text>
+                {result.periodLabel ? (
+                  <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
+                    период: {result.periodLabel.toLowerCase()}
+                  </Text>
+                ) : null}
+                <Text style={[appStyles.helper, { color: theme.accentText }]}>{result.summary}</Text>
+                {result.basis?.length ? (
+                  <View style={appStyles.stack}>
+                    <Text style={[appStyles.label, { color: theme.accentMutedText }]}>на чем основан вывод</Text>
+                    {result.basis.map((item) => (
+                      <Text key={item} style={[appStyles.metaText, { color: theme.accentMutedText }]}>
+                        {item}
+                      </Text>
+                    ))}
+                  </View>
+                ) : null}
+                {result.highlights.map((item) => (
+                  <Text key={item} style={[appStyles.metaText, { color: theme.accentMutedText }]}>
+                    {item}
+                  </Text>
+                ))}
+                {result.recommendations?.length ? (
+                  <View style={appStyles.stack}>
+                    <Text style={[appStyles.label, { color: theme.accentMutedText }]}>что может поддержать сейчас</Text>
+                    {result.recommendations.map((item) => (
+                      <Text key={item} style={[appStyles.metaText, { color: theme.accentMutedText }]}>
+                        {item}
+                      </Text>
+                    ))}
+                  </View>
+                ) : null}
+                <Text style={[appStyles.metaDate, { color: theme.accentMutedText }]}>{formatFullDate(result.createdAt)}</Text>
+              </View>
+            );
+          })()
+        : null}
 
       <Modal visible={periodModalVisible} transparent animationType="fade" onRequestClose={() => setPeriodModalVisible(false)}>
         <View style={[appStyles.dayModalBackdrop, { backgroundColor: theme.overlay }]}>
