@@ -3,6 +3,7 @@
 import Script from "next/script";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { parseImportedFile } from "@/apps/mobile/lib/fileImports";
+import { generateMonthlySummary } from "@/lib/monthlySummaryEngine";
 
 type Tab = "home" | "add" | "library" | "vibe" | "profile" | "admin";
 
@@ -1457,6 +1458,19 @@ export default function Page() {
     const todayKey = dayKey(new Date());
     return calendarDays.find((entry) => entry.key === todayKey && entry.inMonth) ?? null;
   }, [calendarDays, selectedDayKey]);
+
+  const monthlySummary = useMemo(() => {
+    const currentMonthItems = calendarDays.filter((day) => day.inMonth).flatMap((day) => day.items);
+    const previousMonthStart = startOfMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1));
+    const previousMonthItems: DbItem[] = [];
+    for (const [key, dayItems] of itemsByDay.entries()) {
+      const date = new Date(`${key}T00:00:00`);
+      if (date.getFullYear() === previousMonthStart.getFullYear() && date.getMonth() === previousMonthStart.getMonth()) {
+        previousMonthItems.push(...dayItems);
+      }
+    }
+    return generateMonthlySummary(currentMonthItems, previousMonthItems);
+  }, [calendarDays, calendarMonth, itemsByDay]);
 
   const selectedDayVisibleItems = useMemo(() => {
     if (!selectedDay) return [];
@@ -3237,6 +3251,13 @@ export default function Page() {
                       <button className="calendar-arrow" onClick={() => setCalendarMonth((current) => startOfMonth(new Date(current.getFullYear(), current.getMonth() + 1, 1)))}>›</button>
                     </div>
                   </div>
+
+                  {monthlySummary && (
+                    <div className="vibe-section vibe-pink" style={{ marginTop: 4, marginBottom: 12 }}>
+                      <div className="section-label" style={{ marginBottom: 4 }}>по месяцу</div>
+                      <div>{monthlySummary}</div>
+                    </div>
+                  )}
 
                   <div className="calendar-weekdays">
                     {["пн", "вт", "ср", "чт", "пт", "сб", "вс"].map((label) => (
