@@ -211,7 +211,6 @@ export function ProfileScreen({
         <Text style={[appStyles.metaText, { color: theme.mutedText }]}>всего шагов в сохраненном слое: {totalSteps}</Text>
       </View>
 
-
       <View style={[appStyles.card, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <Text style={[appStyles.label, { color: theme.mutedText }]}>настройки</Text>
         <Text style={[appStyles.helper, { color: theme.text }]}>выбери, как тебе комфортнее смотреть на свой культурный таймлайн.</Text>

@@ -472,7 +472,6 @@ export async function runVibeCheck(token: string, input?: { from?: number; to?: 
   });
 }
 
-
 export async function fetchDeepVibeCheckAccess(token: string) {
   return fetchJson<Pick<DeepVibeCheckResponse, "access" | "usesLeft" | "totalFreeUses">>("/api/v2/deep-analysis", {
     method: "GET",

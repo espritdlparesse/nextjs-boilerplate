@@ -1229,8 +1229,6 @@ export default function Page() {
   const [sharePickerType, setSharePickerType] = useState<"vibe" | "deep" | undefined>(undefined);
   const autoLinkHandledRef = useRef(false);
 
-
-
   async function loadLibrary() {
     setLibraryLoading(true);
     setLibraryError("");
@@ -1248,39 +1246,10 @@ export default function Page() {
     }
   }
 
-
-
-
-
-
-
-
-
-
   const vibe = useVibecheck();
   const imports = useImports({ items, loadLibrary, setTab });
   const library = useLibrary({ items, loadLibrary, setLibraryError, setLibraryLoading });
   const profile = useProfile({ loadLibrary, setLibraryError });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   useEffect(() => { loadLibrary(); loadCustomCategories(); vibe.fetchDeepVibeAccess(); imports.loadConnectedProfiles(); profile.loadProfileSettings(); }, []);
 
@@ -1388,26 +1357,6 @@ export default function Page() {
     },
   ];
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   // ===== Custom Categories =====
   type CustomCategory = { id: string; name: string; emoji: string; };
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
@@ -1509,47 +1458,9 @@ export default function Page() {
     }
   }
 
-
-
-
-
-
-
-
-
-
-
   // ===== Vibe =====
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   // Генерируем карточку по текущему состоянию приложения
-
 
   function openSharePicker(text?: string, type?: "vibe" | "deep") {
     setSharePickerText(text);
@@ -1593,8 +1504,6 @@ export default function Page() {
     }
     prevTabRef.current = tab;
   }, [tab]);
-
-
 
   // ===== Library filter =====
 
@@ -1719,7 +1628,6 @@ export default function Page() {
                 </button>
               </div>
             )}
-
 
             <div className="card">
               <div className="card-title">подключенные сервисы</div>
