@@ -12,5 +12,8 @@ where tg_user_id is not null
 create index if not exists items_owner_key_idx on public.items (owner_key);
 
 alter table public.items
+  drop constraint if exists items_owner_kind_check;
+
+alter table public.items
   add constraint items_owner_kind_check
   check (owner_kind in ('telegram', 'app'));
