@@ -1,5 +1,6 @@
 "use client";
 import { generateShareCard } from "@/lib/shareCard";
+import { openTelegramInvoice } from "@/lib/telegramInvoice";
 
 import Script from "next/script";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -187,6 +188,16 @@ async function safeJson(res: Response) {
   try { return await res.json(); } catch { return {}; }
 }
 
+async function apiFetch(path: string, init: RequestInit = {}) {
+  const headers: Record<string, string> = {
+    "x-telegram-init-data": getTgInitData(),
+    ...(init.body ? { "Content-Type": "application/json" } : {}),
+    ...(init.headers as Record<string, string> | undefined),
+  };
+  const res = await fetch(path, { ...init, headers });
+  return { res, json: await safeJson(res) };
+}
+
 const TYPE_LABELS: Record<ItemType, string> = {
   music: "музыка",
   book: "книга",
@@ -208,6 +219,66 @@ const TYPE_COLORS: Record<ItemType, string> = {
   custom: "#f0f0f0",
 };
 
+function vibeErrorForStatus(status: number) {
+  if (status === 504 || status === 408) return "вайбчек не успел ответить. попробуй еще раз.";
+  return `не удалось провести вайбчек (код ${status}).`;
+}
+
+function isDuelResponse(duel: VibeDuel | undefined): duel is VibeDuel {
+  return Boolean(duel?.id) && Array.isArray(duel?.variants) && duel.variants.length >= 2;
+}
+
+function useDeepVibe() {
+  const [deepVibeResult, setDeepVibeResult] = useState("");
+  const [deepVibeLoading, setDeepVibeLoading] = useState(false);
+  const [deepVibeAccess, setDeepVibeAccess] = useState<"free"|"paid"|"forever"|"none"|null>(null);
+  const [deepVibeUsesLeft, setDeepVibeUsesLeft] = useState<number|null>(null);
+
+  async function fetchDeepVibeAccess() {
+    try {
+      const { res, json } = await apiFetch("/api/deep-vibe");
+      setDeepVibeAccess(json?.access ?? "none");
+      setDeepVibeUsesLeft(json?.usesLeft ?? 0);
+    } catch {}
+  }
+
+  async function runDeepVibe() {
+    setDeepVibeLoading(true); setDeepVibeResult("");
+    try {
+      const { res, json } = await apiFetch("/api/deep-vibe", { method: "POST", body: JSON.stringify({}), });
+      if (json?.error === "no_access") {
+        setDeepVibeAccess("none");
+        setDeepVibeUsesLeft(0);
+        return;
+      }
+      setDeepVibeResult(json?.result ?? "");
+      // Обновляем счётчик после использования
+      fetchDeepVibeAccess();
+    } catch (e: any) {
+      setDeepVibeResult("не удалось загрузить");
+    } finally {
+      setDeepVibeLoading(false);
+    }
+  }
+
+  async function openDeepVibePurchase(product: "deep_vibe_once" | "deep_vibe_forever") {
+    const { result, message } = await openTelegramInvoice(product, getTgInitData());
+    if (result === "paid") fetchDeepVibeAccess();
+    else if (result === "unavailable") alert("Покупка доступна только в Telegram");
+    else alert("Не удалось создать инвойс" + (message ? ": " + message : ""));
+  }
+
+
+  function buyDeepVibeOnce() { openDeepVibePurchase("deep_vibe_once"); }
+
+  function buyDeepVibeForever() { openDeepVibePurchase("deep_vibe_forever"); }
+
+  return {
+    deepVibeResult, deepVibeLoading, deepVibeAccess, deepVibeUsesLeft,
+    fetchDeepVibeAccess, runDeepVibe, buyDeepVibeOnce, buyDeepVibeForever,
+  };
+}
+
 function useVibecheck() {
   const [summary, setSummary] = useState("");
   const [vibeLoading, setVibeLoading] = useState(false);
@@ -219,10 +290,6 @@ function useVibecheck() {
   const [shareRunId, setShareRunId] = useState<string | null>(null);
   const [mentalAge, setMentalAge] = useState("");
   const [mentalAgeLoading, setMentalAgeLoading] = useState(false);
-  const [deepVibeResult, setDeepVibeResult] = useState("");
-  const [deepVibeLoading, setDeepVibeLoading] = useState(false);
-  const [deepVibeAccess, setDeepVibeAccess] = useState<"free"|"paid"|"forever"|"none"|null>(null);
-  const [deepVibeUsesLeft, setDeepVibeUsesLeft] = useState<number|null>(null);
 
   async function runVibeCheck() {
     if (summary) {
@@ -234,23 +301,13 @@ function useVibecheck() {
     }
     setVibeLoading(true); setVibeError(""); setSummary(""); setVibeFeedback(null); setVibeRunId(null); setVibeDuel(null);
     try {
-      const res = await fetch("/api/v2/analysis", {
-        method: "POST",
-        headers: { "x-telegram-init-data": getTgInitData(), "x-vibecheck-duel": "1" },
-      });
-      const json = await safeJson(res);
+      const { res, json } = await apiFetch("/api/v2/analysis", { method: "POST", });
       if (!res.ok) {
-        setVibeError(
-          json?.error ??
-            (res.status === 504 || res.status === 408
-              ? "вайбчек не успел ответить. попробуй еще раз."
-              : `не удалось провести вайбчек (код ${res.status}).`
-            )
-        );
+        setVibeError(json?.error ?? vibeErrorForStatus(res.status));
         return;
       }
       const duel = json?.duel as VibeDuel | undefined;
-      if (duel?.id && Array.isArray(duel.variants) && duel.variants.length >= 2) {
+      if (isDuelResponse(duel)) {
         setVibeDuel(duel);
         setVibeShownAt(Date.now());
         return;
@@ -273,98 +330,29 @@ function useVibecheck() {
     setVibeRunId(variant.runId);
     setVibeShownAt(Date.now());
     setVibeFeedback(null);
-    await fetch("/api/v2/vibe-duel", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-telegram-init-data": getTgInitData() },
-      body: JSON.stringify({ duelId, winnerRunId: variant.runId }),
-    }).catch(() => undefined);
+    apiFetch("/api/v2/vibe-duel", { method: "POST", body: JSON.stringify({ duelId, winnerRunId: variant.runId }) }).catch(() => undefined);
   }
 
   async function rateVibeCheck(rating: "good" | "bad") {
     if (!summary || vibeFeedback) return;
     setVibeFeedback(rating);
-    await fetch("/api/v2/vibe-feedback", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-telegram-init-data": getTgInitData() },
-      body: JSON.stringify({ summary, rating, runId: vibeRunId }),
-    }).catch(() => undefined);
+    apiFetch("/api/v2/vibe-feedback", { method: "POST", body: JSON.stringify({ summary, rating, runId: vibeRunId }) }).catch(() => undefined);
   }
 
-  async function fetchDeepVibeAccess() {
-    try {
-      const res = await fetch("/api/deep-vibe", {
-        headers: { "x-telegram-init-data": getTgInitData() },
-      });
-      const json = await safeJson(res);
-      setDeepVibeAccess(json?.access ?? "none");
-      setDeepVibeUsesLeft(json?.usesLeft ?? 0);
-    } catch {}
-  }
 
-  async function runDeepVibe() {
-    setDeepVibeLoading(true); setDeepVibeResult("");
-    try {
-      const res = await fetch("/api/deep-vibe", {
-        method: "POST",
-        headers: {
-          "x-telegram-init-data": getTgInitData(),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({}),
-      });
-      const json = await safeJson(res);
-      if (json?.error === "no_access") {
-        setDeepVibeAccess("none");
-        setDeepVibeUsesLeft(0);
-        return;
-      }
-      setDeepVibeResult(json?.result ?? "");
-      // Обновляем счётчик после использования
-      fetchDeepVibeAccess();
-    } catch (e: any) {
-      setDeepVibeResult("не удалось загрузить");
-    } finally {
-      setDeepVibeLoading(false);
-    }
-  }
 
-  async function openDeepVibePurchase(product: "deep_vibe_once" | "deep_vibe_forever") {
-    const tg = (window as any).Telegram?.WebApp;
-    if (!tg?.openInvoice) {
-      alert("Покупка доступна только в Telegram");
-      return;
-    }
-    try {
-      const res = await fetch(`/api/invoice?product=${product}`, {
-        headers: { "x-telegram-init-data": getTgInitData() },
-      });
-      const json = await safeJson(res);
-      if (!json?.url) {
-        alert("Не удалось создать инвойс: " + (json?.error ?? "неизвестная ошибка"));
-        return;
-      }
-      tg.openInvoice(json.url, (status: string) => {
-        if (status === "paid") {
-          fetchDeepVibeAccess();
-        }
-      });
-    } catch (e: any) {
-      alert("Ошибка: " + e?.message);
-    }
-  }
 
-  function buyDeepVibeOnce() { openDeepVibePurchase("deep_vibe_once"); }
 
-  function buyDeepVibeForever() { openDeepVibePurchase("deep_vibe_forever"); }
+
+
+
+
+
 
   async function runMentalAge() {
     setMentalAgeLoading(true); setMentalAge("");
     try {
-      const res = await fetch("/api/mental-age", {
-        method: "POST",
-        headers: { "x-telegram-init-data": getTgInitData() },
-      });
-      const json = await safeJson(res);
+      const { res, json } = await apiFetch("/api/mental-age", { method: "POST" });
       setMentalAge(json?.result ?? "");
     } catch (e: any) {
       setMentalAge("не удалось посчитать");
@@ -375,10 +363,10 @@ function useVibecheck() {
 
   return {
     summary, vibeLoading, vibeError, vibeFeedback, vibeRunId, vibeDuel, shareRunId,
-    mentalAge, mentalAgeLoading, deepVibeResult, deepVibeLoading, deepVibeAccess, deepVibeUsesLeft,
+    mentalAge, mentalAgeLoading,
     setShareRunId, setVibeRunId,
-    runVibeCheck, pickDuelWinner, rateVibeCheck, fetchDeepVibeAccess,
-    runDeepVibe, openDeepVibePurchase, buyDeepVibeOnce, buyDeepVibeForever, runMentalAge,
+    runVibeCheck, pickDuelWinner, rateVibeCheck,
+    runMentalAge,
   };
 }
 
@@ -399,8 +387,7 @@ function useProfile(deps: { loadLibrary: () => void; setLibraryError: (message: 
 
   async function loadProfileSettings() {
     try {
-      const res = await fetch("/api/v2/profile", { headers: { "x-telegram-init-data": getTgInitData() } });
-      const json = await safeJson(res);
+      const { res, json } = await apiFetch("/api/v2/profile");
       if (!res.ok) return;
       const name = typeof json?.displayName === "string" ? json.displayName : "";
       setProfileName(name);
@@ -414,16 +401,8 @@ function useProfile(deps: { loadLibrary: () => void; setLibraryError: (message: 
   async function saveProfileSettings(next: { displayName?: string; avatarUrl?: string | null; themeMode?: "light" | "dark" }) {
     setProfileSaving(true);
     try {
-      const res = await fetch("/api/v2/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "x-telegram-init-data": getTgInitData() },
-        body: JSON.stringify({
-          displayName: "displayName" in next ? next.displayName : profileName,
-          avatarUrl: "avatarUrl" in next ? next.avatarUrl : profileAvatarUrl,
-          themeMode: "themeMode" in next ? next.themeMode : profileTheme,
-        }),
+      const { res, json } = await apiFetch("/api/v2/profile", { method: "PUT", body: JSON.stringify({ displayName: "displayName" in next ? next.displayName : profileName, avatarUrl: "avatarUrl" in next ? next.avatarUrl : profileAvatarUrl, themeMode: "themeMode" in next ? next.themeMode : profileTheme, }),
       });
-      const json = await safeJson(res);
       if (!res.ok) throw new Error(json?.error ?? "не удалось сохранить профиль");
       setProfileName(json?.displayName ?? "");
       setProfileNameDraft(json?.displayName ?? "");
@@ -441,8 +420,7 @@ function useProfile(deps: { loadLibrary: () => void; setLibraryError: (message: 
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch("/api/v2/profile/avatar", { method: "POST", headers: { "x-telegram-init-data": getTgInitData() }, body: form });
-      const json = await safeJson(res);
+      const { res, json } = await apiFetch("/api/v2/profile/avatar", { method: "POST", body: form });
       if (!res.ok) throw new Error(json?.error ?? "не удалось загрузить аватар");
       setProfileAvatarUrl(json?.avatarUrl ?? null);
     } catch (error) {
@@ -462,15 +440,7 @@ function useProfile(deps: { loadLibrary: () => void; setLibraryError: (message: 
     setTelegramLinkStatus("");
     setTelegramLinkSuccess(false);
     try {
-      const res = await fetch("/api/telegram/link", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-telegram-init-data": getTgInitData(),
-        },
-        body: JSON.stringify({ code }),
-      });
-      const json = await safeJson(res);
+      const { res, json } = await apiFetch("/api/telegram/link", { method: "POST", body: JSON.stringify({ code }) });
       if (!res.ok) {
         setTelegramLinkStatus(json?.error ?? "не удалось связать аккаунты");
         return;
@@ -642,23 +612,8 @@ function useLibrary(deps: {
         const minutes = sourceDate ? sourceDate.getMinutes() : Math.min(index * 3, 57);
         const targetDate = new Date(base.getFullYear(), base.getMonth(), base.getDate(), hours, minutes, 0, 0).getTime();
 
-        const res = await fetch("/api/items", {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            "x-telegram-init-data": getTgInitData(),
-          },
-          body: JSON.stringify({
-            id: item.id,
-            type: item.type,
-            source: item.source,
-            title: item.title,
-            creator: item.creator ?? null,
-            consumedAt: targetDate,
-            timeOrigin: "exact",
-          }),
+        const { res, json } = await apiFetch("/api/items", { method: "PATCH", body: JSON.stringify({ id: item.id, type: item.type, source: item.source, title: item.title, creator: item.creator ?? null, consumedAt: targetDate, timeOrigin: "exact", }),
         });
-        const json = await safeJson(res);
         if (!res.ok) throw new Error(json?.error ?? "не удалось перенести дату");
       }
 
@@ -851,12 +806,7 @@ function useImports(deps: { items: DbItem[]; loadLibrary: () => void; setTab: (t
       for (const file of selectedFiles) {
         const form = new FormData();
         form.append("file", file);
-        const res = await fetch("/api/import-image", {
-          method: "POST",
-          headers: { "x-telegram-init-data": getTgInitData() },
-          body: form,
-        });
-        const json = await safeJson(res);
+        const { res, json } = await apiFetch("/api/import-image", { method: "POST", body: form, });
         if (!res.ok) {
           failedCount += 1;
           continue;
@@ -888,25 +838,10 @@ function useImports(deps: { items: DbItem[]; loadLibrary: () => void; setTab: (t
   }
 
   async function saveSelected(itemsToSave: ImportedItem[]) {
-    const res = await fetch(`${window.location.origin}/api/items/bulk`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-telegram-init-data": getTgInitData(),
-      },
-      body: JSON.stringify({
-        items: itemsToSave.map((it) => ({
-          type: it.type,
-          source: it.source,
-          title: it.title,
-          creator: it.creator ?? null,
-          consumedAt: it.consumedAt ?? null,
-          timeOrigin: it.timeOrigin ?? null,
-        })),
+    const { res, json } = await apiFetch(`${window.location.origin}/api/items/bulk`, { method: "POST", body: JSON.stringify({ items: itemsToSave.map((it) => ({ type: it.type, source: it.source, title: it.title, creator: it.creator ?? null, consumedAt: it.consumedAt ?? null, timeOrigin: it.timeOrigin ?? null, })),
       }),
       cache: "no-store",
     });
-    const json = await safeJson(res);
     if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
   }
 
@@ -987,10 +922,7 @@ function useImports(deps: { items: DbItem[]; loadLibrary: () => void; setTab: (t
 
   async function checkSpotify() {
     try {
-      const res = await fetch("/api/spotify/status", {
-        headers: { "x-telegram-init-data": getTgInitData() },
-      });
-      const json = await safeJson(res);
+      const { res, json } = await apiFetch("/api/spotify/status");
       setSpotifyConnected(json?.connected ?? false);
       setSpotifyProfileName(json?.profile?.displayName ?? null);
     } catch {
@@ -1004,11 +936,7 @@ function useImports(deps: { items: DbItem[]; loadLibrary: () => void; setTab: (t
     setImportError("");
     setImportStatus(deleteContent ? "отвязываем spotify и чистим импорт..." : "отвязываем spotify...");
     try {
-      const res = await fetch(`/api/spotify/sync?deleteContent=${deleteContent ? "1" : "0"}`, {
-        method: "DELETE",
-        headers: { "x-telegram-init-data": getTgInitData() },
-      });
-      const json = await safeJson(res);
+      const { res, json } = await apiFetch(`/api/spotify/sync?deleteContent=${deleteContent ? "1" : "0"}`, { method: "DELETE", });
       if (!res.ok) {
         setImportError(json?.error ?? "не удалось отвязать spotify");
         return;
@@ -1040,11 +968,7 @@ function useImports(deps: { items: DbItem[]; loadLibrary: () => void; setTab: (t
   async function syncSpotify() {
     setSpotifySyncing(true);
     try {
-      const res = await fetch("/api/spotify/sync", {
-        method: "POST",
-        headers: { "x-telegram-init-data": getTgInitData() },
-      });
-      const json = await safeJson(res);
+      const { res, json } = await apiFetch("/api/spotify/sync", { method: "POST" });
       if (json?.ok) loadLibrary();
     } catch {}
     finally { setSpotifySyncing(false); }
@@ -1058,15 +982,7 @@ function useImports(deps: { items: DbItem[]; loadLibrary: () => void; setTab: (t
     setImportError("");
     setImportStatus(deleteContent ? "отвязываем источник и чистим импорт..." : "отвязываем источник...");
     try {
-      const res = await fetch("/api/v2/connected-sources", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          "x-telegram-init-data": getTgInitData(),
-        },
-        body: JSON.stringify({ platform, deleteContent }),
-      });
-      const json = await safeJson(res);
+      const { res, json } = await apiFetch("/api/v2/connected-sources", { method: "DELETE", body: JSON.stringify({ platform, deleteContent }) });
       if (!res.ok) {
         setImportError(json?.error ?? "не удалось отвязать источник");
         return;
@@ -1089,10 +1005,7 @@ function useImports(deps: { items: DbItem[]; loadLibrary: () => void; setTab: (t
 
   async function loadConnectedProfiles() {
     try {
-      const res = await fetch("/api/v2/connected-sources", {
-        headers: { "x-telegram-init-data": getTgInitData() },
-      });
-      const json = await safeJson(res);
+      const { res, json } = await apiFetch("/api/v2/connected-sources");
       if (!res.ok) return;
       const next = { lastfm: null, letterboxd: null } as typeof connectedProfiles;
       for (const source of Array.isArray(json?.sources) ? json.sources : []) {
@@ -1220,10 +1133,7 @@ export default function Page() {
     setLibraryLoading(true);
     setLibraryError("");
     try {
-      const res = await fetch("/api/items", {
-        headers: { "x-telegram-init-data": getTgInitData() },
-      });
-      const json = await safeJson(res);
+      const { res, json } = await apiFetch("/api/items");
       if (!res.ok) { setLibraryError(json?.error ?? "Ошибка загрузки"); setItems([]); return; }
       setItems(Array.isArray(json?.items) ? json.items : []);
     } catch (e: any) {
@@ -1234,11 +1144,12 @@ export default function Page() {
   }
 
   const vibe = useVibecheck();
+  const deepVibe = useDeepVibe();
   const imports = useImports({ items, loadLibrary, setTab });
   const library = useLibrary({ items, loadLibrary, setLibraryError, setLibraryLoading });
   const profile = useProfile({ loadLibrary, setLibraryError });
 
-  useEffect(() => { loadLibrary(); loadCustomCategories(); vibe.fetchDeepVibeAccess(); imports.loadConnectedProfiles(); profile.loadProfileSettings(); }, []);
+  useEffect(() => { loadLibrary(); loadCustomCategories(); deepVibe.fetchDeepVibeAccess(); imports.loadConnectedProfiles(); profile.loadProfileSettings(); }, []);
 
   const countsUnknown = libraryLoading && items.length === 0;
   const counts = useMemo(() => ({
@@ -1356,10 +1267,7 @@ export default function Page() {
 
   async function loadCustomCategories() {
     try {
-      const res = await fetch("/api/custom-categories", {
-        headers: { "x-telegram-init-data": getTgInitData() },
-      });
-      const json = await safeJson(res);
+      const { res, json } = await apiFetch("/api/custom-categories");
       if (res.ok) setCustomCategories(json?.categories ?? []);
     } catch {}
   }
@@ -1368,12 +1276,7 @@ export default function Page() {
     if (!newCatName.trim()) return;
     setCatSaving(true); setCatError("");
     try {
-      const res = await fetch("/api/custom-categories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-telegram-init-data": getTgInitData() },
-        body: JSON.stringify({ name: newCatName.trim(), emoji: newCatEmoji }),
-      });
-      const json = await safeJson(res);
+      const { res, json } = await apiFetch("/api/custom-categories", { method: "POST", body: JSON.stringify({ name: newCatName.trim(), emoji: newCatEmoji }) });
       if (!res.ok) { setCatError(json?.error ?? "ошибка"); return; }
       await loadCustomCategories();
       setSelectedCatId(json?.category?.id ?? null);
@@ -1431,14 +1334,7 @@ export default function Page() {
   async function deleteItem(id: string | number) {
     setDeletingId(id);
     try {
-      const res = await fetch("/api/items", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          "x-telegram-init-data": getTgInitData(),
-        },
-        body: JSON.stringify({ id }),
-      });
+      const { res } = await apiFetch("/api/items", { method: "DELETE", body: JSON.stringify({ id }), });
       if (res.ok) setItems((prev) => prev.filter((it) => it.id !== id));
     } finally {
       setDeletingId(null);
@@ -1482,12 +1378,12 @@ export default function Page() {
   const prevTabRef = useRef<string>("");
   useEffect(() => {
     if (tab === "vibe" && prevTabRef.current !== "vibe") {
-      vibe.fetchDeepVibeAccess();
+      deepVibe.fetchDeepVibeAccess();
     }
     if (tab === "add" && prevTabRef.current !== "add") {
       imports.checkSpotify();
       imports.loadConnectedProfiles();
-      if (vibe.deepVibeAccess === null) vibe.fetchDeepVibeAccess();
+      if (deepVibe.deepVibeAccess === null) deepVibe.fetchDeepVibeAccess();
     }
     prevTabRef.current = tab;
   }, [tab]);
@@ -1736,17 +1632,17 @@ export default function Page() {
                   {/* Кнопка своей категории — только для платных */}
                   <button
                     className={`type-btn${manualType === "custom" ? " active" : ""}`}
-                    style={!(vibe.deepVibeAccess === "forever" || vibe.deepVibeAccess === "paid") ? {opacity:0.45} : {}}
+                    style={!(deepVibe.deepVibeAccess === "forever" || deepVibe.deepVibeAccess === "paid") ? {opacity:0.45} : {}}
                     onClick={() => {
-                      if (vibe.deepVibeAccess === "forever" || vibe.deepVibeAccess === "paid") {
+                      if (deepVibe.deepVibeAccess === "forever" || deepVibe.deepVibeAccess === "paid") {
                         setManualType("custom");
                       } else {
-                        vibe.buyDeepVibeForever();
+                        deepVibe.buyDeepVibeForever();
                       }
                     }}
-                    title={vibe.deepVibeAccess === "forever" || vibe.deepVibeAccess === "paid" ? "своя категория" : "доступно с подпиской"}
+                    title={deepVibe.deepVibeAccess === "forever" || deepVibe.deepVibeAccess === "paid" ? "своя категория" : "доступно с подпиской"}
                   >
-                    ✦ своё {!(vibe.deepVibeAccess === "forever" || vibe.deepVibeAccess === "paid") && "🔒"}
+                    ✦ своё {!(deepVibe.deepVibeAccess === "forever" || deepVibe.deepVibeAccess === "paid") && "🔒"}
                   </button>
                 </div>
 
@@ -2416,14 +2312,14 @@ export default function Page() {
               </div>
 
               {/* Кнопка запуска — если есть доступ */}
-              {(vibe.deepVibeAccess === "free" || vibe.deepVibeAccess === "forever" || vibe.deepVibeAccess === "paid") && (
+              {(deepVibe.deepVibeAccess === "free" || deepVibe.deepVibeAccess === "forever" || deepVibe.deepVibeAccess === "paid") && (
                 <div>
-                  {vibe.deepVibeAccess === "free" && vibe.deepVibeUsesLeft !== null && (
+                  {deepVibe.deepVibeAccess === "free" && deepVibe.deepVibeUsesLeft !== null && (
                     <div style={{textAlign:"center",fontSize:12,color:"#aaa",marginBottom:10}}>
-                      осталось бесплатных: {vibe.deepVibeUsesLeft} из 3
+                      осталось бесплатных: {deepVibe.deepVibeUsesLeft} из 3
                     </div>
                   )}
-                  {vibe.deepVibeAccess === "forever" && (
+                  {deepVibe.deepVibeAccess === "forever" && (
                     <div style={{textAlign:"center",fontSize:12,color:"#aaa",marginBottom:10}}>
                       вечный доступ
                     </div>
@@ -2431,21 +2327,21 @@ export default function Page() {
                   <button
                     className="btn"
                     style={{background:"#1a1a1a",color:"#fff",width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}
-                    onClick={vibe.runDeepVibe}
-                    disabled={vibe.deepVibeLoading || counts.total === 0}
+                    onClick={deepVibe.runDeepVibe}
+                    disabled={deepVibe.deepVibeLoading || counts.total === 0}
                   >
-                    {vibe.deepVibeLoading ? "анализирую..." : "вайбчек без прикола"}
+                    {deepVibe.deepVibeLoading ? "анализирую..." : "вайбчек без прикола"}
                   </button>
                 </div>
               )}
 
               {/* Нет доступа — показываем кнопки покупки */}
-              {vibe.deepVibeAccess === "none" && (
+              {deepVibe.deepVibeAccess === "none" && (
                 <div style={{display:"flex",flexDirection:"column",gap:10}}>
                   <button
                     className="btn"
                     style={{background:"#1a1a1a",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}
-                    onClick={vibe.buyDeepVibeOnce}
+                    onClick={deepVibe.buyDeepVibeOnce}
                     disabled={counts.total === 0}
                   >
                     ✦ один анализ — 5 ★
@@ -2453,7 +2349,7 @@ export default function Page() {
                   <button
                     className="btn btn-outline"
                     style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,borderColor:"#1a1a1a"}}
-                    onClick={vibe.buyDeepVibeForever}
+                    onClick={deepVibe.buyDeepVibeForever}
                     disabled={counts.total === 0}
                   >
                     ✦ вечный доступ — 200 ★
@@ -2463,13 +2359,13 @@ export default function Page() {
               )}
 
               {/* Результат с markdown */}
-              {vibe.deepVibeResult && (
+              {deepVibe.deepVibeResult && (
                 <div style={{marginTop:16,padding:"18px",background:"#fff",borderRadius:20,boxShadow:"0 1px 4px rgba(0,0,0,0.07)",fontSize:14,lineHeight:1.8,color:"#333"}}>
-                  <MarkdownText text={vibe.deepVibeResult} />
+                  <MarkdownText text={deepVibe.deepVibeResult} />
                   <button
                     className="btn btn-outline"
                     style={{marginTop:14,fontSize:13,display:"flex",alignItems:"center",gap:6,width:"100%"}}
-                    onClick={() => shareVibeCard(vibe.deepVibeResult, "deep")}
+                    onClick={() => shareVibeCard(deepVibe.deepVibeResult, "deep")}
                   >
                     ↗ поделиться
                   </button>
