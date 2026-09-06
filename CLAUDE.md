@@ -53,7 +53,7 @@ above it, worst first. The script is `scripts/complexity.py` and excludes itself
 Currently over the limit:
 
 ```
-420  apps/mobile/hooks/useEveryYouApp.ts  useEveryYouApp
+228  apps/mobile/hooks/useEveryYouApp.ts  useEveryYouApp
  75  apps/mobile/App.tsx                  App
  50  app/api/v2/deep-analysis/route.ts    POST
 ```
@@ -74,12 +74,11 @@ These are still over. They are not rewritten wholesale, but every edit inside on
 it shorter:
 
 ```
-2284  apps/mobile/hooks/useEveryYouApp.ts
-1394  apps/mobile/styles/appStyles.ts
-1125  app/everyyou.css
- 945  apps/mobile/screens/LibraryScreen.tsx
+1308  apps/mobile/hooks/useEveryYouApp.ts
+ 907  apps/mobile/screens/LibraryScreen.tsx
  834  apps/mobile/screens/AddScreen.tsx
  798  apps/mobile/App.tsx
+ 764  apps/mobile/hooks/useLibraryImports.ts
  684  app/api/v2/analysis/route.ts
  560  apps/mobile/screens/AnalysisScreen.tsx
  556  apps/mobile/lib/api.ts
