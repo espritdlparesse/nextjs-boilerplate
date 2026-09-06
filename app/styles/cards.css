@@ -1,0 +1,149 @@
+.header {
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.header-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: 1px solid #e7e2d9;
+  font-size: 22px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.header-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.about-progress {
+  display: flex;
+  gap: 8px;
+  margin: 18px 0;
+}
+
+.about-progress-dot {
+  height: 6px;
+  flex: 1;
+  border-radius: 999px;
+  background: #e7e2d9;
+}
+
+.about-progress-dot.active { background: #111111; }
+
+.card {
+  background: #ffffff;
+  border-radius: 32px;
+  padding: 22px 18px;
+  margin-bottom: 16px;
+  border: 1px solid #e7e2d9;
+  box-shadow: 0 4px 20px rgba(17,17,17,0.04);
+}
+
+.card-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  margin-bottom: 12px;
+  text-transform: lowercase;
+}
+
+.card-text {
+  font-size: 16px;
+  font-weight: 400;
+  color: #3f3a35;
+  line-height: 1.55;
+  text-transform: lowercase;
+}
+
+.stat-pill {
+  flex: 1 1 46%;
+  background: #ffffff;
+  padding: 16px 12px;
+  text-align: center;
+  border: 1px solid #e7e2d9;
+  border-radius: 24px;
+}
+
+.stat-num {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #6f6a63;
+  margin-top: 6px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: lowercase;
+}
+
+.home-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.home-tile {
+  border-radius: 28px;
+  padding: 18px;
+  min-height: 208px;
+  border: 1px solid rgba(17,17,17,0.08);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
+}
+
+.home-tile-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(17,17,17,0.5);
+  text-transform: lowercase;
+}
+
+.home-tile-title {
+  font-size: 20px;
+  line-height: 1.02;
+  font-weight: 900;
+  color: #111111;
+  letter-spacing: -0.05em;
+  text-transform: lowercase;
+}
+
+.home-tile-copy {
+  font-size: 15px;
+  line-height: 1.5;
+  color: rgba(17,17,17,0.68);
+  text-transform: lowercase;
+}
+
+.tile-pink { background: #FF79D5; }
+
+.tile-green { background: #49DE4E; }
+
+.tile-blue { background: #38C0FF; }
+
+.tile-yellow { background: #FFC804; }

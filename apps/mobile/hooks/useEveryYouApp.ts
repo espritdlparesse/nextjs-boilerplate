@@ -1,9 +1,11 @@
+import { useTimeline } from "./useTimeline";
+import type { DateInsight, TimelineSpreadPreset } from "./timelineTypes";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { Linking } from "react-native";
 import QRCode from "qrcode";
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { Dispatch, SetStateAction, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   clampText,
   getConsumptionDate,
@@ -73,7 +75,6 @@ type TypeFilter = ContentType | "all";
 type SourceFilter = SourceType | "all";
 type TimeQualityFilter = "all" | TimeOrigin | "undated";
 type SyncStatus = "idle" | "syncing" | "online" | "offline";
-type TimelineSpreadPreset = "this_month" | "last_month" | "last_6_months" | "this_year" | "very_old";
 type SpotifyPlaylist = {
   id: string;
   name: string;
@@ -83,11 +84,6 @@ type PendingImageItem = Pick<
   LibraryItem,
   "id" | "type" | "source" | "title" | "authorOrArtist" | "createdAt" | "consumedAt" | "timeOrigin"
 >;
-type DateInsight = {
-  title: string;
-  body: string;
-  meta?: string;
-};
 
 type ConnectedSourceState = {
   lastfm: { profile: string; lastSyncedAt: string | null } | null;
@@ -378,8 +374,6 @@ export function useEveryYouApp() {
   const [themeMode, setThemeMode] = useState<ThemeMode>("light");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const telegram = useTelegramLink({ apiToken, fireAnalytics, setToastMessage });
-  const [timelineSpreading, setTimelineSpreading] = useState(false);
-  const [timelinePromptVisible, setTimelinePromptVisible] = useState(false);
   const [screenshotDateInsight, setScreenshotDateInsight] = useState<DateInsight | null>(null);
   const [spotifyDateInsight, setSpotifyDateInsight] = useState<DateInsight | null>(null);
   const [fileImportDateInsight, setFileImportDateInsight] = useState<DateInsight | null>(null);
@@ -850,6 +844,8 @@ export function useEveryYouApp() {
     () => visibleLibrary.filter((item) => item.source !== "manual" && item.consumedAt == null),
     [visibleLibrary]
   );
+  const timeline = useTimeline({ apiToken, library, setLibrary, setSyncStatus, setSyncMessage, setToastMessage, setTab, undatedVisibleLibrary });
+
   const dailyStepsByDay = useMemo(
     () =>
       dailySteps.reduce<Record<string, number>>((acc, entry) => {
@@ -863,236 +859,6 @@ export function useEveryYouApp() {
     () => pendingImageItems.find((item) => item.id === selectedPendingImageId) ?? null,
     [pendingImageItems, selectedPendingImageId]
   );
-
-  function describeDateCoverage(items: Array<Pick<LibraryItem, "consumedAt" | "timeOrigin">>) {
-    const exact = items.filter((item) => item.timeOrigin === "exact").length;
-    const imported = items.filter((item) => item.timeOrigin === "imported").length;
-    const estimated = items.filter((item) => item.timeOrigin === "estimated").length;
-    const undated = items.filter((item) => item.consumedAt == null).length;
-    const parts: string[] = [];
-    if (exact > 0) parts.push(`точные даты: ${exact}`);
-    if (imported > 0) parts.push(`из импорта: ${imported}`);
-    if (estimated > 0) parts.push(`примерно: ${estimated}`);
-    if (undated > 0) parts.push(`без даты: ${undated}`);
-    return parts.join(" · ");
-  }
-
-  function buildDateInsight(items: Array<Pick<LibraryItem, "consumedAt" | "timeOrigin">>): DateInsight | null {
-    const exact = items.filter((item) => item.timeOrigin === "exact" && item.consumedAt != null).length;
-    const imported = items.filter((item) => item.timeOrigin === "imported" && item.consumedAt != null).length;
-    const estimated = items.filter((item) => item.timeOrigin === "estimated" && item.consumedAt != null).length;
-    const dated = exact + imported;
-    const undated = items.filter((item) => item.consumedAt == null).length;
-
-    if (dated === 0 && estimated === 0 && undated === 0) return null;
-
-    if (dated > 0 && undated > 0) {
-      return {
-        title: `нашли реальные даты у ${dated} айтем(ов)`,
-        body: "остальное нужно разложить вручную",
-        meta: [exact > 0 ? `точные: ${exact}` : null, imported > 0 ? `из импорта: ${imported}` : null]
-          .filter(Boolean)
-          .join(" · "),
-      };
-    }
-
-    if (dated > 0 && undated === 0) {
-      return {
-        title: "у найденного контента уже есть даты",
-        body: "можно сразу смотреть его в календаре",
-        meta: [exact > 0 ? `точные: ${exact}` : null, imported > 0 ? `из импорта: ${imported}` : null]
-          .filter(Boolean)
-          .join(" · "),
-      };
-    }
-
-    if (estimated > 0 && undated === 0) {
-      return {
-        title: "время уже разложено примерно",
-        body: "если захочешь, потом можно поправить отдельные карточки",
-        meta: `примерно: ${estimated}`,
-      };
-    }
-
-    return {
-      title: "у этого импорта нет реальных дат",
-      body: "после сохранения можно разложить контент вручную",
-      meta: undated > 0 ? `без даты: ${undated}` : undefined,
-    };
-  }
-
-  function buildSpreadDates(count: number, preset: TimelineSpreadPreset) {
-    const now = new Date();
-    const monthAnchors: Date[] = [];
-
-    if (preset === "this_month") {
-      monthAnchors.push(new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0, 0));
-    } else if (preset === "last_month") {
-      monthAnchors.push(new Date(now.getFullYear(), now.getMonth() - 1, 1, 12, 0, 0, 0));
-    } else if (preset === "last_6_months") {
-      for (let offset = 0; offset < 6; offset += 1) {
-        monthAnchors.push(new Date(now.getFullYear(), now.getMonth() - offset, 1, 12, 0, 0, 0));
-      }
-    } else if (preset === "very_old") {
-      for (let yearOffset = 2; yearOffset <= 5; yearOffset += 1) {
-        monthAnchors.push(new Date(now.getFullYear() - yearOffset, now.getMonth(), 1, 12, 0, 0, 0));
-      }
-    } else {
-      for (let month = now.getMonth(); month >= 0; month -= 1) {
-        monthAnchors.push(new Date(now.getFullYear(), month, 1, 12, 0, 0, 0));
-      }
-    }
-
-    const dates: number[] = [];
-    for (let index = 0; index < count; index += 1) {
-      const anchor = monthAnchors[index % monthAnchors.length];
-      const day = 1 + (index % 24);
-      const hour = 11 + (index % 8);
-      dates.push(new Date(anchor.getFullYear(), anchor.getMonth(), day, hour, 0, 0, 0).getTime());
-    }
-
-    return dates.sort((a, b) => b - a);
-  }
-
-  async function pushConsumedDates(targets: LibraryItem[], dates: number[], timeOrigin: TimeOrigin) {
-    if (!apiToken) return;
-    const updatedItems: LibraryItem[] = [];
-    for (const [index, item] of targets.entries()) {
-      updatedItems.push(await updateItem(apiToken, {
-        id: item.id,
-        type: item.type,
-        source: item.source,
-        title: item.title,
-        authorOrArtist: item.authorOrArtist,
-        consumedAt: dates[index],
-        timeOrigin,
-      }));
-    }
-    setLibrary((current) =>
-      current.map((item) => updatedItems.find((updated) => updated.id === item.id) ?? item)
-    );
-  }
-
-  async function spreadVisibleUndatedItems(preset: TimelineSpreadPreset) {
-    const items = undatedVisibleLibrary;
-    if (items.length === 0 || timelineSpreading) return;
-
-    const dates = buildSpreadDates(items.length, preset);
-    setTimelineSpreading(true);
-
-    try {
-      if (apiToken) {
-        await pushConsumedDates(items, dates, "estimated");
-        setSyncStatus("online");
-        setSyncMessage("данные синхронизируются с сервером");
-      } else {
-        setLibrary((current) =>
-          current.map((item) => {
-            const index = items.findIndex((candidate) => candidate.id === item.id);
-            if (index === -1) return item;
-            return { ...item, consumedAt: dates[index], timeOrigin: "estimated" };
-          })
-        );
-      }
-
-      setToastMessage(`разложили ${items.length} по времени`);
-      setTimelinePromptVisible(false);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "не удалось разложить по времени";
-      setSyncStatus("offline");
-      setSyncMessage(message);
-      setToastMessage("не удалось разложить");
-    } finally {
-      setTimelineSpreading(false);
-    }
-  }
-
-  async function assignTimelineToItem(itemId: string, preset: TimelineSpreadPreset) {
-    const item = library.find((entry) => entry.id === itemId);
-    if (!item || timelineSpreading) return;
-
-    const [date] = buildSpreadDates(1, preset);
-    setTimelineSpreading(true);
-
-    try {
-      if (apiToken) {
-        const updated = await updateItem(apiToken, {
-          id: item.id,
-          type: item.type,
-          source: item.source,
-          title: item.title,
-          authorOrArtist: item.authorOrArtist,
-          consumedAt: date,
-          timeOrigin: "estimated",
-        });
-        setLibrary((current) => current.map((entry) => (entry.id === item.id ? updated : entry)));
-        setSyncStatus("online");
-        setSyncMessage("данные синхронизируются с сервером");
-      } else {
-        setLibrary((current) =>
-          current.map((entry) =>
-            entry.id === item.id ? { ...entry, consumedAt: date, timeOrigin: "estimated" } : entry
-          )
-        );
-      }
-
-      setToastMessage("время обновили");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "не удалось обновить время";
-      setSyncStatus("offline");
-      setSyncMessage(message);
-      setToastMessage("не удалось обновить время");
-    } finally {
-      setTimelineSpreading(false);
-    }
-  }
-
-  async function moveItemsToDate(itemIds: string[], targetDate: number) {
-    const selectedItems = library.filter((item) => itemIds.includes(item.id));
-    if (selectedItems.length === 0 || timelineSpreading) return;
-
-    setTimelineSpreading(true);
-
-    const movedAt = selectedItems.map((item, index) => {
-      const original = getConsumptionDate(item);
-      const base = new Date(targetDate);
-      const sourceTime = original ? new Date(original) : null;
-      const hours = sourceTime ? sourceTime.getHours() : 12;
-      const minutes = sourceTime ? sourceTime.getMinutes() : Math.min(index * 3, 57);
-      return new Date(base.getFullYear(), base.getMonth(), base.getDate(), hours, minutes, 0, 0).getTime();
-    });
-
-    try {
-      if (apiToken) {
-        await pushConsumedDates(selectedItems, movedAt, "exact");
-        setSyncStatus("online");
-        setSyncMessage("данные синхронизируются с сервером");
-      } else {
-        setLibrary((current) =>
-          current.map((item) => {
-            const index = selectedItems.findIndex((candidate) => candidate.id === item.id);
-            if (index === -1) return item;
-            return { ...item, consumedAt: movedAt[index], timeOrigin: "exact" };
-          })
-        );
-      }
-
-      setToastMessage(selectedItems.length === 1 ? "дату перенесли" : `перенесли ${selectedItems.length} айтема`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "не удалось перенести дату";
-      setSyncStatus("offline");
-      setSyncMessage(message);
-      setToastMessage("не удалось перенести");
-    } finally {
-      setTimelineSpreading(false);
-    }
-  }
-
-  function promptTimelinePlacement() {
-    if (undatedVisibleLibrary.length === 0) return;
-    setTimelinePromptVisible(true);
-    setTab("library");
-  }
 
   function updatePendingImageItem(
     id: string,
@@ -1116,7 +882,7 @@ export function useEveryYouApp() {
   }
 
   function assignPendingImageItemTime(id: string, preset: TimelineSpreadPreset) {
-    const [date] = buildSpreadDates(1, preset);
+    const [date] = timeline.buildSpreadDates(1, preset);
     updatePendingImageItem(id, { consumedAt: date, timeOrigin: "estimated" });
   }
 
@@ -1279,7 +1045,7 @@ export function useEveryYouApp() {
     setLibrary((current) => [...fakeItems, ...current]);
     setIsImporting(false);
     setTab("library");
-    setTimelinePromptVisible(true);
+    timeline.setTimelinePromptVisible(true);
   }
 
   async function importFromScreenshot() {
@@ -1341,8 +1107,8 @@ export function useEveryYouApp() {
         timeOrigin: undefined,
       }));
       setPendingImageItems(importedItems);
-      const coverage = describeDateCoverage(importedItems);
-      setScreenshotDateInsight(buildDateInsight(importedItems));
+      const coverage = timeline.describeDateCoverage(importedItems);
+      setScreenshotDateInsight(timeline.buildDateInsight(importedItems));
       setScreenshotStatus(
         `нашли ${importedItems.length} айтем(ов), проверь перед сохранением${coverage ? ` · ${coverage}` : ""}`
       );
@@ -1400,7 +1166,7 @@ export function useEveryYouApp() {
       setScreenshotDateInsight(null);
       setTab("library");
       setToastMessage(`добавили ${pendingImageItems.length} айтем(ов)`);
-      setTimelinePromptVisible(hasUndatedItems);
+      timeline.setTimelinePromptVisible(hasUndatedItems);
       fireAnalytics("image_import_completed", {
         count: pendingImageItems.length,
         undatedCount: pendingImageItems.filter((item) => item.consumedAt == null).length,
@@ -1455,15 +1221,15 @@ export function useEveryYouApp() {
       }
 
       setImportedCount((current) => current + importedItems.length);
-      const coverage = describeDateCoverage(importedItems);
-      setSpotifyDateInsight(buildDateInsight(importedItems));
+      const coverage = timeline.describeDateCoverage(importedItems);
+      setSpotifyDateInsight(timeline.buildDateInsight(importedItems));
       setSpotifyStatus(
         `добавили ${importedItems.length} трек(ов) из ${service}${coverage ? ` · ${coverage}` : ""}`
       );
       setSpotifyUrl("");
       setTab("library");
       setToastMessage(`импортировали ${importedItems.length} трек(ов)`);
-      setTimelinePromptVisible(true);
+      timeline.setTimelinePromptVisible(true);
       fireAnalytics("music_link_import_completed", { count: importedItems.length, service: isYandexMusic ? "yandex_music" : "spotify" });
     } catch (error) {
       const message = error instanceof Error ? error.message : `не удалось импортировать из ${service}`;
@@ -1526,8 +1292,8 @@ export function useEveryYouApp() {
         setLibrary(remoteLibrary);
         setSyncStatus("online");
         setSyncMessage("данные синхронизируются с сервером");
-        const coverage = describeDateCoverage(parsedItems);
-        setFileImportDateInsight(buildDateInsight(parsedItems));
+        const coverage = timeline.describeDateCoverage(parsedItems);
+        setFileImportDateInsight(timeline.buildDateInsight(parsedItems));
         setFileImportStatus(`добавили ${created} айтем(ов) из файла${coverage ? ` · ${coverage}` : ""}`);
         setToastMessage(`загрузили ${created} айтем(ов)`);
         fireAnalytics("file_import_completed", { platform, count: created });
@@ -1542,8 +1308,8 @@ export function useEveryYouApp() {
           })),
           ...current,
         ]);
-        const coverage = describeDateCoverage(parsedItems);
-        setFileImportDateInsight(buildDateInsight(parsedItems));
+        const coverage = timeline.describeDateCoverage(parsedItems);
+        setFileImportDateInsight(timeline.buildDateInsight(parsedItems));
         setFileImportStatus(
           `добавили ${parsedItems.length} айтем(ов) локально${coverage ? ` · ${coverage}` : ""}`
         );
@@ -1552,7 +1318,7 @@ export function useEveryYouApp() {
       }
 
       setTab("library");
-      setTimelinePromptVisible(parsedItems.some((item) => item.consumedAt == null));
+      timeline.setTimelinePromptVisible(parsedItems.some((item) => item.consumedAt == null));
     } catch (error) {
       const message = error instanceof Error ? error.message : "file import failed";
       setFileImportStatus(message);
@@ -1602,8 +1368,8 @@ export function useEveryYouApp() {
       setLibrary(remoteLibrary);
       setSyncStatus("online");
       setSyncMessage("данные синхронизируются с сервером");
-      const coverage = describeDateCoverage(items);
-      options.dateInsightSetter(buildDateInsight(items));
+      const coverage = timeline.describeDateCoverage(items);
+      options.dateInsightSetter(timeline.buildDateInsight(items));
       options.statusSetter(`${options.successLabel}${coverage ? ` · ${coverage}` : ""}`);
       setToastMessage(options.successToast);
       fireAnalytics(options.analyticsEvent, { count: created, ...(options.analyticsProperties ?? {}) });
@@ -1616,20 +1382,16 @@ export function useEveryYouApp() {
         })),
         ...current,
       ]);
-      const coverage = describeDateCoverage(items);
-      options.dateInsightSetter(buildDateInsight(items));
+      const coverage = timeline.describeDateCoverage(items);
+      options.dateInsightSetter(timeline.buildDateInsight(items));
       options.statusSetter(`${options.successLabel}${coverage ? ` · ${coverage}` : ""}`);
       setToastMessage(options.successToast);
       fireAnalytics(options.analyticsEvent, { count: items.length, mode: "local", ...(options.analyticsProperties ?? {}) });
     }
 
     setTab("library");
-    setTimelinePromptVisible(items.some((item) => item.consumedAt == null));
+    timeline.setTimelinePromptVisible(items.some((item) => item.consumedAt == null));
   }
-
-
-
-
 
   async function importProfileSource(platform: ProfileSourcePlatform) {
     const config = PROFILE_SOURCES[platform];
@@ -1848,7 +1610,7 @@ export function useEveryYouApp() {
       setSyncStatus("online");
       setSyncMessage("данные синхронизируются с сервером");
       setSpotifyDateInsight(
-        buildDateInsight([
+        timeline.buildDateInsight([
           ...Array.from({ length: result.dateCoverage?.exact ?? 0 }, () => ({ consumedAt: 1, timeOrigin: "exact" as const })),
           ...Array.from({ length: result.dateCoverage?.imported ?? 0 }, () => ({ consumedAt: 1, timeOrigin: "imported" as const })),
           ...Array.from({ length: result.dateCoverage?.undated ?? 0 }, () => ({ consumedAt: undefined, timeOrigin: undefined })),
@@ -1865,7 +1627,7 @@ export function useEveryYouApp() {
       }
       setTab("library");
       setToastMessage(`добавили ${result.importedCount} трек(ов)`);
-      setTimelinePromptVisible(input.mode === "playlist");
+      timeline.setTimelinePromptVisible(input.mode === "playlist");
       fireAnalytics("spotify_account_import_completed", {
         mode: input.mode,
         importedCount: result.importedCount,
@@ -2093,18 +1855,6 @@ export function useEveryYouApp() {
     fireAnalytics("theme_changed", { mode: nextMode });
   }
 
-
-
-
-
-
-
-
-
-
-
-
-
   function updateHealthStepsEnabled(value: boolean) {
     setHealthStepsEnabled(value);
     if (value) {
@@ -2180,8 +1930,8 @@ export function useEveryYouApp() {
     deepAnalysisAccess,
     deepAnalysisUsesLeft,
     deepAnalysisTotalFreeUses,
-    timelineSpreading,
-    timelinePromptVisible,
+    timelineSpreading: timeline.timelineSpreading,
+    timelinePromptVisible: timeline.timelinePromptVisible,
     setNameDraft,
     saveProfileName,
     pickAvatar,
@@ -2253,20 +2003,20 @@ export function useEveryYouApp() {
     setSelectedId,
     runFakeAnalysis,
     runDeepAnalysis,
-    spreadIntoThisMonth: () => spreadVisibleUndatedItems("this_month"),
-    spreadIntoLastMonth: () => spreadVisibleUndatedItems("last_month"),
-    spreadIntoLast6Months: () => spreadVisibleUndatedItems("last_6_months"),
-    spreadIntoThisYear: () => spreadVisibleUndatedItems("this_year"),
-    spreadIntoVeryOld: () => spreadVisibleUndatedItems("very_old"),
-    assignItemTime: (itemId: string, preset: TimelineSpreadPreset) => assignTimelineToItem(itemId, preset),
-    assignSelectedToThisMonth: () => selectedId && assignTimelineToItem(selectedId, "this_month"),
-    assignSelectedToLastMonth: () => selectedId && assignTimelineToItem(selectedId, "last_month"),
-    assignSelectedToLast6Months: () => selectedId && assignTimelineToItem(selectedId, "last_6_months"),
-    assignSelectedToThisYear: () => selectedId && assignTimelineToItem(selectedId, "this_year"),
-    assignSelectedToVeryOld: () => selectedId && assignTimelineToItem(selectedId, "very_old"),
-    moveItemsToDate,
-    dismissTimelinePrompt: () => setTimelinePromptVisible(false),
-    promptTimelinePlacement,
+    spreadIntoThisMonth: () => timeline.spreadVisibleUndatedItems("this_month"),
+    spreadIntoLastMonth: () => timeline.spreadVisibleUndatedItems("last_month"),
+    spreadIntoLast6Months: () => timeline.spreadVisibleUndatedItems("last_6_months"),
+    spreadIntoThisYear: () => timeline.spreadVisibleUndatedItems("this_year"),
+    spreadIntoVeryOld: () => timeline.spreadVisibleUndatedItems("very_old"),
+    assignItemTime: (itemId: string, preset: TimelineSpreadPreset) => timeline.assignTimelineToItem(itemId, preset),
+    assignSelectedToThisMonth: () => selectedId && timeline.assignTimelineToItem(selectedId, "this_month"),
+    assignSelectedToLastMonth: () => selectedId && timeline.assignTimelineToItem(selectedId, "last_month"),
+    assignSelectedToLast6Months: () => selectedId && timeline.assignTimelineToItem(selectedId, "last_6_months"),
+    assignSelectedToThisYear: () => selectedId && timeline.assignTimelineToItem(selectedId, "this_year"),
+    assignSelectedToVeryOld: () => selectedId && timeline.assignTimelineToItem(selectedId, "very_old"),
+    moveItemsToDate: timeline.moveItemsToDate,
+    dismissTimelinePrompt: () => timeline.setTimelinePromptVisible(false),
+    promptTimelinePlacement: timeline.promptTimelinePlacement,
     openAnalysisResult: setAnalysisResult,
     showOnboarding: onboarding.showOnboarding,
     onboardingStep: onboarding.onboardingStep,

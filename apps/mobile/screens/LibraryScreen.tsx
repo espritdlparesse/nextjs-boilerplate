@@ -12,7 +12,9 @@ import {
   type ThemeMode,
 } from "../shared/everyyou/domain";
 import { PillButton } from "../components/PillButton";
+import { LibraryTile } from "../components/LibraryTile";
 import { appStyles } from "../styles/appStyles";
+import { typeTileStyle } from "../styles/typeTileStyle";
 import { getTheme } from "../styles/theme";
 
 type TypeFilter = ContentType | "all";
@@ -55,12 +57,6 @@ type LibraryScreenProps = {
   dailyStepsByDay: Record<string, number>;
   healthStepsEnabled: boolean;
 };
-
-function typeTileStyle(type: LibraryItem["type"]) {
-  if (type === "music") return appStyles.tilePink;
-  if (type === "book") return appStyles.tileBlue;
-  return appStyles.tileYellow;
-}
 
 function monthLabel(consumedAt?: number) {
   if (!consumedAt) return "без времени";
@@ -545,40 +541,6 @@ export function LibraryScreen({
     );
   }
 
-  function renderTileItem({ item }: { item: LibraryItem }) {
-    return (
-      <Pressable
-        style={[appStyles.tile, appStyles.libraryTile, typeTileStyle(item.type)]}
-        onPress={() => onSelectItem(item.id)}
-      >
-        <View style={appStyles.tileTopRow}>
-          <View style={appStyles.typeBadge}>
-            <Text style={appStyles.typeBadgeText}>{TYPE_LABEL[item.type]}</Text>
-          </View>
-          <Text style={[appStyles.metaDate, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>
-            {getConsumptionDate(item) ? formatFullDate(getConsumptionDate(item) as number) : "без времени"}
-          </Text>
-        </View>
-
-        <View>
-          <Text style={appStyles.itemMeta}>{item.authorOrArtist || TYPE_LABEL[item.type]}</Text>
-          <Text style={appStyles.itemTitle}>{item.title}</Text>
-        </View>
-        {getTimeOriginLabel(item.timeOrigin) ? (
-          <Text style={[appStyles.metaText, { color: themeMode === "dark" ? theme.accentMutedText : undefined }]}>{getTimeOriginLabel(item.timeOrigin)}</Text>
-        ) : null}
-
-        {!getConsumptionDate(item) ? (
-          <View style={appStyles.row}>
-            <PillButton themeMode={themeMode} label="недавно" onPress={() => onAssignItemTime(item.id, "this_month")} disabled={timelineSpreading} />
-            <PillButton themeMode={themeMode} label="месяц" onPress={() => onAssignItemTime(item.id, "last_month")} disabled={timelineSpreading} />
-            <PillButton themeMode={themeMode} label="полгода" onPress={() => onAssignItemTime(item.id, "last_6_months")} disabled={timelineSpreading} />
-          </View>
-        ) : null}
-      </Pressable>
-    );
-  }
-
   function renderCalendarView() {
     return (
       <ScrollView style={appStyles.scroll} contentContainerStyle={appStyles.libraryListContent} showsVerticalScrollIndicator={false}>
@@ -697,7 +659,7 @@ export function LibraryScreen({
         <FlatList
           data={visibleLibrary}
           keyExtractor={(item, index) => reactItemKey(item, index)}
-          renderItem={renderTileItem}
+          renderItem={({ item }) => <LibraryTile item={item} theme={theme} themeMode={themeMode} onSelectItem={onSelectItem} onAssignItemTime={onAssignItemTime} timelineSpreading={timelineSpreading} />}
           numColumns={2}
           ListHeaderComponent={renderTopCards}
           ListEmptyComponent={

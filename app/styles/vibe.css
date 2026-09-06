@@ -1,0 +1,51 @@
+.vibe-nav { grid-column: 4; }
+
+.vibe-nav .nav-icon,
+.nav-btn.vibe-nav.active .nav-icon { background: transparent; }
+
+.vibe-nav .nav-icon img { display: none; }
+
+.vibe-nav .nav-icon::before { content: "👀"; font-size: 20px; }
+
+.vibe-text {
+  margin-top: 20px;
+  padding: 24px;
+  background: #fafafa;
+  border: 1px solid #e7e2d9;
+  border-radius: 24px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  color: #222;
+}
+
+.vibe-section {
+  border-radius: 28px;
+  padding: 20px 18px;
+  border: 1px solid rgba(17,17,17,0.08);
+  margin-bottom: 20px;
+}
+
+.vibe-blue { background: #38C0FF; }
+
+.vibe-green { background: #49DE4E; }
+
+.vibe-pink { background: #FF79D5; }
+
+.vibe-helper {
+  font-size: 15px;
+  line-height: 1.55;
+  color: rgba(17,17,17,0.88);
+  text-transform: lowercase;
+  margin-bottom: 12px;
+}
+
+.vibe-meta {
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(17,17,17,0.68);
+  text-transform: lowercase;
+  margin-bottom: 12px;
+}
