@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "migrate": "node scripts/migrate.mjs",
-    "warm-context": "node scripts/warm-cultural-context.mjs"
+    "warm-context": "node scripts/warm-cultural-context.mjs",
+    "test": "node --test lib/__tests__/*.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.5",
