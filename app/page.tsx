@@ -299,8 +299,6 @@ export default function Page() {
   const [telegramLinkStatus, setTelegramLinkStatus] = useState("");
   const [telegramLinkSuccess, setTelegramLinkSuccess] = useState(false);
   const [showTelegramManualLink, setShowTelegramManualLink] = useState(false);
-  const [culturalMemoryConsent, setCulturalMemoryConsent] = useState(false);
-  const [culturalMemorySaving, setCulturalMemorySaving] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [profileNameDraft, setProfileNameDraft] = useState("");
   const [editingProfileName, setEditingProfileName] = useState(false);
@@ -360,15 +358,6 @@ export default function Page() {
     } catch {}
   }
 
-  async function loadCulturalMemoryConsent() {
-    try {
-      const res = await fetch("/api/v2/cultural-memory-consent", {
-        headers: { "x-telegram-init-data": getTgInitData() },
-      });
-      const json = await safeJson(res);
-      if (res.ok) setCulturalMemoryConsent(Boolean(json?.enabled));
-    } catch {}
-  }
 
   async function loadProfileSettings() {
     try {
@@ -423,22 +412,8 @@ export default function Page() {
     } finally { setProfileSaving(false); }
   }
 
-  async function updateCulturalMemoryConsent(enabled: boolean) {
-    setCulturalMemorySaving(true);
-    try {
-      const res = await fetch("/api/v2/cultural-memory-consent", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "x-telegram-init-data": getTgInitData() },
-        body: JSON.stringify({ enabled }),
-      });
-      const json = await safeJson(res);
-      if (res.ok) setCulturalMemoryConsent(Boolean(json?.enabled));
-    } finally {
-      setCulturalMemorySaving(false);
-    }
-  }
 
-  useEffect(() => { loadLibrary(); loadCustomCategories(); fetchDeepVibeAccess(); loadConnectedProfiles(); loadCulturalMemoryConsent(); loadProfileSettings(); }, []);
+  useEffect(() => { loadLibrary(); loadCustomCategories(); fetchDeepVibeAccess(); loadConnectedProfiles(); loadProfileSettings(); }, []);
 
   const counts = useMemo(() => ({
     total: items.length,
@@ -2815,13 +2790,6 @@ export default function Page() {
               </div>
             )}
 
-            <div className="card" style={{ background: "#e9f7df" }}>
-              <div className="card-title">культурная память</div>
-              <p className="card-text">в общую очередь попадут только имена авторов и артистов: без аккаунта, названий и истории.</p>
-              <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={() => void updateCulturalMemoryConsent(!culturalMemoryConsent)} disabled={culturalMemorySaving}>
-                {culturalMemorySaving ? "сохраняем..." : culturalMemoryConsent ? "помогаю памяти" : "помогать памяти"}
-              </button>
-            </div>
 
             <div className="card">
               <div className="card-title">подключенные сервисы</div>

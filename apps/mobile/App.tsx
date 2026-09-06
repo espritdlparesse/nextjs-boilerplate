@@ -616,7 +616,6 @@ export default function App() {
                   movieCount={app.counters.byType.movie}
                   totalSteps={app.totalSteps}
                   healthStepsEnabled={app.healthStepsEnabled}
-                  culturalMemoryConsent={app.culturalMemoryConsent}
                   exactCount={app.timeStats.exact}
                   importedCount={app.timeStats.imported}
                   estimatedCount={app.timeStats.estimated}
@@ -627,7 +626,6 @@ export default function App() {
                   onClearAvatarPress={app.clearAvatar}
                   onThemeChange={app.setThemeMode}
                   onHealthStepsEnabledChange={app.setHealthStepsEnabled}
-                  onCulturalMemoryConsentChange={app.setCulturalMemoryConsentEnabled}
                   onCreateTelegramLinkCode={app.createTelegramLinkCode}
                   onOpenTelegramLinkFlow={app.openTelegramLinkFlow}
                   onReplayOnboarding={app.replayOnboarding}

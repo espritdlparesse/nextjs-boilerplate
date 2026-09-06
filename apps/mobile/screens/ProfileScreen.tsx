@@ -26,7 +26,6 @@ type ProfileScreenProps = {
   movieCount: number;
   totalSteps: number;
   healthStepsEnabled: boolean;
-  culturalMemoryConsent: boolean;
   exactCount: number;
   importedCount: number;
   estimatedCount: number;
@@ -37,7 +36,6 @@ type ProfileScreenProps = {
   onClearAvatarPress: () => void;
   onThemeChange: (mode: ThemeMode) => void;
   onHealthStepsEnabledChange: (value: boolean) => void;
-  onCulturalMemoryConsentChange: (value: boolean) => void;
   onCreateTelegramLinkCode: () => void;
   onOpenTelegramLinkFlow: () => void;
   onReplayOnboarding: () => void;
@@ -69,7 +67,6 @@ export function ProfileScreen({
   movieCount,
   totalSteps,
   healthStepsEnabled,
-  culturalMemoryConsent,
   exactCount,
   importedCount,
   estimatedCount,
@@ -80,7 +77,6 @@ export function ProfileScreen({
   onClearAvatarPress,
   onThemeChange,
   onHealthStepsEnabledChange,
-  onCulturalMemoryConsentChange,
   onCreateTelegramLinkCode,
   onOpenTelegramLinkFlow,
   onReplayOnboarding,
@@ -215,15 +211,6 @@ export function ProfileScreen({
         <Text style={[appStyles.metaText, { color: theme.mutedText }]}>всего шагов в сохраненном слое: {totalSteps}</Text>
       </View>
 
-      <View style={[appStyles.card, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <Text style={[appStyles.label, { color: theme.mutedText }]}>культурная память</Text>
-        <Text style={[appStyles.helper, { color: theme.text }]}>можно помочь сделать вайбчеки точнее для всех.</Text>
-        <Text style={[appStyles.metaText, { color: theme.mutedText }]}>в общую очередь попадут только имена авторов и артистов. без твоего аккаунта, названий и истории.</Text>
-        <View style={appStyles.row}>
-          <PillButton label="не участвовать" active={!culturalMemoryConsent} themeMode={themeMode} onPress={() => onCulturalMemoryConsentChange(false)} />
-          <PillButton label="помогать памяти" active={culturalMemoryConsent} themeMode={themeMode} onPress={() => onCulturalMemoryConsentChange(true)} />
-        </View>
-      </View>
 
       <View style={[appStyles.card, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <Text style={[appStyles.label, { color: theme.mutedText }]}>настройки</Text>

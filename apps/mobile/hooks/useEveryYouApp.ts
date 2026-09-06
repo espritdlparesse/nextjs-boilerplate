@@ -38,7 +38,6 @@ import {
   ensureGuestSession,
   fetchBackendHealth,
   fetchConnectedSources,
-  fetchCulturalMemoryConsent,
   fetchDeepVibeCheckAccess,
   fetchItems,
   fetchSpotifyConnectionStatus,
@@ -56,7 +55,6 @@ import {
   importFromSpotifyUrl,
   runDeepVibeCheck,
   runVibeCheck,
-  updateCulturalMemoryConsent,
   resetGuestSession,
   saveConnectedSource,
   startTelegramLink,
@@ -260,7 +258,6 @@ export function useEveryYouApp() {
   const [fileImportDateInsight, setFileImportDateInsight] = useState<DateInsight | null>(null);
   const [dailySteps, setDailySteps] = useState<DailyStepEntry[]>([]);
   const [healthStepsEnabled, setHealthStepsEnabled] = useState(false);
-  const [culturalMemoryConsent, setCulturalMemoryConsent] = useState(false);
   const deferredLibrary = useDeferredValue(library);
 
   async function refreshLinkedLibrary(token: string, attempts = 4) {
@@ -467,26 +464,6 @@ export function useEveryYouApp() {
     if (!loaded || !apiToken) return;
     fireAnalytics("screen_view", { screen: tab });
   }, [tab, loaded, apiToken]);
-
-  useEffect(() => {
-    if (!apiToken) return;
-
-    fetchCulturalMemoryConsent(apiToken).then((data) => setCulturalMemoryConsent(data.enabled)).catch(() => undefined);
-  }, [apiToken]);
-
-  async function setCulturalMemoryConsentEnabled(enabled: boolean) {
-    if (!apiToken) {
-      setToastMessage("сначала подключимся к серверу");
-      return;
-    }
-    try {
-      const data = await updateCulturalMemoryConsent(apiToken, enabled);
-      setCulturalMemoryConsent(data.enabled);
-      setToastMessage(data.enabled ? "помогаешь культурной памяти" : "участие выключено");
-    } catch {
-      setToastMessage("не получилось сохранить настройку");
-    }
-  }
 
   useEffect(() => {
     if (!apiToken) return;
@@ -2281,8 +2258,6 @@ export function useEveryYouApp() {
     skipOnboarding,
     finishOnboarding,
     replayOnboarding,
-    culturalMemoryConsent,
-    setCulturalMemoryConsentEnabled,
   };
 }
 

@@ -472,17 +472,6 @@ export async function runVibeCheck(token: string, input?: { from?: number; to?: 
   });
 }
 
-export async function fetchCulturalMemoryConsent(token: string) {
-  return fetchJson<{ enabled: boolean }>("/api/v2/cultural-memory-consent", { headers: authHeaders(token) });
-}
-
-export async function updateCulturalMemoryConsent(token: string, enabled: boolean) {
-  return fetchJson<{ enabled: boolean }>("/api/v2/cultural-memory-consent", {
-    method: "PUT",
-    headers: authHeaders(token),
-    body: JSON.stringify({ enabled }),
-  });
-}
 
 export async function fetchDeepVibeCheckAccess(token: string) {
   return fetchJson<Pick<DeepVibeCheckResponse, "access" | "usesLeft" | "totalFreeUses">>("/api/v2/deep-analysis", {
