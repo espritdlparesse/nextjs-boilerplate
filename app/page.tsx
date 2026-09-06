@@ -710,6 +710,51 @@ function useLibrary(deps: {
   };
 }
 
+function toImportedItems(raw: unknown, fallbackSource: string): ImportedItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((item: any) => ({
+    type: item.type,
+    source: item.source ?? fallbackSource,
+    title: item.title,
+    creator: item.authorOrArtist ?? "",
+    consumedAt: typeof item.consumedAt === "number" ? item.consumedAt : undefined,
+    timeOrigin: item.timeOrigin ?? undefined,
+  }));
+}
+
+function toYandexTracks(raw: unknown): ImportedItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item: any) => ({
+      type: "music" as const,
+      source: "import_yandex_music" as const,
+      title: String(item.title ?? ""),
+      creator: String(item.authorOrArtist ?? "") || undefined,
+    }))
+    .filter((item) => item.title && item.creator);
+}
+
+const PROFILE_IMPORTS = {
+  lastfm: {
+    endpoint: "/api/lastfm/import-profile",
+    bodyKey: "username",
+    emptyInput: "введи username last.fm",
+    lookingUp: "смотрим профиль last.fm...",
+    fetching: "тянем recent tracks...",
+    failed: "не удалось импортировать профиль last.fm",
+    found: (count: number) => `готово: нашли ${count} трек(ов) в last.fm`,
+  },
+  letterboxd: {
+    endpoint: "/api/letterboxd/import-profile",
+    bodyKey: "profile",
+    emptyInput: "вставь username или ссылку на profile letterboxd",
+    lookingUp: "смотрим public profile letterboxd...",
+    fetching: "читаем diary и watched...",
+    failed: "не удалось импортировать profile Letterboxd",
+    found: (count: number) => `готово: нашли ${count} фильм(ов) в letterboxd`,
+  },
+} as const;
+
 function useImports(deps: { items: DbItem[]; loadLibrary: () => void; setTab: (tab: Tab) => void }) {
   const { items, loadLibrary, setTab } = deps;
   const [spotifyConnected, setSpotifyConnected] = useState<boolean | null>(null);
@@ -777,12 +822,7 @@ function useImports(deps: { items: DbItem[]; loadLibrary: () => void; setTab: (t
       });
       const json = await safeJson(res);
       if (!res.ok) throw new Error(json?.error ?? "не удалось прочитать плейлист");
-      const result: ImportedItem[] = (json?.items ?? []).map((item: any) => ({
-        type: "music",
-        source: "import_yandex_music",
-        title: String(item.title ?? ""),
-        creator: String(item.authorOrArtist ?? "") || undefined,
-      })).filter((item: ImportedItem) => item.title && item.creator);
+      const result = toYandexTracks(json?.items);
       if (!result.length) throw new Error("в этом плейлисте не нашлось доступных треков");
       setImported(result);
       setSelectedIdx(new Set(result.map((_, index) => index)));
@@ -899,95 +939,43 @@ function useImports(deps: { items: DbItem[]; loadLibrary: () => void; setTab: (t
     setSelectedImportService(service);
   }
 
-  async function importLastfmProfileWeb() {
-    if (!lastfmProfileInput.trim()) {
-      setImportError("введи username last.fm");
-      return;
-    }
-    setImportLoading(true);
-    setImportError("");
-    setImportStatus("смотрим профиль last.fm...");
-    try {
-      setImportStatus("тянем recent tracks...");
-      const res = await fetch("/api/lastfm/import-profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: lastfmProfileInput.trim() }),
-      });
-      const json = await safeJson(res);
-      if (!res.ok) {
-        setImportError(json?.error ?? "не удалось импортировать профиль last.fm");
-        return;
-      }
-      const result: ImportedItem[] = (json?.items ?? []).map((item: any) => ({
-        type: item.type,
-        source: item.source ?? "lastfm",
-        title: item.title,
-        creator: item.authorOrArtist ?? "",
-        consumedAt: typeof item.consumedAt === "number" ? item.consumedAt : undefined,
-        timeOrigin: item.timeOrigin ?? undefined,
-      }));
-      setImported(result);
-      setSelectedIdx(new Set(result.map((_: ImportedItem, i: number) => i)));
-      setSelectedImportService(null);
-      setConnectedProfiles((current) => ({
-        ...current,
-        lastfm: { profile: lastfmProfileInput.trim(), lastSyncedAt: new Date().toISOString() },
-      }));
-      setImportStatus(
-        result.length > 0
-          ? `готово: нашли ${result.length} трек(ов) в last.fm`
-          : "ничего не нашли в этом профиле"
-      );
-    } catch (e: any) {
-      setImportError(e?.message ?? "не удалось импортировать профиль last.fm");
-    } finally {
-      setImportLoading(false);
-    }
-  }
 
-  async function importLetterboxdProfileWeb() {
-    if (!letterboxdProfileInput.trim()) {
-      setImportError("вставь username или ссылку на profile letterboxd");
+
+
+
+  async function importProfileWeb(platform: "lastfm" | "letterboxd") {
+    const config = PROFILE_IMPORTS[platform];
+    const profile = (platform === "lastfm" ? lastfmProfileInput : letterboxdProfileInput).trim();
+    if (!profile) {
+      setImportError(config.emptyInput);
       return;
     }
     setImportLoading(true);
     setImportError("");
-    setImportStatus("смотрим public profile letterboxd...");
+    setImportStatus(config.lookingUp);
     try {
-      setImportStatus("читаем diary и watched...");
-      const res = await fetch("/api/letterboxd/import-profile", {
+      setImportStatus(config.fetching);
+      const res = await fetch(config.endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profile: letterboxdProfileInput.trim() }),
+        body: JSON.stringify({ [config.bodyKey]: profile }),
       });
       const json = await safeJson(res);
       if (!res.ok) {
-        setImportError(json?.error ?? "не удалось импортировать profile Letterboxd");
+        setImportError(json?.error ?? config.failed);
         return;
       }
-      const result: ImportedItem[] = (json?.items ?? []).map((item: any) => ({
-        type: item.type,
-        source: item.source ?? "letterboxd",
-        title: item.title,
-        creator: item.authorOrArtist ?? "",
-        consumedAt: typeof item.consumedAt === "number" ? item.consumedAt : undefined,
-        timeOrigin: item.timeOrigin ?? undefined,
-      }));
+      const result = toImportedItems(json?.items, platform);
       setImported(result);
       setSelectedIdx(new Set(result.map((_: ImportedItem, i: number) => i)));
       setSelectedImportService(null);
       setConnectedProfiles((current) => ({
         ...current,
-        letterboxd: { profile: letterboxdProfileInput.trim(), lastSyncedAt: new Date().toISOString() },
+        [platform]: { profile, lastSyncedAt: new Date().toISOString() },
       }));
-      setImportStatus(
-        result.length > 0
-          ? `готово: нашли ${result.length} фильм(ов) в letterboxd`
-          : "ничего не нашли в этом профиле"
-      );
+      setImportStatus(result.length > 0 ? config.found(result.length) : "ничего не нашли в этом профиле");
     } catch (e: any) {
-      setImportError(e?.message ?? "не удалось импортировать profile Letterboxd");
+      setImportError(e?.message ?? config.failed);
     } finally {
       setImportLoading(false);
     }
@@ -1129,8 +1117,7 @@ function useImports(deps: { items: DbItem[]; loadLibrary: () => void; setTab: (t
     setImportError, setImportStatus, setImported, setSelectedIdx, setImportLoading,
     setSelectedImportService, setLastfmProfileInput, setLetterboxdProfileInput, setYandexMusicUrl,
     importCsvPlatform, importYandexMusicPlaylist, toggleImported, runImport, saveSelected,
-    saveSelectedImported, startImportService, importLastfmProfileWeb,
-    importLetterboxdProfileWeb, confirmCsvImport,
+    saveSelectedImported, startImportService, importProfileWeb, confirmCsvImport,
     checkSpotify, disconnectSpotify, connectSpotify, syncSpotify,
     disconnectConnectedProfile, loadConnectedProfiles,
   };
@@ -2598,7 +2585,7 @@ export default function Page() {
                   <button
                     className="btn"
                     style={{ marginTop: 16 }}
-                    onClick={imports.importLastfmProfileWeb}
+                    onClick={() => void imports.importProfileWeb("lastfm")}
                     disabled={imports.importLoading}
                   >
                     импортировать профиль
@@ -2617,7 +2604,7 @@ export default function Page() {
                   <button
                     className="btn"
                     style={{ marginTop: 16 }}
-                    onClick={imports.importLetterboxdProfileWeb}
+                    onClick={() => void imports.importProfileWeb("letterboxd")}
                     disabled={imports.importLoading}
                   >
                     импортировать профиль
