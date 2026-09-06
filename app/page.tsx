@@ -926,6 +926,7 @@ export default function Page() {
 
   useEffect(() => { loadLibrary(); loadCustomCategories(); vibe.fetchDeepVibeAccess(); loadConnectedProfiles(); profile.loadProfileSettings(); }, []);
 
+  const countsUnknown = libraryLoading && items.length === 0;
   const counts = useMemo(() => ({
     total: items.length,
     music: items.filter((i) => i.type === "music").length,
@@ -1614,10 +1615,10 @@ export default function Page() {
                 </div>
               )}
               <div className="stats" style={{ marginTop: 16 }}>
-                <div className="stat-pill"><div className="stat-num">{counts.total}</div><div className="stat-label">всего</div></div>
-                <div className="stat-pill"><div className="stat-num">{counts.music}</div><div className="stat-label">музыка</div></div>
-                <div className="stat-pill"><div className="stat-num">{counts.books}</div><div className="stat-label">книги</div></div>
-                <div className="stat-pill"><div className="stat-num">{counts.movies}</div><div className="stat-label">фильмы</div></div>
+                <div className="stat-pill"><div className="stat-num">{countsUnknown ? "—" : counts.total}</div><div className="stat-label">всего</div></div>
+                <div className="stat-pill"><div className="stat-num">{countsUnknown ? "—" : counts.music}</div><div className="stat-label">музыка</div></div>
+                <div className="stat-pill"><div className="stat-num">{countsUnknown ? "—" : counts.books}</div><div className="stat-label">книги</div></div>
+                <div className="stat-pill"><div className="stat-num">{countsUnknown ? "—" : counts.movies}</div><div className="stat-label">фильмы</div></div>
               </div>
             </div>
 
@@ -2334,7 +2335,9 @@ export default function Page() {
             <div className="card-title">вайбчек</div>
             <div className="vibe-section vibe-blue">
               <div className="vibe-helper">
-                сейчас в библиотеке {counts.total}: музыка {counts.music}, книги {counts.books}, фильмы {counts.movies}.
+                {countsUnknown
+                  ? "считаем, что у тебя в библиотеке..."
+                  : `сейчас в библиотеке ${counts.total}: музыка ${counts.music}, книги ${counts.books}, фильмы ${counts.movies}.`}
               </div>
               <div className="vibe-meta">
                 быстрый вайбчек — это короткая прожарка по неожиданным сочетаниям в библиотеке.
@@ -2343,11 +2346,13 @@ export default function Page() {
                 className="btn btn-outline"
                 style={{ background: "#ffffff", borderColor: "#ffffff" }}
                 onClick={vibe.runVibeCheck}
-                disabled={vibe.vibeLoading || counts.total === 0}
+                disabled={vibe.vibeLoading || countsUnknown || counts.total === 0}
               >
                 {vibe.vibeLoading
                   ? "анализирую..."
-                  : counts.total === 0
+                  : countsUnknown
+                    ? "загружаем библиотеку..."
+                    : counts.total === 0
                     ? "сначала добавь контент"
                     : vibe.summary || vibe.vibeDuel
                       ? "ещё раз!"
@@ -2404,7 +2409,7 @@ export default function Page() {
               className="btn btn-outline"
               style={{marginTop: 12}}
               onClick={vibe.runMentalAge}
-              disabled={vibe.mentalAgeLoading || counts.total === 0}
+              disabled={vibe.mentalAgeLoading || countsUnknown || counts.total === 0}
             >
               {vibe.mentalAgeLoading ? "считаю..." : "рассчитать ментальный возраст"}
             </button>
