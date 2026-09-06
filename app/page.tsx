@@ -1,4 +1,5 @@
 "use client";
+import { generateShareCard } from "@/lib/shareCard";
 
 import Script from "next/script";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -171,6 +172,17 @@ function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1, 12, 0, 0, 0);
 }
 
+function fireAnalytics(event: string, properties?: Record<string, unknown>) {
+  fetch("/api/v2/analytics", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-telegram-init-data": getTgInitData(),
+    },
+    body: JSON.stringify({ event, properties: properties ?? {} }),
+  }).catch(() => undefined);
+}
+
 async function safeJson(res: Response) {
   try { return await res.json(); } catch { return {}; }
 }
@@ -195,6 +207,180 @@ const TYPE_COLORS: Record<ItemType, string> = {
   movie: "#d8e8fd",
   custom: "#f0f0f0",
 };
+
+function useVibecheck() {
+  const [summary, setSummary] = useState("");
+  const [vibeLoading, setVibeLoading] = useState(false);
+  const [vibeError, setVibeError] = useState("");
+  const [vibeFeedback, setVibeFeedback] = useState<"good" | "bad" | null>(null);
+  const [vibeRunId, setVibeRunId] = useState<string | null>(null);
+  const [vibeDuel, setVibeDuel] = useState<VibeDuel | null>(null);
+  const [vibeShownAt, setVibeShownAt] = useState<number | null>(null);
+  const [shareRunId, setShareRunId] = useState<string | null>(null);
+  const [mentalAge, setMentalAge] = useState("");
+  const [mentalAgeLoading, setMentalAgeLoading] = useState(false);
+  const [deepVibeResult, setDeepVibeResult] = useState("");
+  const [deepVibeLoading, setDeepVibeLoading] = useState(false);
+  const [deepVibeAccess, setDeepVibeAccess] = useState<"free"|"paid"|"forever"|"none"|null>(null);
+  const [deepVibeUsesLeft, setDeepVibeUsesLeft] = useState<number|null>(null);
+
+  async function runVibeCheck() {
+    if (summary) {
+      fireAnalytics("vibecheck_rerolled", {
+        runId: vibeRunId,
+        msSinceShown: vibeShownAt ? Date.now() - vibeShownAt : null,
+        rated: vibeFeedback,
+      });
+    }
+    setVibeLoading(true); setVibeError(""); setSummary(""); setVibeFeedback(null); setVibeRunId(null); setVibeDuel(null);
+    try {
+      const res = await fetch("/api/v2/analysis", {
+        method: "POST",
+        headers: { "x-telegram-init-data": getTgInitData(), "x-vibecheck-duel": "1" },
+      });
+      const json = await safeJson(res);
+      if (!res.ok) {
+        setVibeError(
+          json?.error ??
+            (res.status === 504 || res.status === 408
+              ? "вайбчек не успел ответить. попробуй еще раз."
+              : `не удалось провести вайбчек (код ${res.status}).`
+            )
+        );
+        return;
+      }
+      const duel = json?.duel as VibeDuel | undefined;
+      if (duel?.id && Array.isArray(duel.variants) && duel.variants.length >= 2) {
+        setVibeDuel(duel);
+        setVibeShownAt(Date.now());
+        return;
+      }
+      setSummary(json?.summary ?? "");
+      setVibeRunId(typeof json?.runId === "string" ? json.runId : null);
+      setVibeShownAt(Date.now());
+    } catch (e: any) {
+      setVibeError(e?.message ?? "Network error");
+    } finally {
+      setVibeLoading(false);
+    }
+  }
+
+  async function pickDuelWinner(variant: VibeDuelVariant) {
+    if (!vibeDuel) return;
+    const duelId = vibeDuel.id;
+    setVibeDuel(null);
+    setSummary(variant.summary);
+    setVibeRunId(variant.runId);
+    setVibeShownAt(Date.now());
+    setVibeFeedback(null);
+    await fetch("/api/v2/vibe-duel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-telegram-init-data": getTgInitData() },
+      body: JSON.stringify({ duelId, winnerRunId: variant.runId }),
+    }).catch(() => undefined);
+  }
+
+  async function rateVibeCheck(rating: "good" | "bad") {
+    if (!summary || vibeFeedback) return;
+    setVibeFeedback(rating);
+    await fetch("/api/v2/vibe-feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-telegram-init-data": getTgInitData() },
+      body: JSON.stringify({ summary, rating, runId: vibeRunId }),
+    }).catch(() => undefined);
+  }
+
+  async function fetchDeepVibeAccess() {
+    try {
+      const res = await fetch("/api/deep-vibe", {
+        headers: { "x-telegram-init-data": getTgInitData() },
+      });
+      const json = await safeJson(res);
+      setDeepVibeAccess(json?.access ?? "none");
+      setDeepVibeUsesLeft(json?.usesLeft ?? 0);
+    } catch {}
+  }
+
+  async function runDeepVibe() {
+    setDeepVibeLoading(true); setDeepVibeResult("");
+    try {
+      const res = await fetch("/api/deep-vibe", {
+        method: "POST",
+        headers: {
+          "x-telegram-init-data": getTgInitData(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
+      const json = await safeJson(res);
+      if (json?.error === "no_access") {
+        setDeepVibeAccess("none");
+        setDeepVibeUsesLeft(0);
+        return;
+      }
+      setDeepVibeResult(json?.result ?? "");
+      // Обновляем счётчик после использования
+      fetchDeepVibeAccess();
+    } catch (e: any) {
+      setDeepVibeResult("не удалось загрузить");
+    } finally {
+      setDeepVibeLoading(false);
+    }
+  }
+
+  async function openDeepVibePurchase(product: "deep_vibe_once" | "deep_vibe_forever") {
+    const tg = (window as any).Telegram?.WebApp;
+    if (!tg?.openInvoice) {
+      alert("Покупка доступна только в Telegram");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/invoice?product=${product}`, {
+        headers: { "x-telegram-init-data": getTgInitData() },
+      });
+      const json = await safeJson(res);
+      if (!json?.url) {
+        alert("Не удалось создать инвойс: " + (json?.error ?? "неизвестная ошибка"));
+        return;
+      }
+      tg.openInvoice(json.url, (status: string) => {
+        if (status === "paid") {
+          fetchDeepVibeAccess();
+        }
+      });
+    } catch (e: any) {
+      alert("Ошибка: " + e?.message);
+    }
+  }
+
+  function buyDeepVibeOnce() { openDeepVibePurchase("deep_vibe_once"); }
+
+  function buyDeepVibeForever() { openDeepVibePurchase("deep_vibe_forever"); }
+
+  async function runMentalAge() {
+    setMentalAgeLoading(true); setMentalAge("");
+    try {
+      const res = await fetch("/api/mental-age", {
+        method: "POST",
+        headers: { "x-telegram-init-data": getTgInitData() },
+      });
+      const json = await safeJson(res);
+      setMentalAge(json?.result ?? "");
+    } catch (e: any) {
+      setMentalAge("не удалось посчитать");
+    } finally {
+      setMentalAgeLoading(false);
+    }
+  }
+
+  return {
+    summary, vibeLoading, vibeError, vibeFeedback, vibeRunId, vibeDuel, shareRunId,
+    mentalAge, mentalAgeLoading, deepVibeResult, deepVibeLoading, deepVibeAccess, deepVibeUsesLeft,
+    setShareRunId, setVibeRunId,
+    runVibeCheck, pickDuelWinner, rateVibeCheck, fetchDeepVibeAccess,
+    runDeepVibe, openDeepVibePurchase, buyDeepVibeOnce, buyDeepVibeForever, runMentalAge,
+  };
+}
 
 export default function Page() {
   const [tab, setTab] = useState<Tab>("profile");
@@ -308,16 +494,7 @@ export default function Page() {
   const profileAvatarInputRef = useRef<HTMLInputElement>(null);
   const autoLinkHandledRef = useRef(false);
 
-  function fireAnalytics(event: string, properties?: Record<string, unknown>) {
-    fetch("/api/v2/analytics", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-telegram-init-data": getTgInitData(),
-      },
-      body: JSON.stringify({ event, properties: properties ?? {} }),
-    }).catch(() => undefined);
-  }
+
 
   async function loadLibrary() {
     setLibraryLoading(true);
@@ -413,23 +590,7 @@ export default function Page() {
   }
 
 
-  useEffect(() => { loadLibrary(); loadCustomCategories(); fetchDeepVibeAccess(); loadConnectedProfiles(); loadProfileSettings(); }, []);
-
-  const counts = useMemo(() => ({
-    total: items.length,
-    music: items.filter((i) => i.type === "music").length,
-    books: items.filter((i) => i.type === "book").length,
-    movies: items.filter((i) => i.type === "movie").length,
-  }), [items]);
-
-  const headerAvatar = useMemo(() => {
-    const raw = helloName.replace(/^привет,?\s*/i, "").trim();
-    if (!raw || raw === "привет!") return "◐";
-    const first = raw[0];
-    return first ? first.toUpperCase() : "◐";
-  }, [helloName]);
-
-  // ===== Import =====
+  const vibe = useVibecheck();
   const fileRef = useRef<HTMLInputElement | null>(null);
   const csvImportRef = useRef<HTMLInputElement | null>(null);
   const [importLoading, setImportLoading] = useState(false);
@@ -442,93 +603,6 @@ export default function Page() {
   const [lastfmProfileInput, setLastfmProfileInput] = useState("");
   const [letterboxdProfileInput, setLetterboxdProfileInput] = useState("");
   const [yandexMusicUrl, setYandexMusicUrl] = useState("");
-
-  const importServices: ImportService[] = [
-    { id: "spotify", title: "Spotify", subtitle: "музыка", icon: "◉", kind: "oauth", actionLabel: "подключить spotify" },
-    {
-      id: "livelib",
-      title: "LiveLib",
-      subtitle: "книги csv",
-      icon: "▤",
-      kind: "csv",
-      actionLabel: "выбрать файл",
-      instructions: [
-        "нужен csv",
-        "у livelib нет одного понятного официального экспорта для нас, поэтому сейчас нужен уже готовый csv",
-        "подойдет выгрузка через livelib-backup или любой csv, где есть название и автор",
-        "потом просто выбери этот файл из «файлов»",
-      ],
-    },
-    {
-      id: "goodreads",
-      title: "Goodreads",
-      subtitle: "книги csv",
-      icon: "G",
-      kind: "csv",
-      actionLabel: "выбрать файл",
-      instructions: [
-        "нужен csv",
-        "в goodreads открой my books → import and export",
-        "нажми export library и потом загрузи сюда получившийся csv-файл",
-      ],
-    },
-    {
-      id: "letterboxd",
-      title: "Letterboxd",
-      subtitle: "public profile beta",
-      icon: "◌",
-      kind: "profile",
-      actionLabel: "импортировать профиль",
-      instructions: [
-        "можно без csv",
-        "вставь username или ссылку на публичный profile letterboxd",
-        "мы попробуем забрать recent diary / watched через public rss",
-        "если профиль закрыт или rss не поможет — всегда можно вернуться к watched.csv",
-      ],
-    },
-    {
-      id: "lastfm",
-      title: "last.fm",
-      subtitle: "recent tracks beta",
-      icon: "♪",
-      kind: "profile",
-      actionLabel: "импортировать профиль",
-      instructions: [
-        "recent tracks beta",
-        "введи username last.fm и мы попробуем забрать recent tracks через api",
-        "если у треков есть scrobble time, они сразу лягут в календарь по дням",
-        "если этот способ не сработает, всегда можно загрузить csv",
-      ],
-    },
-    {
-      id: "kinopoisk",
-      title: "Кинопоиск",
-      subtitle: "просмотры csv",
-      icon: "★",
-      kind: "csv",
-      actionLabel: "выбрать файл",
-      instructions: [
-        "нужен csv",
-        "если у тебя уже есть csv с просмотрами или оценками из кинопоиска, можно загрузить его сюда",
-        "если в файле есть watched / isWatched / watched date, возьмем только просмотренное",
-        "дальше просто выбери файл из «файлов»",
-      ],
-    },
-    {
-      id: "mubi",
-      title: "MUBI",
-      subtitle: "фильмы csv",
-      icon: "●",
-      kind: "csv",
-      actionLabel: "выбрать файл",
-      instructions: [
-        "нужен csv",
-        "если у тебя уже есть csv с просмотренными фильмами из mubi, можно загрузить его сюда",
-        "лучше всего подходят колонки title или name, а еще year, director и дата просмотра, если она есть",
-        "дальше просто выбери файл из «файлов»",
-      ],
-    },
-  ];
 
   async function importCsvPlatform(platform: Exclude<ImportPlatform, "spotify">, file: File) {
     setImportLoading(true);
@@ -795,6 +869,131 @@ export default function Page() {
     csvImportRef.current?.click();
   }
 
+  useEffect(() => { loadLibrary(); loadCustomCategories(); vibe.fetchDeepVibeAccess(); loadConnectedProfiles(); loadProfileSettings(); }, []);
+
+  const counts = useMemo(() => ({
+    total: items.length,
+    music: items.filter((i) => i.type === "music").length,
+    books: items.filter((i) => i.type === "book").length,
+    movies: items.filter((i) => i.type === "movie").length,
+  }), [items]);
+
+  const headerAvatar = useMemo(() => {
+    const raw = helloName.replace(/^привет,?\s*/i, "").trim();
+    if (!raw || raw === "привет!") return "◐";
+    const first = raw[0];
+    return first ? first.toUpperCase() : "◐";
+  }, [helloName]);
+
+  // ===== Import =====
+
+  const importServices: ImportService[] = [
+    { id: "spotify", title: "Spotify", subtitle: "музыка", icon: "◉", kind: "oauth", actionLabel: "подключить spotify" },
+    {
+      id: "livelib",
+      title: "LiveLib",
+      subtitle: "книги csv",
+      icon: "▤",
+      kind: "csv",
+      actionLabel: "выбрать файл",
+      instructions: [
+        "нужен csv",
+        "у livelib нет одного понятного официального экспорта для нас, поэтому сейчас нужен уже готовый csv",
+        "подойдет выгрузка через livelib-backup или любой csv, где есть название и автор",
+        "потом просто выбери этот файл из «файлов»",
+      ],
+    },
+    {
+      id: "goodreads",
+      title: "Goodreads",
+      subtitle: "книги csv",
+      icon: "G",
+      kind: "csv",
+      actionLabel: "выбрать файл",
+      instructions: [
+        "нужен csv",
+        "в goodreads открой my books → import and export",
+        "нажми export library и потом загрузи сюда получившийся csv-файл",
+      ],
+    },
+    {
+      id: "letterboxd",
+      title: "Letterboxd",
+      subtitle: "public profile beta",
+      icon: "◌",
+      kind: "profile",
+      actionLabel: "импортировать профиль",
+      instructions: [
+        "можно без csv",
+        "вставь username или ссылку на публичный profile letterboxd",
+        "мы попробуем забрать recent diary / watched через public rss",
+        "если профиль закрыт или rss не поможет — всегда можно вернуться к watched.csv",
+      ],
+    },
+    {
+      id: "lastfm",
+      title: "last.fm",
+      subtitle: "recent tracks beta",
+      icon: "♪",
+      kind: "profile",
+      actionLabel: "импортировать профиль",
+      instructions: [
+        "recent tracks beta",
+        "введи username last.fm и мы попробуем забрать recent tracks через api",
+        "если у треков есть scrobble time, они сразу лягут в календарь по дням",
+        "если этот способ не сработает, всегда можно загрузить csv",
+      ],
+    },
+    {
+      id: "kinopoisk",
+      title: "Кинопоиск",
+      subtitle: "просмотры csv",
+      icon: "★",
+      kind: "csv",
+      actionLabel: "выбрать файл",
+      instructions: [
+        "нужен csv",
+        "если у тебя уже есть csv с просмотрами или оценками из кинопоиска, можно загрузить его сюда",
+        "если в файле есть watched / isWatched / watched date, возьмем только просмотренное",
+        "дальше просто выбери файл из «файлов»",
+      ],
+    },
+    {
+      id: "mubi",
+      title: "MUBI",
+      subtitle: "фильмы csv",
+      icon: "●",
+      kind: "csv",
+      actionLabel: "выбрать файл",
+      instructions: [
+        "нужен csv",
+        "если у тебя уже есть csv с просмотренными фильмами из mubi, можно загрузить его сюда",
+        "лучше всего подходят колонки title или name, а еще year, director и дата просмотра, если она есть",
+        "дальше просто выбери файл из «файлов»",
+      ],
+    },
+  ];
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   // ===== Custom Categories =====
   type CustomCategory = { id: string; name: string; emoji: string; };
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
@@ -991,20 +1190,6 @@ export default function Page() {
   }
 
   // ===== Vibe =====
-  const [summary, setSummary] = useState("");
-  const [vibeLoading, setVibeLoading] = useState(false);
-  const [vibeError, setVibeError] = useState("");
-  const [vibeFeedback, setVibeFeedback] = useState<"good" | "bad" | null>(null);
-  const [vibeRunId, setVibeRunId] = useState<string | null>(null);
-  const [vibeDuel, setVibeDuel] = useState<VibeDuel | null>(null);
-  const [vibeShownAt, setVibeShownAt] = useState<number | null>(null);
-  const [shareRunId, setShareRunId] = useState<string | null>(null);
-  const [mentalAge, setMentalAge] = useState("");
-  const [mentalAgeLoading, setMentalAgeLoading] = useState(false);
-  const [deepVibeResult, setDeepVibeResult] = useState("");
-  const [deepVibeLoading, setDeepVibeLoading] = useState(false);
-  const [deepVibeAccess, setDeepVibeAccess] = useState<"free"|"paid"|"forever"|"none"|null>(null);
-  const [deepVibeUsesLeft, setDeepVibeUsesLeft] = useState<number|null>(null);
 
   async function checkSpotify() {
     try {
@@ -1108,137 +1293,20 @@ export default function Page() {
     finally { setSpotifySyncing(false); }
   }
 
-  async function runVibeCheck() {
-    if (summary) {
-      fireAnalytics("vibecheck_rerolled", {
-        runId: vibeRunId,
-        msSinceShown: vibeShownAt ? Date.now() - vibeShownAt : null,
-        rated: vibeFeedback,
-      });
-    }
-    setVibeLoading(true); setVibeError(""); setSummary(""); setVibeFeedback(null); setVibeRunId(null); setVibeDuel(null);
-    try {
-      const res = await fetch("/api/v2/analysis", {
-        method: "POST",
-        headers: { "x-telegram-init-data": getTgInitData(), "x-vibecheck-duel": "1" },
-      });
-      const json = await safeJson(res);
-      if (!res.ok) {
-        setVibeError(
-          json?.error ??
-            (res.status === 504 || res.status === 408
-              ? "вайбчек не успел ответить. попробуй еще раз."
-              : `не удалось провести вайбчек (код ${res.status}).`
-            )
-        );
-        return;
-      }
-      const duel = json?.duel as VibeDuel | undefined;
-      if (duel?.id && Array.isArray(duel.variants) && duel.variants.length >= 2) {
-        setVibeDuel(duel);
-        setVibeShownAt(Date.now());
-        return;
-      }
-      setSummary(json?.summary ?? "");
-      setVibeRunId(typeof json?.runId === "string" ? json.runId : null);
-      setVibeShownAt(Date.now());
-    } catch (e: any) {
-      setVibeError(e?.message ?? "Network error");
-    } finally {
-      setVibeLoading(false);
-    }
-  }
 
-  async function pickDuelWinner(variant: VibeDuelVariant) {
-    if (!vibeDuel) return;
-    const duelId = vibeDuel.id;
-    setVibeDuel(null);
-    setSummary(variant.summary);
-    setVibeRunId(variant.runId);
-    setVibeShownAt(Date.now());
-    setVibeFeedback(null);
-    await fetch("/api/v2/vibe-duel", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-telegram-init-data": getTgInitData() },
-      body: JSON.stringify({ duelId, winnerRunId: variant.runId }),
-    }).catch(() => undefined);
-  }
 
-  async function rateVibeCheck(rating: "good" | "bad") {
-    if (!summary || vibeFeedback) return;
-    setVibeFeedback(rating);
-    await fetch("/api/v2/vibe-feedback", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-telegram-init-data": getTgInitData() },
-      body: JSON.stringify({ summary, rating, runId: vibeRunId }),
-    }).catch(() => undefined);
-  }
 
-  async function fetchDeepVibeAccess() {
-    try {
-      const res = await fetch("/api/deep-vibe", {
-        headers: { "x-telegram-init-data": getTgInitData() },
-      });
-      const json = await safeJson(res);
-      setDeepVibeAccess(json?.access ?? "none");
-      setDeepVibeUsesLeft(json?.usesLeft ?? 0);
-    } catch {}
-  }
 
-  async function runDeepVibe() {
-    setDeepVibeLoading(true); setDeepVibeResult("");
-    try {
-      const res = await fetch("/api/deep-vibe", {
-        method: "POST",
-        headers: {
-          "x-telegram-init-data": getTgInitData(),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({}),
-      });
-      const json = await safeJson(res);
-      if (json?.error === "no_access") {
-        setDeepVibeAccess("none");
-        setDeepVibeUsesLeft(0);
-        return;
-      }
-      setDeepVibeResult(json?.result ?? "");
-      // Обновляем счётчик после использования
-      fetchDeepVibeAccess();
-    } catch (e: any) {
-      setDeepVibeResult("не удалось загрузить");
-    } finally {
-      setDeepVibeLoading(false);
-    }
-  }
 
-  async function openDeepVibePurchase(product: "deep_vibe_once" | "deep_vibe_forever") {
-    const tg = (window as any).Telegram?.WebApp;
-    if (!tg?.openInvoice) {
-      alert("Покупка доступна только в Telegram");
-      return;
-    }
-    try {
-      const res = await fetch(`/api/invoice?product=${product}`, {
-        headers: { "x-telegram-init-data": getTgInitData() },
-      });
-      const json = await safeJson(res);
-      if (!json?.url) {
-        alert("Не удалось создать инвойс: " + (json?.error ?? "неизвестная ошибка"));
-        return;
-      }
-      tg.openInvoice(json.url, (status: string) => {
-        if (status === "paid") {
-          fetchDeepVibeAccess();
-        }
-      });
-    } catch (e: any) {
-      alert("Ошибка: " + e?.message);
-    }
-  }
 
-  function buyDeepVibeOnce() { openDeepVibePurchase("deep_vibe_once"); }
-  function buyDeepVibeForever() { openDeepVibePurchase("deep_vibe_forever"); }
+
+
+
+
+
+
+
+
 
   async function linkMobileAccount(prefilledCode?: string) {
     const code = (prefilledCode ?? telegramLinkCode).trim().toUpperCase();
@@ -1277,114 +1345,12 @@ export default function Page() {
   }
 
   // Генерируем карточку по текущему состоянию приложения
-  async function generateShareCard(text?: string, type?: "vibe" | "deep", customItems?: DbItem[]): Promise<string> {
-    const canvas = document.createElement("canvas");
-    const W = 1080, H = 1080;
-    canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext("2d")!;
 
-    // Фон белый
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, W, H);
-
-    // Тонкая рамка
-    ctx.strokeStyle = "#e8e8e8";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(40, 40, W - 80, H - 80);
-
-    // Логотип — тонкий serif
-    ctx.fillStyle = "#000000";
-    ctx.font = "300 80px Georgia, serif";
-    ctx.fillText("every you", 80, 150);
-
-    // Подпись типа
-    ctx.fillStyle = "#999";
-    ctx.font = "28px -apple-system, sans-serif";
-    const label = type === "deep" ? "вайбчек без прикола" : type === "vibe" ? "вайбчек" : "моя библиотека";
-    ctx.fillText(label.toUpperCase(), 80, 195);
-
-    // Разделитель
-    ctx.fillStyle = "#000000";
-    ctx.fillRect(80, 218, W - 160, 1);
-
-    if (text) {
-      // Режим вайбчека — выводим текст
-      ctx.fillStyle = "#000000";
-      ctx.font = "300 38px Georgia, serif";
-      ctx.font = "italic 38px Georgia, serif";
-      const clean = text.split("**").join("").split("\n\n").join("\n").trim();
-
-      const words = clean.split(" ");
-      let line = "";
-      let y = 290;
-      const maxWidth = W - 160;
-      const lineH = 56;
-      const maxY = H - 200;
-
-      for (const word of words) {
-        if (word === "\n" || word.includes("\n")) {
-          ctx.fillText(line, 80, y);
-          line = word.replace("\n", "");
-          y += lineH;
-          if (y > maxY) { ctx.fillText("...", 80, y); break; }
-          continue;
-        }
-        const test = line + (line ? " " : "") + word;
-        if (ctx.measureText(test).width > maxWidth && line) {
-          ctx.fillText(line, 80, y);
-          line = word;
-          y += lineH;
-          if (y > maxY) { ctx.fillText("...", 80, y); break; }
-        } else { line = test; }
-      }
-      if (y <= maxY && line) ctx.fillText(line, 80, y);
-    } else {
-      // Режим библиотеки — показываем топ контент
-      const sourceItems = customItems ?? items;
-      const music = sourceItems.filter(i => i.type === "music").slice(0, 4);
-      const books = sourceItems.filter(i => i.type === "book").slice(0, 3);
-      const movies = sourceItems.filter(i => i.type === "movie").slice(0, 3);
-
-      let y = 270;
-
-      const drawSection = (emoji: string, title: string, list: typeof items) => {
-        if (list.length === 0) return;
-        ctx.fillStyle = "#999";
-        ctx.font = "22px -apple-system, sans-serif";
-        ctx.fillText(`${emoji}  ${title.toUpperCase()}`, 80, y);
-        y += 40;
-        ctx.fillStyle = "#000000";
-        ctx.font = "300 34px Georgia, serif";
-        for (const item of list) {
-          const t = item.creator ? `${item.title} — ${item.creator}` : item.title;
-          const short = t.length > 42 ? t.slice(0, 40) + "…" : t;
-          ctx.fillText(short, 80, y);
-          y += 50;
-        }
-        y += 20;
-      };
-
-      drawSection("♫", "музыка", music);
-      drawSection("📖", "книги", books);
-      drawSection("🎬", "фильмы", movies);
-    }
-
-    // Ссылка внизу
-    ctx.fillStyle = "#999";
-    ctx.font = "24px -apple-system, sans-serif";
-    ctx.fillText("t.me/every_you_bot", 80, H - 70);
-
-    ctx.fillStyle = "#000000";
-    ctx.font = "300 36px Georgia";
-    ctx.fillText("✦", W - 110, H - 65);
-
-    return canvas.toDataURL("image/png");
-  }
 
   function openSharePicker(text?: string, type?: "vibe" | "deep") {
     setSharePickerText(text);
     setSharePickerType(type);
-    setShareRunId(type === "vibe" ? vibeRunId : null);
+    vibe.setShareRunId(type === "vibe" ? vibe.vibeRunId : null);
     // По умолчанию выбираем все айтемы
     setSharePickerSelected(new Set(items.map(i => i.id)));
     setShowSharePicker(true);
@@ -1399,7 +1365,7 @@ export default function Page() {
     const tg = (window as any).Telegram?.WebApp;
     if (!tg) return;
     const handler = async () => {
-      const dataUrl = await generateShareCard();
+      const dataUrl = await generateShareCard(items);
       setShareCardDataUrl(dataUrl);
       setShowShareCard(true);
     };
@@ -1414,31 +1380,17 @@ export default function Page() {
   const prevTabRef = useRef<string>("");
   useEffect(() => {
     if (tab === "vibe" && prevTabRef.current !== "vibe") {
-      fetchDeepVibeAccess();
+      vibe.fetchDeepVibeAccess();
     }
     if (tab === "add" && prevTabRef.current !== "add") {
       checkSpotify();
       loadConnectedProfiles();
-      if (deepVibeAccess === null) fetchDeepVibeAccess();
+      if (vibe.deepVibeAccess === null) vibe.fetchDeepVibeAccess();
     }
     prevTabRef.current = tab;
   }, [tab]);
 
-  async function runMentalAge() {
-    setMentalAgeLoading(true); setMentalAge("");
-    try {
-      const res = await fetch("/api/mental-age", {
-        method: "POST",
-        headers: { "x-telegram-init-data": getTgInitData() },
-      });
-      const json = await safeJson(res);
-      setMentalAge(json?.result ?? "");
-    } catch (e: any) {
-      setMentalAge("не удалось посчитать");
-    } finally {
-      setMentalAgeLoading(false);
-    }
-  }
+
 
   // ===== Library filter =====
   const [libFilter, setLibFilter] = useState<ItemType | "all" | string>("all");
@@ -2911,17 +2863,17 @@ export default function Page() {
                   {/* Кнопка своей категории — только для платных */}
                   <button
                     className={`type-btn${manualType === "custom" ? " active" : ""}`}
-                    style={!(deepVibeAccess === "forever" || deepVibeAccess === "paid") ? {opacity:0.45} : {}}
+                    style={!(vibe.deepVibeAccess === "forever" || vibe.deepVibeAccess === "paid") ? {opacity:0.45} : {}}
                     onClick={() => {
-                      if (deepVibeAccess === "forever" || deepVibeAccess === "paid") {
+                      if (vibe.deepVibeAccess === "forever" || vibe.deepVibeAccess === "paid") {
                         setManualType("custom");
                       } else {
-                        buyDeepVibeForever();
+                        vibe.buyDeepVibeForever();
                       }
                     }}
-                    title={deepVibeAccess === "forever" || deepVibeAccess === "paid" ? "своя категория" : "доступно с подпиской"}
+                    title={vibe.deepVibeAccess === "forever" || vibe.deepVibeAccess === "paid" ? "своя категория" : "доступно с подпиской"}
                   >
-                    ✦ своё {!(deepVibeAccess === "forever" || deepVibeAccess === "paid") && "🔒"}
+                    ✦ своё {!(vibe.deepVibeAccess === "forever" || vibe.deepVibeAccess === "paid") && "🔒"}
                   </button>
                 </div>
 
@@ -3497,34 +3449,34 @@ export default function Page() {
               <button
                 className="btn btn-outline"
                 style={{ background: "#ffffff", borderColor: "#ffffff" }}
-                onClick={runVibeCheck}
-                disabled={vibeLoading || counts.total === 0}
+                onClick={vibe.runVibeCheck}
+                disabled={vibe.vibeLoading || counts.total === 0}
               >
-                {vibeLoading
+                {vibe.vibeLoading
                   ? "анализирую..."
                   : counts.total === 0
                     ? "сначала добавь контент"
-                    : summary || vibeDuel
+                    : vibe.summary || vibe.vibeDuel
                       ? "ещё раз!"
                       : "провести вайбчек"}
               </button>
             </div>
 
-            {vibeError && <div className="error">{vibeError}</div>}
-            {vibeDuel && (
+            {vibe.vibeError && <div className="error">{vibe.vibeError}</div>}
+            {vibe.vibeDuel && (
               <div className="vibe-section vibe-pink">
                 <div className="card-title" style={{ marginBottom: 4 }}>какой точнее?</div>
                 <div className="vibe-helper" style={{ marginBottom: 12 }}>
                   сегодня два варианта. выбери тот, что ближе — второй мы больше не покажем.
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {vibeDuel.variants.map((variant, index) => (
+                  {vibe.vibeDuel.variants.map((variant, index) => (
                     <div key={variant.runId ?? index} style={{ background: "#fff", borderRadius: 12, padding: 14 }}>
                       <VibeResult summary={variant.summary} />
                       <button
                         className="btn btn-outline btn-sm"
                         style={{ width: "100%", marginTop: 10 }}
-                        onClick={() => void pickDuelWinner(variant)}
+                        onClick={() => void vibe.pickDuelWinner(variant)}
                       >
                         выбрать этот
                       </button>
@@ -3533,23 +3485,23 @@ export default function Page() {
                 </div>
               </div>
             )}
-            {summary && (
+            {vibe.summary && (
               <div className="vibe-section vibe-pink">
                 <div className="card-title" style={{ marginBottom: 10 }}>свежий срез</div>
-                <VibeResult summary={summary} />
+                <VibeResult summary={vibe.summary} />
                 <button
                   className="btn btn-outline"
                   style={{marginTop:12,fontSize:13,display:"flex",alignItems:"center",gap:6,width:"100%"}}
-                  onClick={() => shareVibeCard(summary, "vibe")}
+                  onClick={() => shareVibeCard(vibe.summary, "vibe")}
                 >
                   ↗ поделиться вайбчеком
                 </button>
                 <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                  <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => void rateVibeCheck("good")} disabled={Boolean(vibeFeedback)}>
-                    {vibeFeedback === "good" ? "запомнили" : "нормально"}
+                  <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => void vibe.rateVibeCheck("good")} disabled={Boolean(vibe.vibeFeedback)}>
+                    {vibe.vibeFeedback === "good" ? "запомнили" : "нормально"}
                   </button>
-                  <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => void rateVibeCheck("bad")} disabled={Boolean(vibeFeedback)}>
-                    {vibeFeedback === "bad" ? "перепишем" : "плохо"}
+                  <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => void vibe.rateVibeCheck("bad")} disabled={Boolean(vibe.vibeFeedback)}>
+                    {vibe.vibeFeedback === "bad" ? "перепишем" : "плохо"}
                   </button>
                 </div>
               </div>
@@ -3558,15 +3510,15 @@ export default function Page() {
             <button
               className="btn btn-outline"
               style={{marginTop: 12}}
-              onClick={runMentalAge}
-              disabled={mentalAgeLoading || counts.total === 0}
+              onClick={vibe.runMentalAge}
+              disabled={vibe.mentalAgeLoading || counts.total === 0}
             >
-              {mentalAgeLoading ? "считаю..." : "рассчитать ментальный возраст"}
+              {vibe.mentalAgeLoading ? "считаю..." : "рассчитать ментальный возраст"}
             </button>
 
-            {mentalAge && (
+            {vibe.mentalAge && (
               <div style={{marginTop:16,padding:"16px",background:"#fff",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>
-                {mentalAge.split("\n").map((line, i) => (
+                {vibe.mentalAge.split("\n").map((line, i) => (
                   <div key={i} style={{
                     fontFamily: i === 0 ? "'Unbounded', sans-serif" : "inherit",
                     fontWeight: i === 0 ? 700 : 400,
@@ -3586,14 +3538,14 @@ export default function Page() {
               </div>
 
               {/* Кнопка запуска — если есть доступ */}
-              {(deepVibeAccess === "free" || deepVibeAccess === "forever" || deepVibeAccess === "paid") && (
+              {(vibe.deepVibeAccess === "free" || vibe.deepVibeAccess === "forever" || vibe.deepVibeAccess === "paid") && (
                 <div>
-                  {deepVibeAccess === "free" && deepVibeUsesLeft !== null && (
+                  {vibe.deepVibeAccess === "free" && vibe.deepVibeUsesLeft !== null && (
                     <div style={{textAlign:"center",fontSize:12,color:"#aaa",marginBottom:10}}>
-                      осталось бесплатных: {deepVibeUsesLeft} из 3
+                      осталось бесплатных: {vibe.deepVibeUsesLeft} из 3
                     </div>
                   )}
-                  {deepVibeAccess === "forever" && (
+                  {vibe.deepVibeAccess === "forever" && (
                     <div style={{textAlign:"center",fontSize:12,color:"#aaa",marginBottom:10}}>
                       вечный доступ
                     </div>
@@ -3601,21 +3553,21 @@ export default function Page() {
                   <button
                     className="btn"
                     style={{background:"#1a1a1a",color:"#fff",width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}
-                    onClick={runDeepVibe}
-                    disabled={deepVibeLoading || counts.total === 0}
+                    onClick={vibe.runDeepVibe}
+                    disabled={vibe.deepVibeLoading || counts.total === 0}
                   >
-                    {deepVibeLoading ? "анализирую..." : "вайбчек без прикола"}
+                    {vibe.deepVibeLoading ? "анализирую..." : "вайбчек без прикола"}
                   </button>
                 </div>
               )}
 
               {/* Нет доступа — показываем кнопки покупки */}
-              {deepVibeAccess === "none" && (
+              {vibe.deepVibeAccess === "none" && (
                 <div style={{display:"flex",flexDirection:"column",gap:10}}>
                   <button
                     className="btn"
                     style={{background:"#1a1a1a",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}
-                    onClick={buyDeepVibeOnce}
+                    onClick={vibe.buyDeepVibeOnce}
                     disabled={counts.total === 0}
                   >
                     ✦ один анализ — 5 ★
@@ -3623,7 +3575,7 @@ export default function Page() {
                   <button
                     className="btn btn-outline"
                     style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,borderColor:"#1a1a1a"}}
-                    onClick={buyDeepVibeForever}
+                    onClick={vibe.buyDeepVibeForever}
                     disabled={counts.total === 0}
                   >
                     ✦ вечный доступ — 200 ★
@@ -3633,13 +3585,13 @@ export default function Page() {
               )}
 
               {/* Результат с markdown */}
-              {deepVibeResult && (
+              {vibe.deepVibeResult && (
                 <div style={{marginTop:16,padding:"18px",background:"#fff",borderRadius:20,boxShadow:"0 1px 4px rgba(0,0,0,0.07)",fontSize:14,lineHeight:1.8,color:"#333"}}>
-                  <MarkdownText text={deepVibeResult} />
+                  <MarkdownText text={vibe.deepVibeResult} />
                   <button
                     className="btn btn-outline"
                     style={{marginTop:14,fontSize:13,display:"flex",alignItems:"center",gap:6,width:"100%"}}
-                    onClick={() => shareVibeCard(deepVibeResult, "deep")}
+                    onClick={() => shareVibeCard(vibe.deepVibeResult, "deep")}
                   >
                     ↗ поделиться
                   </button>
@@ -3935,7 +3887,7 @@ export default function Page() {
                 onClick={async () => {
                   setShowSharePicker(false);
                   const selectedItems = items.filter(i => sharePickerSelected.has(i.id));
-                  const dataUrl = await generateShareCard(sharePickerText, sharePickerType, selectedItems.length > 0 ? selectedItems : undefined);
+                  const dataUrl = await generateShareCard(items, sharePickerText, sharePickerType, selectedItems.length > 0 ? selectedItems : undefined);
                   setShareCardDataUrl(dataUrl);
                   setShowShareCard(true);
                 }}
@@ -3972,7 +3924,7 @@ export default function Page() {
                     const a = document.createElement("a");
                     a.href = shareCardDataUrl; a.download = "everyyou.png"; a.click();
                   }
-                  fireAnalytics("vibecheck_shared", { runId: shareRunId, type: sharePickerType ?? null });
+                  fireAnalytics("vibecheck_shared", { runId: vibe.shareRunId, type: sharePickerType ?? null });
                 }}
               >
                 ↗ поделиться
