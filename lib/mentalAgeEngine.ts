@@ -1,4 +1,5 @@
 import { hashSeed, mulberry32 } from "@/lib/seededRandom";
+import { topEntry } from "@/lib/topEntry";
 // Rule-based "ментальный возраст" — без единого вызова ИИ.
 //
 // Логика та же, что у pudding.cool/judge-my-music: НИКАКОГО настоящего ИИ.
@@ -40,23 +41,9 @@ function computeStats(items: MentalAgeItem[]): Stats {
     if (creator) creatorCounts.set(creator, (creatorCounts.get(creator) ?? 0) + 1);
   }
 
-  let dominantType = items[0]?.type ?? "music";
-  let dominantCount = 0;
-  for (const [type, count] of byType.entries()) {
-    if (count > dominantCount) {
-      dominantCount = count;
-      dominantType = type;
-    }
-  }
+  const { type: dominantType, count: dominantCount } = topEntry(byType, items[0]?.type ?? "music");
 
-  let topCreator: string | null = null;
-  let topCreatorCount = 0;
-  for (const [creator, count] of creatorCounts.entries()) {
-    if (count > topCreatorCount) {
-      topCreatorCount = count;
-      topCreator = creator;
-    }
-  }
+  const { type: topCreator, count: topCreatorCount } = topEntry(creatorCounts, "");
 
   const uniqueCreatorRatio = creatorCounts.size > 0 ? creatorCounts.size / items.length : 1;
 

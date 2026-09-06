@@ -1,3 +1,4 @@
+import { topEntry } from "@/lib/topEntry";
 import { hashSeed, mulberry32 } from "@/lib/seededRandom";
 // Рule-based месячное саммари для библиотеки. Без ИИ: сравниваем объём и
 // состав контента за месяц с предыдущим месяцем и складываем наблюдение
@@ -22,11 +23,8 @@ function topCreator(items: MonthlyItem[]): { creator: string; count: number } | 
     const key = creator.toLowerCase();
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
-  let best: { creator: string; count: number } | null = null;
-  for (const [creator, count] of counts.entries()) {
-    if (!best || count > best.count) best = { creator, count };
-  }
-  return best;
+  const best = topEntry(counts, "");
+  return best.count > 0 ? { creator: best.type, count: best.count } : null;
 }
 
 /**

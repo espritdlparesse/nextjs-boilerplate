@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { normalizeLegacySource } from "@/lib/itemSources";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { resolveApiIdentity } from "@/lib/auth";
 import { buildOwnerReadFilter, getOwnerScope, type EffectiveOwner, type OwnerScope } from "@/lib/ownerLinks";
@@ -18,15 +19,6 @@ type ItemBody = {
 
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
-}
-
-function normalizeLegacySource(raw: unknown) {
-  const source = String(raw ?? "").toLowerCase();
-  if (source === "spotify" || source === "import_spotify") return "spotify";
-  if (source === "yandex_music" || source === "import_yandex_music") return "import_yandex_music";
-  if (source === "goodreads") return "goodreads";
-  if (source === "letterboxd" || source === "import_letterboxd") return "letterboxd";
-  return "manual";
 }
 
 function legacyNativeTgUserId(ownerKey: string) {

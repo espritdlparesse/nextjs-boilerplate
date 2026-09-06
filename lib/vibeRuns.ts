@@ -21,7 +21,7 @@ export type VibeRunRecord = {
   itemCount?: number;
 };
 
-export function isHoldoutOwner(ownerKey: string) {
+function isHoldoutOwner(ownerKey: string) {
   return hashSeed(`holdout:${ownerKey}`) % 100 < HOLDOUT_PERCENT;
 }
 

@@ -17,7 +17,7 @@ function stripTags(text: string) {
   return decodeXml(text.replace(/<[^>]+>/g, " "));
 }
 
-export function extractLetterboxdUsername(input: string) {
+function extractLetterboxdUsername(input: string) {
   const raw = input.trim();
   if (!raw) return "";
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { normalizeLegacySource } from "@/lib/itemSources";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { verifyTelegramInitData } from "@/lib/telegram";
 import { safeTimelineIsoFromMs } from "@/lib/timeline";
@@ -8,15 +9,6 @@ export const dynamic = "force-dynamic";
 
 function getInitData(req: NextRequest) {
   return req.headers.get("x-telegram-init-data") ?? "";
-}
-
-function normalizeLegacySource(raw: unknown) {
-  const source = String(raw ?? "").toLowerCase();
-  if (source === "spotify" || source === "import_spotify") return "spotify";
-  if (source === "yandex_music" || source === "import_yandex_music") return "import_yandex_music";
-  if (source === "goodreads") return "goodreads";
-  if (source === "letterboxd" || source === "import_letterboxd") return "letterboxd";
-  return "manual";
 }
 
 function authTg(req: NextRequest) {

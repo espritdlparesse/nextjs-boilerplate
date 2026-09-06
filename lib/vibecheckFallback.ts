@@ -1,4 +1,5 @@
 import { hashSeed, mulberry32 } from "@/lib/seededRandom";
+import { topEntry } from "@/lib/topEntry";
 
 export type VibecheckItem = {
   type: string;
@@ -67,14 +68,7 @@ function computePersona(items: VibecheckItem[], rng: () => number) {
     return pick(rng, ["человек с широким диапазоном", "коллекционер разного", "смотрит во все стороны сразу"]);
   }
 
-  let dominantType = items[0]?.type ?? "music";
-  let dominantCount = 0;
-  for (const [type, count] of byType.entries()) {
-    if (count > dominantCount) {
-      dominantCount = count;
-      dominantType = type;
-    }
-  }
+  const { type: dominantType, count: dominantCount } = topEntry(byType, items[0]?.type ?? "music");
 
   const share = items.length > 0 ? dominantCount / items.length : 0;
   if (share >= 0.7) return PERSONA_BY_TYPE[dominantType] ?? "человек с чётким фокусом";

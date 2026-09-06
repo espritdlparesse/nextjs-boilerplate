@@ -5,7 +5,7 @@ export type YandexMusicImportItem = {
   authorOrArtist: string;
 };
 
-export function isYandexMusicUrl(value: string) {
+function isYandexMusicUrl(value: string) {
   try {
     const host = new URL(value.trim()).hostname.replace(/^www\./, "").toLowerCase();
     return host === "music.yandex.ru" || host === "music.yandex.com";
