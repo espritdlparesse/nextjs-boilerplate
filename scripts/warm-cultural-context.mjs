@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import { readFile, writeFile } from "node:fs/promises";
+import { cardFlaws } from "../lib/culturalCards.ts";
 
 const ownerKey = process.env.CULTURAL_OWNER_KEY ?? null;
 const limit = Number(process.argv[2] ?? "0");
@@ -101,7 +102,7 @@ for (const [index, batch] of targetBatches.entries()) {
     model,
     max_output_tokens: 1800,
     tools: [{ type: "web_search_preview", search_context_size: "high" }],
-    instructions: "For each supplied cultural name, find one reliable context source ONLY in The Atlantic, The New Yorker, The New York Times, Meduza, The Bell, Kinopoisk, WOS, Afisha published before 2021-01-01, Ilya Krasilshchik's own X/Facebook posts, or Wonderzine. Return JSON only: {cards:[{lookup_key,aliases,display_name,kind,context_note,roast_angles,source_outlet,source_url,source_published_at}]}. Never invent links. Omit a card when no qualifying source exists. context_note must be a 1-2 sentence factual paraphrase, not a review. roast_angles are short factual tension cues, not jokes. source_outlet must be one of the approved keys. kind is artist, author, director, or work.",
+    instructions: "For each supplied cultural name, find one reliable context source ONLY in The Atlantic, The New Yorker, The New York Times, Meduza, The Bell, Kinopoisk, WOS, Afisha published before 2021-01-01, Ilya Krasilshchik's own X/Facebook posts, or Wonderzine. Return JSON only: {cards:[{lookup_key,aliases,display_name,kind,context_note,roast_angles,source_outlet,source_url,source_published_at}]}. Never invent links. Omit a card when no qualifying source exists. Write context_note in Russian: 1-2 sentences naming what this artist or work is recognisably like — the scene it belongs to, the pose it strikes, the texture a listener or reader would recognise. Do NOT write a news item: no dates, no releases, no awards, no what-happened-in-a-given-year. Do NOT write praise: never say known for, unique, emotional, iconic, legendary, outstanding, popular, talented. Do NOT write a biography or an assessment. Test every note by deleting the name: if it would fit any other artist of the same kind, the note is useless — rewrite it or omit the card. Good: a Russian rapper whose breakthrough was Dragonborn: heavy bass, trap, game references and deliberately slurred delivery. Bad: an American rapper and producer known for his provocative statements. roast_angles are 1-2 short concrete tensions this material could collide with, not jokes and not compliments. source_outlet must be one of the approved keys. kind is artist, author, director, or work.",
     input: batch.map((value) => `Find context for: ${value}`).join("\n"),
   });
 
@@ -120,13 +121,20 @@ for (const [index, batch] of targetBatches.entries()) {
     const outlet = String(card.source_outlet ?? "").trim().toLowerCase().replace(/\s+/g, "_");
     const publishedAt = normalizePublishedAt(card.source_published_at);
     if (!lookupKey || !card.display_name || !card.context_note || !allowed(card.source_url, outlet, publishedAt)) return null;
+    const angles = (card.roast_angles ?? []).map((angle) => String(angle).trim()).filter(Boolean).slice(0, 2);
+    const note = card.context_note.trim().slice(0, 420);
+    const flaws = cardFlaws({ context_note: note, roast_angles: angles });
+    if (flaws.length > 0) {
+      console.warn(`  отброшено ${card.display_name}: ${flaws.join(", ")}`);
+      return null;
+    }
     return {
       lookup_key: lookupKey,
       aliases: Array.from(new Set([...(card.aliases ?? []), card.display_name])).map(key).filter(Boolean),
       display_name: card.display_name.trim(),
       kind: ["artist", "author", "director", "work"].includes(card.kind) ? card.kind : "work",
-      context_note: card.context_note.trim().slice(0, 420),
-      roast_angles: (card.roast_angles ?? []).map((angle) => String(angle).trim()).filter(Boolean).slice(0, 2),
+      context_note: note,
+      roast_angles: angles,
       source_outlet: outlet,
       source_url: card.source_url,
       source_published_at: publishedAt,

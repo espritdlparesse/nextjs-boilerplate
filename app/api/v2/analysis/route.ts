@@ -6,6 +6,7 @@ import { buildOwnerReadFilter, getEffectiveOwner, getOwnerScope } from "@/lib/ow
 import { generateFallbackVibecheck } from "@/lib/vibecheckFallback";
 import { countDeliveredRuns, recordVibeDuel, recordVibeRun, type VibeRunOutcome } from "@/lib/vibeRuns";
 import { countItemTypes, type ItemType } from "@/lib/mediaTypes";
+import { isUsableCard } from "@/lib/culturalCards";
 
 export const runtime = "nodejs";
 // The vibecheck makes two editorial model calls in sequence, so the default function window is too short.
@@ -352,6 +353,7 @@ async function getCulturalContext(
   if (error || !data) return null;
 
   return (data as CulturalContextRow[]).filter((entry) => {
+    if (!isUsableCard(entry)) return false;
     const aliases = [entry.lookup_key, ...(entry.aliases ?? [])].map(normalizeContextKey);
     return aliases.some((alias) => keys.has(alias));
   });
