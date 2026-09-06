@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ADMIN_TG_IDS, isAdminTgId } from "@/lib/admins";
 import { createClient } from "@supabase/supabase-js";
 
 function getSupabase() {
@@ -18,7 +19,7 @@ function getTgUserId(req: NextRequest): number | null {
       return user?.id ?? null;
     }
     // Dev fallback
-    if (process.env.NODE_ENV === "development") return 394657396;
+    if (process.env.NODE_ENV === "development") return ADMIN_TG_IDS[0];
     return null;
   } catch { return null; }
 }
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   // Также проверяем ADMIN
-  const isAdmin = String(tgUserId) === process.env.ADMIN_TG_ID;
+  const isAdmin = isAdminTgId(tgUserId);
 
   if (!purchase && !isAdmin) {
     return NextResponse.json({ error: "requires_pro", message: "Кастомные категории доступны с подпиской" }, { status: 403 });

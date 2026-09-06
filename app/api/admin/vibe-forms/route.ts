@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { verifyTelegramInitData } from "@/lib/telegram";
+import { isAdminTgId } from "@/lib/admins";
 import { CONSTRUCTIONS, FLAWS, OTHER_LABEL, collectLabels, describeTaxonomy, type FormLabel } from "@/lib/vibeForms";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const ADMIN_TG_ID = 394657396;
 const BATCH_SIZE = 20;
 
 type ClassifierResponse = {
@@ -36,7 +36,7 @@ function requireAdmin(req: NextRequest) {
     req.headers.get("x-telegram-init-data") ?? "",
     process.env.TELEGRAM_BOT_TOKEN!
   );
-  return verified.ok && Number(verified.user?.id) === ADMIN_TG_ID;
+  return verified.ok && isAdminTgId(verified.user?.id);
 }
 
 function parseRuns(raw: string) {

@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { verifyTelegramInitData } from "@/lib/telegram";
+import { isAdminTgId } from "@/lib/admins";
 
 export const runtime = "nodejs";
-
-const ADMIN_TG_ID = 394657396;
 
 export async function GET(req: NextRequest) {
   const initData = req.headers.get("x-telegram-init-data") ?? "";
   const botToken = process.env.TELEGRAM_BOT_TOKEN!;
   const verified = verifyTelegramInitData(initData, botToken);
-  if (!verified.ok || Number(verified.user?.id) !== ADMIN_TG_ID) {
+  if (!verified.ok || !isAdminTgId(verified.user?.id)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
