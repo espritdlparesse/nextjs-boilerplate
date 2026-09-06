@@ -417,7 +417,7 @@ export default function Page() {
     total: items.length,
     music: items.filter((i) => i.type === "music").length,
     books: items.filter((i) => i.type === "book").length,
-    movies: items.filter((i) => i.type === "movie" || (i.type as string) === "film").length,
+    movies: items.filter((i) => i.type === "movie").length,
   }), [items]);
 
   const headerAvatar = useMemo(() => {
@@ -535,7 +535,7 @@ export default function Page() {
       const text = await file.text();
       const drafts = parseImportedFile(platform, text);
       const result: ImportedItem[] = drafts.map((item) => ({
-        type: item.type === "film" ? "movie" : item.type,
+        type: item.type,
         source: platform,
         title: item.title,
         creator: item.authorOrArtist || undefined,
@@ -716,7 +716,7 @@ export default function Page() {
         return;
       }
       const result: ImportedItem[] = (json?.items ?? []).map((item: any) => ({
-        type: item.type === "film" ? "movie" : item.type,
+        type: item.type,
         source: item.source ?? "lastfm",
         title: item.title,
         creator: item.authorOrArtist ?? "",
@@ -763,7 +763,7 @@ export default function Page() {
         return;
       }
       const result: ImportedItem[] = (json?.items ?? []).map((item: any) => ({
-        type: item.type === "film" ? "movie" : item.type,
+        type: item.type,
         source: item.source ?? "letterboxd",
         title: item.title,
         creator: item.authorOrArtist ?? "",
@@ -1307,7 +1307,7 @@ export default function Page() {
       const sourceItems = customItems ?? items;
       const music = sourceItems.filter(i => i.type === "music").slice(0, 4);
       const books = sourceItems.filter(i => i.type === "book").slice(0, 3);
-      const movies = sourceItems.filter(i => i.type === "movie" || (i.type as string) === "film").slice(0, 3);
+      const movies = sourceItems.filter(i => i.type === "movie").slice(0, 3);
 
       let y = 270;
 
@@ -3811,7 +3811,7 @@ export default function Page() {
             {/* Фильтры по типу */}
             <div style={{display:"flex",gap:8,padding:"10px 20px",borderBottom:"1px solid #e8e3da"}}>
               {(["music","book","movie"] as const).map(t => {
-                const typeItems = items.filter(i => i.type === t || (t === "movie" && (i.type as string) === "film"));
+                const typeItems = items.filter(i => i.type === t);
                 const allSelected = typeItems.every(i => sharePickerSelected.has(i.id));
                 return (
                   <button key={t} className={`filter-btn${allSelected ? " active" : ""}`}

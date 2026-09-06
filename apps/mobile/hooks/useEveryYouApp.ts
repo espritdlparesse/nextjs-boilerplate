@@ -621,7 +621,7 @@ export function useEveryYouApp() {
           return;
         }
 
-        if (sharedType === "music" || sharedType === "book" || sharedType === "film") {
+        if (sharedType === "music" || sharedType === "book" || sharedType === "movie") {
           setType(sharedType as ContentType);
           setSource("manual");
           setTitle(sharedTitle);
@@ -727,7 +727,7 @@ export function useEveryYouApp() {
     });
   }, [deferredLibrary, sourceFilter, timeQualityFilter, typeFilter]);
   const counters = useMemo(() => {
-    const byType: Record<ContentType, number> = { music: 0, book: 0, film: 0 };
+    const byType: Record<ContentType, number> = { music: 0, book: 0, movie: 0 };
     library.forEach((item) => {
       byType[item.type] += 1;
     });
@@ -1878,7 +1878,7 @@ export function useEveryYouApp() {
         summary:
           total === 0
             ? "пока пусто. добавьте пару айтемов и мы начнем собирать ваш паттерн вкуса."
-            : `в библиотеке ${total} айтемов. музыка: ${byType.music}, книги: ${byType.book}, фильмы: ${byType.film}.`,
+            : `в библиотеке ${total} айтемов. музыка: ${byType.music}, книги: ${byType.book}, фильмы: ${byType.movie}.`,
         highlights:
           total === 0
             ? ["можно начать с импорта spotify", "или добавить что-то вручную"]

@@ -104,7 +104,7 @@ export function HomeScreen({
           </View>
         </Pressable>
 
-        <Pressable style={[appStyles.tile, appStyles.homeFeatureTile, appStyles.tileBlue]} onPress={() => onOpenLibraryType("film")}>
+        <Pressable style={[appStyles.tile, appStyles.homeFeatureTile, appStyles.tileBlue]} onPress={() => onOpenLibraryType("movie")}>
           <Text style={[appStyles.homeTileEyebrow, { color: theme.accentMutedText }]}>фильмы</Text>
           <View style={appStyles.homeTileTextBlock}>
             <Text style={appStyles.homeTileTitle}>все просмотры</Text>

@@ -33,19 +33,6 @@ function pick<T>(rng: () => number, arr: T[]): T {
   return arr[Math.floor(rng() * arr.length) % arr.length];
 }
 
-type TypeCounts = { music: number; book: number; film: number; other: number };
-
-function countByType(items: MonthlyItem[]): TypeCounts {
-  const counts: TypeCounts = { music: 0, book: 0, film: 0, other: 0 };
-  for (const item of items) {
-    if (item.type === "music") counts.music += 1;
-    else if (item.type === "book") counts.book += 1;
-    else if (item.type === "film" || item.type === "movie") counts.film += 1;
-    else counts.other += 1;
-  }
-  return counts;
-}
-
 function topCreator(items: MonthlyItem[]): { creator: string; count: number } | null {
   const counts = new Map<string, number>();
   for (const item of items) {
@@ -65,6 +52,19 @@ function topCreator(items: MonthlyItem[]): { creator: string; count: number } | 
  * @param currentItems  айтемы за месяц, для которого строим саммари
  * @param previousItems айтемы за предыдущий месяц (для сравнения объёма); можно опустить
  */
+type TypeCounts = { music: number; book: number; movie: number; other: number };
+
+function countByType(items: MonthlyItem[]): TypeCounts {
+  const counts: TypeCounts = { music: 0, book: 0, movie: 0, other: 0 };
+  for (const item of items) {
+    if (item.type === "music") counts.music += 1;
+    else if (item.type === "book") counts.book += 1;
+    else if (item.type === "movie") counts.movie += 1;
+    else counts.other += 1;
+  }
+  return counts;
+}
+
 export function generateMonthlySummary(
   currentItems: MonthlyItem[],
   previousItems: MonthlyItem[] = []
@@ -106,7 +106,7 @@ export function generateMonthlySummary(
   if (total >= 3) {
     const musicShare = counts.music / total;
     const bookShare = counts.book / total;
-    const filmShare = counts.film / total;
+    const movieShare = counts.movie / total;
 
     if (musicShare >= 0.75) {
       clauses.push(
@@ -115,7 +115,7 @@ export function generateMonthlySummary(
           "музыка забрала почти весь месяц — на что-то более вдумчивое, кажется, не было сил",
         ])
       );
-    } else if (filmShare >= 0.6) {
+    } else if (movieShare >= 0.6) {
       clauses.push(
         pick(rng, [
           "много фильмов — похоже, хотелось смотреть, а не проживать самой",
@@ -129,7 +129,7 @@ export function generateMonthlySummary(
           "книги явно победили — либо был отпуск, либо осознанная попытка сбежать от экранов",
         ])
       );
-    } else if (bookShare === 0 && (counts.music > 0 || counts.film > 0)) {
+    } else if (bookShare === 0 && (counts.music > 0 || counts.movie > 0)) {
       clauses.push(
         pick(rng, [
           "книг почти не было — видимо, было не до чтения",

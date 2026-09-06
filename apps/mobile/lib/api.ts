@@ -20,7 +20,7 @@ type GuestAuthResponse = {
 type ItemsResponse = {
   items: Array<{
     id: string;
-    type: LibraryItem["type"] | "movie";
+    type: LibraryItem["type"];
     source: LibraryItem["source"];
     title: string;
     creator?: string | null;
@@ -36,7 +36,7 @@ type ItemsResponse = {
 type ItemResponse = {
   item: {
     id: string;
-    type: LibraryItem["type"] | "movie";
+    type: LibraryItem["type"];
     source: LibraryItem["source"];
     title: string;
     creator?: string | null;
@@ -199,7 +199,7 @@ function mapServerItem(item: ItemsResponse["items"][number]): LibraryItem {
 
   return {
     id: item.id,
-    type: item.type === "movie" ? "film" : item.type,
+    type: item.type,
     source: item.source,
     title: item.title,
     authorOrArtist: item.creator ?? "",

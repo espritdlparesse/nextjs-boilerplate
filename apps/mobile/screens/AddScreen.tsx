@@ -452,7 +452,7 @@ export function AddScreen({
               <View style={[appStyles.instructionCard, appStyles.compactEditorCard, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>
                 <Text style={appStyles.editorTitle}>поправить карточку</Text>
                 <View style={appStyles.row}>
-                  {(["music", "book", "film"] as ContentType[]).map((value) => (
+                  {(["music", "book", "movie"] as ContentType[]).map((value) => (
                     <PillButton
                       key={value}
                       label={TYPE_LABEL[value]}
@@ -592,7 +592,7 @@ export function AddScreen({
       <View style={[appStyles.card, themeMode === "dark" ? { backgroundColor: theme.accentBlue, borderColor: theme.border } : appStyles.cardAccentBlue]}>
         <Text style={[appStyles.label, { color: theme.accentMutedText }]}>{editingId ? "редактирование" : "добавить вручную"}</Text>
         <View style={appStyles.row}>
-          {(["music", "book", "film"] as ContentType[]).map((value) => (
+          {(["music", "book", "movie"] as ContentType[]).map((value) => (
             <PillButton
               key={value}
               label={TYPE_LABEL[value]}

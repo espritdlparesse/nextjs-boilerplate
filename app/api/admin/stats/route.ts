@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       total_items: rows.length,
       music: rows.filter(r => r.type === "music").length,
       books: rows.filter(r => r.type === "book").length,
-      movies: rows.filter(r => ["movie","film"].includes(r.type)).length,
+      movies: rows.filter(r => r.type === "movie").length,
       today: rows.filter(r => new Date(r.created_at) >= today).length,
     };
 

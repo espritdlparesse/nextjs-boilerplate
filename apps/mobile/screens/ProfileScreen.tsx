@@ -23,7 +23,7 @@ type ProfileScreenProps = {
   totalItems: number;
   musicCount: number;
   bookCount: number;
-  filmCount: number;
+  movieCount: number;
   totalSteps: number;
   healthStepsEnabled: boolean;
   culturalMemoryConsent: boolean;
@@ -66,7 +66,7 @@ export function ProfileScreen({
   totalItems,
   musicCount,
   bookCount,
-  filmCount,
+  movieCount,
   totalSteps,
   healthStepsEnabled,
   culturalMemoryConsent,
@@ -174,7 +174,7 @@ export function ProfileScreen({
             <Text style={[appStyles.profileStatLabel, { color: theme.mutedText }]}>книги</Text>
           </View>
           <View style={[appStyles.profileStatTile, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Text style={[appStyles.profileStatValue, { color: theme.text }]}>{filmCount}</Text>
+            <Text style={[appStyles.profileStatValue, { color: theme.text }]}>{movieCount}</Text>
             <Text style={[appStyles.profileStatLabel, { color: theme.mutedText }]}>фильмы</Text>
           </View>
         </View>

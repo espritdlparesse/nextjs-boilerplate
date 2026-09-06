@@ -8,7 +8,7 @@ type ScreenshotBody = {
 };
 
 type ParsedItem = {
-  type: "music" | "book" | "film";
+  type: "music" | "book" | "movie";
   title: string;
   authorOrArtist: string;
   confidence?: number;
@@ -19,12 +19,12 @@ function buildPrompt() {
     "You extract media items from images.",
     "The image may be a screenshot, a photo of a book cover, a vinyl, a CD, a cinema poster, a TV screen, a playlist, a feed, a handwritten list, or a library page.",
     "Return only items that are visible or strongly inferable with reasonable confidence.",
-    "Only return items that clearly belong to one of these categories: music, book, film.",
-    "If the image does not clearly contain music, book, or film content, return an empty items array.",
-    "Infer the media type when possible: music, book, or film.",
+    "Only return items that clearly belong to one of these categories: music, book, movie.",
+    "If the image does not clearly contain music, book, or movie content, return an empty items array.",
+    "Infer the media type when possible: music, book, or movie.",
     "For books, return title and author.",
     "For music, return track-or-album title and artist.",
-    "For films, return film title and director when recognizable; if director is unclear but the film title is clear, use the most relevant creator text visible on the image.",
+    "For movies, return the movie title and director when recognizable; if director is unclear but the title is clear, use the most relevant creator text visible on the image.",
     "Use lowercase for title and authorOrArtist.",
   ].join(" ");
 }
@@ -45,7 +45,7 @@ function buildSchema() {
             properties: {
               type: {
                 type: "string",
-                enum: ["music", "book", "film"],
+                enum: ["music", "book", "movie"],
               },
               title: {
                 type: "string",
@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
           content: [
             {
               type: "text",
-              text: "Analyze this image and extract media items that belong to music, book, or film.",
+              text: "Analyze this image and extract media items that belong to music, book, or movie.",
             },
             {
               type: "image_url",

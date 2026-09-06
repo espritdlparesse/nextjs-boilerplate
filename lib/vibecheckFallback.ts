@@ -87,7 +87,6 @@ function pick<T>(rng: () => number, arr: T[]): T {
 const PERSONA_BY_TYPE: Record<string, string> = {
   music: "меломан",
   book: "книжный человек",
-  film: "киноман",
   movie: "киноман",
 };
 

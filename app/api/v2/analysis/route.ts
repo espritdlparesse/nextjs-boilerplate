@@ -4,6 +4,7 @@ import { resolveApiIdentity } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { buildOwnerReadFilter, getEffectiveOwner, getOwnerScope } from "@/lib/ownerLinks";
 import { generateFallbackVibecheck } from "@/lib/vibecheckFallback";
+import { ITEM_TYPES } from "@/lib/mediaTypes";
 
 export const runtime = "nodejs";
 // The vibecheck makes two editorial model calls in sequence, so the default function window is too short.
@@ -119,7 +120,7 @@ function buildVibeSample(items: Array<{ type: string; title: string; creator: st
     return hash >>> 0;
   }
 
-  for (const type of ["book", "film", "movie", "music"]) {
+  for (const type of ITEM_TYPES) {
     const candidates = items
       .filter((item) => item.type === type)
       .sort((left, right) => score(left) - score(right));

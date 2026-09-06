@@ -10,7 +10,7 @@
 // но разные библиотеки дают разные ответы.
 
 export type MentalAgeItem = {
-  type: string; // "music" | "book" | "film" | ...
+  type: string; // "music" | "book" | "movie" | ...
   title: string;
   creator: string | null;
 };
@@ -94,7 +94,6 @@ function computeStats(items: MentalAgeItem[]): Stats {
 const TYPE_FORMS: Record<string, { acc: string; plural: string; genPlural: string }> = {
   music: { acc: "трек", plural: "треки", genPlural: "треков" },
   book: { acc: "книгу", plural: "книги", genPlural: "книг" },
-  film: { acc: "фильм", plural: "фильмы", genPlural: "фильмов" },
   movie: { acc: "фильм", plural: "фильмы", genPlural: "фильмов" },
 };
 

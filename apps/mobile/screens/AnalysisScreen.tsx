@@ -321,7 +321,7 @@ export function AnalysisScreen({
         <Text style={appStyles.sectionTitle}>вайбчек</Text>
         <Text style={[appStyles.helper, { color: theme.accentText }]}>
           сейчас в библиотеке {counters.total}: музыка {counters.byType.music}, книги {counters.byType.book}, фильмы{" "}
-          {counters.byType.film}.
+          {counters.byType.movie}.
         </Text>
         <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
           быстрый вайбчек — это короткий культурный срез без глубокого анализа состояния.

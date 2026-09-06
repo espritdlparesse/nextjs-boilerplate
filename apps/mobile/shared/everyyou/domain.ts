@@ -5,7 +5,7 @@ export type TgUser = {
   username?: string;
 };
 
-export type ContentType = "music" | "book" | "film";
+export type ContentType = "music" | "book" | "movie";
 export type SourceType = "manual" | "import_spotify" | "import_yandex_music" | "import_lastfm" | "import_letterboxd";
 export type TimeOrigin = "exact" | "imported" | "estimated";
 export type ThemeMode = "light" | "dark";
@@ -44,7 +44,7 @@ export type AnalysisRun = {
 export const TYPE_LABEL: Record<ContentType, string> = {
   music: "музыка",
   book: "книга",
-  film: "фильм",
+  movie: "фильм",
 };
 
 export const SOURCE_LABEL: Record<SourceType, string> = {
@@ -62,7 +62,7 @@ export const PLACEHOLDERS: Record<ContentType, Array<{ title: string; authorOrAr
     { title: "how soon is now?", authorOrArtist: "morrissey" },
     { title: "название трека", authorOrArtist: "имя исполнителя" },
   ],
-  film: [
+  movie: [
     { title: "lost in translation", authorOrArtist: "софия коппола" },
     { title: "сериал the sopranos", authorOrArtist: "не помню кто режиссер" },
     { title: "солярис", authorOrArtist: "андрей тарковский" },
@@ -144,7 +144,7 @@ export function normalizeLibrary(raw: unknown[]): LibraryItem[] {
       rawType === "music" || rawType === "book"
         ? rawType
         : rawType === "film" || rawType === "movie"
-          ? "film"
+          ? "movie"
           : "music";
     const source: SourceType =
       item.source === "manual" || item.source === "import_spotify" || item.source === "import_yandex_music"

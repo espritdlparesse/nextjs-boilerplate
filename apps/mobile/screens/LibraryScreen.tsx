@@ -344,13 +344,13 @@ export function LibraryScreen({
       all: selectedDay?.items.length ?? 0,
       music: 0,
       book: 0,
-      film: 0,
+      movie: 0,
     };
     if (!selectedDay) return counts;
     for (const item of selectedDay.items) {
       if (item.type === "music") counts.music += 1;
       if (item.type === "book") counts.book += 1;
-      if (item.type === "film") counts.film += 1;
+      if (item.type === "movie") counts.movie += 1;
     }
     return counts;
   }, [selectedDay]);
@@ -493,7 +493,7 @@ export function LibraryScreen({
             </Pressable>
             {typeFiltersExpanded ? (
               <View style={appStyles.compactFilterRow}>
-                {(["all", "music", "book", "film"] as TypeFilter[]).map((value) => (
+                {(["all", "music", "book", "movie"] as TypeFilter[]).map((value) => (
                   <PillButton
                     key={value}
                     themeMode={themeMode}
@@ -790,7 +790,7 @@ export function LibraryScreen({
                 ) : null}
 
                 <View style={appStyles.dayTypeFilterRow}>
-                  {(["all", "music", "book", "film"] as TypeFilter[]).map((value) => (
+                  {(["all", "music", "book", "movie"] as TypeFilter[]).map((value) => (
                     <PillButton
                       key={value}
                       themeMode={themeMode}

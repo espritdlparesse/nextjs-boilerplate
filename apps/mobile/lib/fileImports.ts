@@ -195,7 +195,7 @@ function parseLetterboxd(text: string) {
     const year = yearCol !== -1 ? row[yearCol] ?? "" : "";
     const title = year ? `${name} (${year})` : name;
     const item = rowToDraft(
-      "film",
+      "movie",
       title,
       "",
       watchedCol !== -1 ? normalizeDateInput(row[watchedCol] ?? "") : undefined
@@ -261,7 +261,7 @@ function parseKinopoisk(text: string) {
     const year = yearCol !== -1 ? row[yearCol] ?? "" : "";
     const title = year ? `${baseTitle} (${year})` : baseTitle;
     const item = rowToDraft(
-      "film",
+      "movie",
       title,
       "",
       watchedDateCol !== -1 ? normalizeDateInput(row[watchedDateCol] ?? "") : undefined
@@ -295,7 +295,7 @@ function parseMubi(text: string) {
     const director = directorCol !== -1 ? row[directorCol] ?? "" : "";
     const title = year ? `${titleBase} (${year})` : titleBase;
     const item = rowToDraft(
-      "film",
+      "movie",
       title,
       director,
       watchedDateCol !== -1 ? normalizeDateInput(row[watchedDateCol] ?? "") : undefined

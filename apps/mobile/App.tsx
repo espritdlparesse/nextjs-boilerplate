@@ -613,7 +613,7 @@ export default function App() {
                   totalItems={app.counters.total}
                   musicCount={app.counters.byType.music}
                   bookCount={app.counters.byType.book}
-                  filmCount={app.counters.byType.film}
+                  movieCount={app.counters.byType.movie}
                   totalSteps={app.totalSteps}
                   healthStepsEnabled={app.healthStepsEnabled}
                   culturalMemoryConsent={app.culturalMemoryConsent}

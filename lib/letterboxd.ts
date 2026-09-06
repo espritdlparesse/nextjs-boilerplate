@@ -76,7 +76,7 @@ export async function importLetterboxdProfile(profile: string, limit = 100) {
       seen.add(key);
 
       return {
-        type: "film" as const,
+        type: "movie" as const,
         source: "import_letterboxd" as const,
         title,
         authorOrArtist: "",
