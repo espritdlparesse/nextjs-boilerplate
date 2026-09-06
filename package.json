@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "migrate": "node scripts/migrate.mjs"
+    "migrate": "node scripts/migrate.mjs",
+    "warm-context": "node scripts/warm-cultural-context.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.5",

@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 // Bump on every edit to the planner or editor instructions below. The holdout compares against it.
-const PROMPT_VERSION = "2026-09-05.roast-v2-types";
+const PROMPT_VERSION = "2026-09-06.roast-v3-context";
 
 function vibeGenerationErrorResponse(error: unknown) {
   const details = error as { status?: number; code?: string; error?: { code?: string } };
@@ -76,6 +76,46 @@ type CulturalSourceOutlet =
 // Пользовательские категории у каждого свои, поэтому прожарка на них не
 // строится: в выборку идут только общие типы.
 const VIBE_SAMPLE_TYPES: ItemType[] = ["music", "book", "movie"];
+
+function buildContextIndex(cards: CulturalContextRow[] | null) {
+  const index = new Map<string, CulturalContextRow>();
+  for (const card of cards ?? []) {
+    for (const alias of [card.lookup_key, ...(card.aliases ?? [])]) {
+      const key = normalizeContextKey(alias);
+      if (key) index.set(key, card);
+    }
+  }
+  return index;
+}
+
+function findCard(text: string, index: Map<string, CulturalContextRow>) {
+  const normalized = normalizeContextKey(text);
+  if (!normalized) return null;
+  const direct = index.get(normalized);
+  if (direct) return direct;
+  for (const [key, card] of index) {
+    if (key.length >= 4 && normalized.includes(key)) return card;
+  }
+  return null;
+}
+
+function describePosition(position: string, index: Map<string, CulturalContextRow>) {
+  const card = findCard(position, index);
+  if (!card) return `- ${position}`;
+  const angles = card.roast_angles.length > 0 ? ` Опоры: ${card.roast_angles.join("; ")}.` : "";
+  return `- ${position}\n    ${card.context_note}${angles}`;
+}
+
+function describeItem(
+  item: { type: string; title: string; creator: string | null },
+  index: Map<string, CulturalContextRow>
+) {
+  const line = `[${item.type}] ${item.title}${item.creator ? ` — ${item.creator}` : ""}`;
+  const card = findCard(`${item.creator ?? ""} ${item.title}`, index);
+  if (!card) return line;
+  const angles = card.roast_angles.length > 0 ? ` Опоры: ${card.roast_angles.join("; ")}.` : "";
+  return `${line}\n    ${card.context_note}${angles}`;
+}
 
 function buildVibeSample(items: Array<{ type: string; title: string; creator: string | null }>) {
   const picked: Array<{ type: string; title: string; creator: string | null }> = [];
@@ -387,9 +427,12 @@ async function composeRoastVariant(args: {
   model: string;
   planningPrompt: string;
   plan: RoastPlan | null;
+  contextIndex: Map<string, CulturalContextRow>;
 }): Promise<RoastVariant> {
   const planBasis = args.plan?.basis?.slice(0, 3) ?? [];
-  const pairLine = planBasis.join(" | ") || "выбери одну пару из списка";
+  const pairLine = planBasis.length > 0
+    ? planBasis.map((position) => describePosition(position, args.contextIndex)).join("\n")
+    : "выбери одну пару из списка";
   const observation = args.plan?.observation?.trim() || "найди одно точное столкновение этих позиций";
   const gateHits: string[] = [];
 
@@ -398,7 +441,7 @@ async function composeRoastVariant(args: {
       apiKey: args.apiKey,
       model: args.model,
       instructions: ROAST_EDITOR_INSTRUCTIONS,
-      prompt: `${args.planningPrompt}\n\nВыбранная пара: ${pairLine}\nНаблюдение редактора: ${observation}${repair ? ROAST_REPAIR_SUFFIX : ""}`,
+      prompt: `${args.planningPrompt}\n\nВыбранная пара, под каждой позицией её проверенная фактура:\n${pairLine}\nНаблюдение редактора: ${observation}${repair ? ROAST_REPAIR_SUFFIX : ""}`,
     });
     return extractJson<AnalysisPayload>(raw);
   };
@@ -507,15 +550,7 @@ export async function POST(req: NextRequest) {
   if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY missing" }, { status: 500 });
 
   const vibeSample = buildVibeSample(items);
-  const culturalContext = await getCulturalContext(sb, items);
-  const culturalMemory = culturalContext?.length
-    ? culturalContext
-        .map(
-          (entry) =>
-            `${entry.display_name}: ${entry.context_note} Возможные опоры: ${entry.roast_angles.join("; ")}. Источник: ${entry.source_outlet}.`
-        )
-        .join("\n")
-    : "карточек для этих имен пока нет";
+  const contextIndex = buildContextIndex(await getCulturalContext(sb, items));
   const badFeedback = await getRecentBadVibes(sb, owner.ownerKey);
 
   // A vibecheck is the product, not a background summary: use the stronger editor by default.
@@ -552,10 +587,8 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ ...fallback, runId });
   };
-  const libraryLines = vibeSample
-    .map((item) => `[${item.type}] ${item.title}${item.creator ? ` — ${item.creator}` : ""}`)
-    .join("\n");
-  const planningPrompt = `Вот выборка из библиотеки:\n${libraryLines}\n\nПроверенная культурная фактура, если она относится к выбранной паре:\n${culturalMemory}\n\nПользователь уже забраковал эти формулировки. Не повторяй их приемы и не пересказывай их другими словами:\n${badFeedback.join("\n") || "пока нет"}`;
+  const libraryLines = vibeSample.map((item) => describeItem(item, contextIndex)).join("\n");
+  const planningPrompt = `Вот выборка из библиотеки. Под позицией с отступом — проверенная фактура о ней: опирайся на неё, но не пересказывай и не называй источник.\n${libraryLines}\n\nПользователь уже забраковал эти формулировки. Не повторяй их приемы и не пересказывай их другими словами:\n${badFeedback.join("\n") || "пока нет"}`;
   let planRaw = "";
   try {
     planRaw = await createRoastText({
@@ -586,7 +619,7 @@ export async function POST(req: NextRequest) {
   const attempts = await Promise.all(
     chosenPlans.map(async (plan) => ({
       plan,
-      variant: await composeRoastVariant({ apiKey, model, planningPrompt, plan }),
+      variant: await composeRoastVariant({ apiKey, model, planningPrompt, plan, contextIndex }),
     }))
   );
 

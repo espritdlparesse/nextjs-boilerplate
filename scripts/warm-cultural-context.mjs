@@ -2,12 +2,11 @@ import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import { readFile, writeFile } from "node:fs/promises";
 
-const useConsentedLibraries = process.argv[2] === "--consented";
-const ownerKey = process.env.CULTURAL_OWNER_KEY ?? (useConsentedLibraries ? "shared-consented" : process.argv[2]);
-const limit = Number(process.env.CULTURAL_OWNER_KEY ? process.argv[2] ?? "0" : process.argv[3] ?? "0");
+const ownerKey = process.env.CULTURAL_OWNER_KEY ?? null;
+const limit = Number(process.argv[2] ?? "0");
 
-if (!ownerKey || !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.OPENAI_API_KEY) {
-  throw new Error("Usage: node scripts/warm-cultural-context.mjs <owner-key> [max-batches]");
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.OPENAI_API_KEY) {
+  throw new Error("Usage: node scripts/warm-cultural-context.mjs [max-batches]. Set CULTURAL_OWNER_KEY to limit to one library.");
 }
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -50,21 +49,11 @@ function normalizePublishedAt(value) {
 }
 
 async function allItems() {
-  let ownerKeys = [ownerKey];
-  if (useConsentedLibraries) {
-    const { data, error } = await supabase.from("cultural_memory_consents").select("owner_key").eq("enabled", true);
-    if (error) throw error;
-    ownerKeys = (data ?? []).map((row) => row.owner_key);
-    if (ownerKeys.length === 0) return [];
-  }
-
   const items = [];
   for (let from = 0; ; from += 1000) {
-    const { data, error } = await supabase
-      .from("items")
-      .select("title, creator")
-      .in("owner_key", ownerKeys)
-      .range(from, from + 999);
+    let query = supabase.from("items").select("title, creator").range(from, from + 999);
+    if (ownerKey) query = query.eq("owner_key", ownerKey);
+    const { data, error } = await query;
     if (error) throw error;
     items.push(...data);
     if (data.length < 1000) return items;
@@ -91,7 +80,8 @@ if (contextError) throw contextError;
 
 const known = new Set((existing ?? []).flatMap((row) => [row.lookup_key, ...(row.aliases ?? [])]).map(key));
 const progress = await readProgress();
-const attempted = new Set(progress[ownerKey] ?? []);
+const progressKey = ownerKey ?? "all";
+const attempted = new Set(progress[progressKey] ?? []);
 const creatorCounts = new Map();
 for (const item of items) {
   const creator = key(item.creator ?? "");
@@ -148,7 +138,7 @@ for (const [index, batch] of targetBatches.entries()) {
     if (error) throw error;
   }
   for (const creator of batch) attempted.add(creator);
-  progress[ownerKey] = Array.from(attempted);
+  progress[progressKey] = Array.from(attempted);
   await saveProgress(progress);
   console.log(`batch ${index + 1}/${targetBatches.length}: saved=${rows.length}`);
 }
