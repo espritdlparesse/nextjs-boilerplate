@@ -1724,7 +1724,7 @@ export default function Page() {
           width: 72px;
           padding-top: 0;
         }
-        .nav:not(.admin-nav) .vibe-nav { grid-column: 4; }
+        .vibe-nav { grid-column: 4; }
         .nav-btn.add-btn .nav-icon {
           width: 56px;
           height: 56px;
