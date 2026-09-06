@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { hashSeed } from "@/lib/vibecheckFallback";
+import { hashSeed } from "@/lib/seededRandom";
 
 export const HOLDOUT_PERCENT = 10;
 

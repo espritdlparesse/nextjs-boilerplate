@@ -3,38 +3,15 @@ import OpenAI from "openai";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { resolveApiIdentity } from "@/lib/auth";
 import { buildOwnerReadFilter, getOwnerScope } from "@/lib/ownerLinks";
-import { verifyTelegramInitData } from "@/lib/telegram";
+import { verifyTelegramInitData, getTgUserIdOrThrow } from "@/lib/telegram";
 
 export const runtime = "nodejs";
 
 const FREE_USES = 3;
 
-function getTgUserOrThrow(req: NextRequest) {
-  const initData = req.headers.get("x-telegram-init-data") ?? "";
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-
-  if (process.env.NODE_ENV === "production") {
-    if (!botToken) throw new Error("TELEGRAM_BOT_TOKEN missing");
-    const verified = verifyTelegramInitData(initData, botToken);
-    if (!verified.ok) throw new Error(`tg auth failed: ${verified.reason}`);
-    const tgUserId = verified.user?.id;
-    if (!tgUserId) throw new Error("tg user missing");
-    return Number(tgUserId);
-  }
-
-  if (initData && botToken) {
-    const verified = verifyTelegramInitData(initData, botToken);
-    if (verified.ok && verified.user?.id) return Number(verified.user.id);
-  }
-
-  const devId = process.env.DEV_TG_USER_ID;
-  if (!devId) throw new Error("No Telegram init data");
-  return Number(devId);
-}
-
 export async function GET(req: NextRequest) {
   try {
-    const tgUserId = getTgUserOrThrow(req);
+    const tgUserId = getTgUserIdOrThrow(req);
     const sb = supabaseAdmin();
 
     // Вечная подписка?
@@ -88,7 +65,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const tgUserId = getTgUserOrThrow(req);
+    const tgUserId = getTgUserIdOrThrow(req);
     const auth = resolveApiIdentity(req);
     if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
     const scope = await getOwnerScope(auth);

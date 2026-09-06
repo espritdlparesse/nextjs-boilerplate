@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { verifyTelegramInitData } from "@/lib/telegram";
+import { verifyTelegramInitData, getTgUserIdOrThrow } from "@/lib/telegram";
 
 export const runtime = "nodejs";
 
@@ -10,33 +10,10 @@ export const PRICES = {
   deep_vibe_forever: 200,
 };
 
-function getTgUserOrThrow(req: NextRequest) {
-  const initData = req.headers.get("x-telegram-init-data") ?? "";
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-
-  if (process.env.NODE_ENV === "production") {
-    if (!botToken) throw new Error("TELEGRAM_BOT_TOKEN missing");
-    const verified = verifyTelegramInitData(initData, botToken);
-    if (!verified.ok) throw new Error(`tg auth failed: ${verified.reason}`);
-    const tgUserId = verified.user?.id;
-    if (!tgUserId) throw new Error("tg user missing");
-    return Number(tgUserId);
-  }
-
-  if (initData && botToken) {
-    const verified = verifyTelegramInitData(initData, botToken);
-    if (verified.ok && verified.user?.id) return Number(verified.user.id);
-  }
-
-  const devId = process.env.DEV_TG_USER_ID;
-  if (!devId) throw new Error("No Telegram init data");
-  return Number(devId);
-}
-
 // POST /api/purchase — записать покупку после успешной оплаты звёздами
 export async function POST(req: NextRequest) {
   try {
-    const tgUserId = getTgUserOrThrow(req);
+    const tgUserId = getTgUserIdOrThrow(req);
     const body = await req.json().catch(() => null);
 
     if (!body?.product || !body?.telegram_payment_charge_id) {

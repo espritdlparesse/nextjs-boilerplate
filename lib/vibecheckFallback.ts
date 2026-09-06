@@ -1,12 +1,4 @@
-// Fallback для /api/v2/analysis (живой вайбчек) на случай, когда GPT
-// недоступен: кончились кредиты OpenAI, таймаут, любая другая ошибка API.
-//
-// Это НЕ замена основному вайбчеку — тот остаётся приоритетным и делает
-// куда более тонкую работу (ищет культурно значимые контрасты, ходит в
-// вебсёрч, несколько раз перепроверяет тон). Это просто чтобы пользователь
-// не упирался в голую ошибку, если основной путь недоступен: без вызовов
-// ИИ находим два разных по типу айтема в библиотеке и собираем наблюдение
-// из заготовленных фраз. Проще и грубее настоящего вайбчека, но живое.
+import { hashSeed, mulberry32 } from "@/lib/seededRandom";
 
 export type VibecheckItem = {
   type: string;
@@ -22,26 +14,6 @@ export type VibecheckFallbackResult = {
   highlights: string[];
 };
 
-export function hashSeed(input: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < input.length; i++) {
-    h ^= input.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-function mulberry32(seed: number) {
-  let a = seed;
-  return function rng() {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 function format(item: VibecheckItem) {
   return item.creator ? `${item.title} — ${item.creator}` : item.title;
 }
@@ -50,9 +22,6 @@ function capitalize(s: string) {
   return s.length > 0 ? s[0].toUpperCase() + s.slice(1) : s;
 }
 
-// Сортируем детерминированно относительно переданного сида, но сам сид
-// теперь случайный на каждый вызов (см. generateFallbackVibecheck) —
-// так что реального повторения не будет.
 function shuffleDeterministic(items: VibecheckItem[], seed: number) {
   return items
     .map((item, index) => ({ item, score: mulberry32(seed + index * 7919)() }))
@@ -115,8 +84,6 @@ function computePersona(items: VibecheckItem[], rng: () => number) {
 export function generateFallbackVibecheck(items: VibecheckItem[]): VibecheckFallbackResult | null {
   if (items.length === 0) return null;
 
-  // Случайный сид на каждый вызов — повторное нажатие кнопки должно
-  // давать новую пару и новую фразу, а не залипать на одном результате.
   const seed = hashSeed(
     `${Math.random()}|${Date.now()}|${items.map((i) => `${i.type}|${i.title}|${i.creator ?? ""}`).join("~")}`
   );

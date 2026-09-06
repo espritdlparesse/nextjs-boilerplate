@@ -1,33 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { verifyTelegramInitData } from "@/lib/telegram";
+import { verifyTelegramInitData, getTgUserIdOrThrow } from "@/lib/telegram";
 import { generateRuleBasedMentalAge } from "@/lib/mentalAgeEngine";
 
 export const runtime = "nodejs";
-
-function getTgUserIdOrThrow(req: NextRequest) {
-  const initData = req.headers.get("x-telegram-init-data") ?? "";
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-
-  if (process.env.NODE_ENV === "production") {
-    if (!botToken) throw new Error("TELEGRAM_BOT_TOKEN missing");
-    const verified = verifyTelegramInitData(initData, botToken);
-    if (!verified.ok) throw new Error(`tg auth failed: ${verified.reason}`);
-    const tgUserId = verified.user?.id;
-    if (!tgUserId) throw new Error("tg user missing");
-    return Number(tgUserId);
-  }
-
-  if (initData && botToken) {
-    const verified = verifyTelegramInitData(initData, botToken);
-    if (verified.ok && verified.user?.id) return Number(verified.user.id);
-  }
-
-  const devId = process.env.DEV_TG_USER_ID;
-  if (!devId) throw new Error("No Telegram init data. Set DEV_TG_USER_ID in .env.local");
-  return Number(devId);
-}
 
 export async function POST(req: NextRequest) {
   try {
