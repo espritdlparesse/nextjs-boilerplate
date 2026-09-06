@@ -496,6 +496,220 @@ function useProfile(deps: { loadLibrary: () => void; setLibraryError: (message: 
   };
 }
 
+function useLibrary(deps: {
+  items: DbItem[];
+  loadLibrary: () => void;
+  setLibraryError: (message: string) => void;
+  setLibraryLoading: (loading: boolean) => void;
+}) {
+  const { items, loadLibrary, setLibraryError, setLibraryLoading } = deps;
+  const [libFilter, setLibFilter] = useState<ItemType | "all" | string>("all");
+  const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
+  const [dayModalOpen, setDayModalOpen] = useState(false);
+  const [selectedDayTypeFilter, setSelectedDayTypeFilter] = useState<ItemType | "all">("all");
+  const [selectedDayItems, setSelectedDayItems] = useState<Array<string | number>>([]);
+  const [calendarMoveMode, setCalendarMoveMode] = useState(false);
+  const [pendingMoveTargetKey, setPendingMoveTargetKey] = useState<string | null>(null);
+  const [moveOriginDayKey, setMoveOriginDayKey] = useState<string | null>(null);
+  const [returnDayKey, setReturnDayKey] = useState<string | null>(null);
+  const [lastMovedTargetKey, setLastMovedTargetKey] = useState<string | null>(dayKey(new Date()));
+  const [libraryStatus, setLibraryStatus] = useState("");
+  const filteredItems = useMemo(() => {
+    if (libFilter === "all") return items;
+    if (libFilter === "music" || libFilter === "book" || libFilter === "movie") return items.filter(i => i.type === libFilter);
+    // кастомная категория по id
+    return items.filter(i => i.custom_category_id === libFilter);
+  }, [items, libFilter]);
+
+  const itemsByDay = useMemo(() => {
+    const grouped = new Map<string, DbItem[]>();
+    for (const item of filteredItems) {
+      const dateValue = getItemDateValue(item);
+      if (!dateValue) continue;
+      const key = dayKey(dateValue);
+      if (!key) continue;
+      const bucket = grouped.get(key) ?? [];
+      bucket.push(item);
+      grouped.set(key, bucket);
+    }
+    return grouped;
+  }, [filteredItems]);
+
+  const calendarDays = useMemo(() => {
+    const monthStart = startOfMonth(calendarMonth);
+    const startWeekday = (monthStart.getDay() + 6) % 7;
+    const gridStart = addDays(monthStart, -startWeekday);
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = addDays(gridStart, index);
+      const key = dayKey(date);
+      return {
+        key,
+        date,
+        inMonth: date.getMonth() === calendarMonth.getMonth(),
+        items: itemsByDay.get(key) ?? [],
+      };
+    });
+  }, [calendarMonth, itemsByDay]);
+
+  const selectedDay = useMemo(() => {
+    if (selectedDayKey) return calendarDays.find((entry) => entry.key === selectedDayKey) ?? null;
+    const todayKey = dayKey(new Date());
+    return calendarDays.find((entry) => entry.key === todayKey && entry.inMonth) ?? null;
+  }, [calendarDays, selectedDayKey]);
+
+  const monthlySummary = useMemo(() => {
+    const currentMonthItems = calendarDays.filter((day) => day.inMonth).flatMap((day) => day.items);
+    const previousMonthStart = startOfMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1));
+    const previousMonthItems: DbItem[] = [];
+    for (const [key, dayItems] of itemsByDay.entries()) {
+      const date = new Date(`${key}T00:00:00`);
+      if (date.getFullYear() === previousMonthStart.getFullYear() && date.getMonth() === previousMonthStart.getMonth()) {
+        previousMonthItems.push(...dayItems);
+      }
+    }
+    return generateMonthlySummary(currentMonthItems, previousMonthItems);
+  }, [calendarDays, calendarMonth, itemsByDay]);
+
+  const selectedDayVisibleItems = useMemo(() => {
+    if (!selectedDay) return [];
+    const dayItems = itemsByDay.get(selectedDay.key) ?? [];
+    if (selectedDayTypeFilter === "all") return dayItems;
+    return dayItems.filter((item) => item.type === selectedDayTypeFilter);
+  }, [itemsByDay, selectedDay, selectedDayTypeFilter]);
+
+  const selectedDayCounts = useMemo(() => {
+    const dayItems = selectedDay ? itemsByDay.get(selectedDay.key) ?? [] : [];
+    return {
+      all: dayItems.length,
+      music: dayItems.filter((item) => item.type === "music").length,
+      book: dayItems.filter((item) => item.type === "book").length,
+      movie: dayItems.filter((item) => item.type === "movie").length,
+    };
+  }, [itemsByDay, selectedDay]);
+
+  const pendingMoveTarget = useMemo(
+    () => (pendingMoveTargetKey ? calendarDays.find((entry) => entry.key === pendingMoveTargetKey) ?? null : null),
+    [calendarDays, pendingMoveTargetKey]
+  );
+
+  const returnDay = useMemo(
+    () => (returnDayKey ? calendarDays.find((entry) => entry.key === returnDayKey) ?? null : null),
+    [calendarDays, returnDayKey]
+  );
+  const lastMovedTargetDay = useMemo(
+    () => (lastMovedTargetKey ? calendarDays.find((entry) => entry.key === lastMovedTargetKey) ?? null : null),
+    [calendarDays, lastMovedTargetKey]
+  );
+
+  function toggleSelectedDayItem(id: string | number) {
+    setSelectedDayItems((current) =>
+      current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id]
+    );
+  }
+
+  function startMoveSelectedDayItems() {
+    if (selectedDayItems.length === 0) return;
+    setMoveOriginDayKey(selectedDay?.key ?? null);
+    setReturnDayKey(null);
+    setDayModalOpen(false);
+    setPendingMoveTargetKey(null);
+    setCalendarMoveMode(true);
+    setLibraryStatus("выбери день, на который перенести выбранное");
+  }
+
+  function cancelMoveSelectedDayItems() {
+    setCalendarMoveMode(false);
+    setPendingMoveTargetKey(null);
+    setSelectedDayItems([]);
+    setMoveOriginDayKey(null);
+    setLibraryStatus("");
+  }
+
+  async function moveSelectedItemsToDay() {
+    if (!pendingMoveTarget || selectedDayItems.length === 0) return;
+
+    const chosenItems = items.filter((item) => selectedDayItems.includes(item.id));
+    if (chosenItems.length === 0) return;
+
+    setLibraryLoading(true);
+    setLibraryError("");
+    try {
+      for (const [index, item] of chosenItems.entries()) {
+        const base = pendingMoveTarget.date;
+        const sourceDate = getItemDateValue(item) ? new Date(getItemDateValue(item)) : null;
+        const hours = sourceDate ? sourceDate.getHours() : 12;
+        const minutes = sourceDate ? sourceDate.getMinutes() : Math.min(index * 3, 57);
+        const targetDate = new Date(base.getFullYear(), base.getMonth(), base.getDate(), hours, minutes, 0, 0).getTime();
+
+        const res = await fetch("/api/items", {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "x-telegram-init-data": getTgInitData(),
+          },
+          body: JSON.stringify({
+            id: item.id,
+            type: item.type,
+            source: item.source,
+            title: item.title,
+            creator: item.creator ?? null,
+            consumedAt: targetDate,
+            timeOrigin: "exact",
+          }),
+        });
+        const json = await safeJson(res);
+        if (!res.ok) throw new Error(json?.error ?? "не удалось перенести дату");
+      }
+
+      await loadLibrary();
+      setLibraryStatus(
+        chosenItems.length === 1
+          ? `да, все ок: перенесли на ${pendingMoveTarget.date.toLocaleString("ru-RU", { day: "numeric", month: "long" })}`
+          : `да, все ок: перенесли ${chosenItems.length} на ${pendingMoveTarget.date.toLocaleString("ru-RU", { day: "numeric", month: "long" })}`
+      );
+      setReturnDayKey(moveOriginDayKey);
+      setLastMovedTargetKey(pendingMoveTarget.key);
+      setCalendarMoveMode(false);
+      setPendingMoveTargetKey(null);
+      setSelectedDayItems([]);
+      setMoveOriginDayKey(null);
+      setSelectedDayKey(pendingMoveTarget.key);
+      setDayModalOpen(true);
+    } catch (e: any) {
+      setLibraryError(e?.message ?? "не удалось перенести дату");
+    } finally {
+      setLibraryLoading(false);
+    }
+  }
+
+  function jumpBackToReturnDay() {
+    if (!returnDay) return;
+    setCalendarMonth(startOfMonth(returnDay.date));
+    setSelectedDayKey(returnDay.key);
+    setSelectedDayTypeFilter("all");
+    setSelectedDayItems([]);
+    setPendingMoveTargetKey(null);
+    setCalendarMoveMode(false);
+    setDayModalOpen(true);
+    setReturnDayKey(null);
+    setLibraryStatus("");
+  }
+
+  return {
+    libFilter, libraryStatus, calendarMonth, selectedDayKey, dayModalOpen,
+    selectedDayTypeFilter, selectedDayItems, calendarMoveMode, pendingMoveTargetKey,
+    moveOriginDayKey, returnDayKey, lastMovedTargetKey,
+    filteredItems, itemsByDay, calendarDays, selectedDay, monthlySummary,
+    selectedDayVisibleItems, selectedDayCounts, pendingMoveTarget, returnDay, lastMovedTargetDay,
+    setLibFilter, setLibraryStatus, setCalendarMonth, setSelectedDayKey, setDayModalOpen,
+    setSelectedDayTypeFilter, setSelectedDayItems, setCalendarMoveMode,
+    setPendingMoveTargetKey, setMoveOriginDayKey, setReturnDayKey, setLastMovedTargetKey,
+    toggleSelectedDayItem, startMoveSelectedDayItems, cancelMoveSelectedDayItems,
+    moveSelectedItemsToDay, jumpBackToReturnDay,
+  };
+}
+
 export default function Page() {
   const [tab, setTab] = useState<Tab>("profile");
   const [aboutStep, setAboutStep] = useState(0);
@@ -645,6 +859,7 @@ export default function Page() {
 
 
   const vibe = useVibecheck();
+  const library = useLibrary({ items, loadLibrary, setLibraryError, setLibraryLoading });
   const profile = useProfile({ loadLibrary, setLibraryError });
   const fileRef = useRef<HTMLInputElement | null>(null);
   const csvImportRef = useRef<HTMLInputElement | null>(null);
@@ -1151,99 +1366,15 @@ export default function Page() {
     }
   }
 
-  function toggleSelectedDayItem(id: string | number) {
-    setSelectedDayItems((current) =>
-      current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id]
-    );
-  }
 
-  function startMoveSelectedDayItems() {
-    if (selectedDayItems.length === 0) return;
-    setMoveOriginDayKey(selectedDay?.key ?? null);
-    setReturnDayKey(null);
-    setDayModalOpen(false);
-    setPendingMoveTargetKey(null);
-    setCalendarMoveMode(true);
-    setLibraryStatus("выбери день, на который перенести выбранное");
-  }
 
-  function cancelMoveSelectedDayItems() {
-    setCalendarMoveMode(false);
-    setPendingMoveTargetKey(null);
-    setSelectedDayItems([]);
-    setMoveOriginDayKey(null);
-    setLibraryStatus("");
-  }
 
-  async function moveSelectedItemsToDay() {
-    if (!pendingMoveTarget || selectedDayItems.length === 0) return;
 
-    const chosenItems = items.filter((item) => selectedDayItems.includes(item.id));
-    if (chosenItems.length === 0) return;
 
-    setLibraryLoading(true);
-    setLibraryError("");
-    try {
-      for (const [index, item] of chosenItems.entries()) {
-        const base = pendingMoveTarget.date;
-        const sourceDate = getItemDateValue(item) ? new Date(getItemDateValue(item)) : null;
-        const hours = sourceDate ? sourceDate.getHours() : 12;
-        const minutes = sourceDate ? sourceDate.getMinutes() : Math.min(index * 3, 57);
-        const targetDate = new Date(base.getFullYear(), base.getMonth(), base.getDate(), hours, minutes, 0, 0).getTime();
 
-        const res = await fetch("/api/items", {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            "x-telegram-init-data": getTgInitData(),
-          },
-          body: JSON.stringify({
-            id: item.id,
-            type: item.type,
-            source: item.source,
-            title: item.title,
-            creator: item.creator ?? null,
-            consumedAt: targetDate,
-            timeOrigin: "exact",
-          }),
-        });
-        const json = await safeJson(res);
-        if (!res.ok) throw new Error(json?.error ?? "не удалось перенести дату");
-      }
 
-      await loadLibrary();
-      setLibraryStatus(
-        chosenItems.length === 1
-          ? `да, все ок: перенесли на ${pendingMoveTarget.date.toLocaleString("ru-RU", { day: "numeric", month: "long" })}`
-          : `да, все ок: перенесли ${chosenItems.length} на ${pendingMoveTarget.date.toLocaleString("ru-RU", { day: "numeric", month: "long" })}`
-      );
-      setReturnDayKey(moveOriginDayKey);
-      setLastMovedTargetKey(pendingMoveTarget.key);
-      setCalendarMoveMode(false);
-      setPendingMoveTargetKey(null);
-      setSelectedDayItems([]);
-      setMoveOriginDayKey(null);
-      setSelectedDayKey(pendingMoveTarget.key);
-      setDayModalOpen(true);
-    } catch (e: any) {
-      setLibraryError(e?.message ?? "не удалось перенести дату");
-    } finally {
-      setLibraryLoading(false);
-    }
-  }
 
-  function jumpBackToReturnDay() {
-    if (!returnDay) return;
-    setCalendarMonth(startOfMonth(returnDay.date));
-    setSelectedDayKey(returnDay.key);
-    setSelectedDayTypeFilter("all");
-    setSelectedDayItems([]);
-    setPendingMoveTargetKey(null);
-    setCalendarMoveMode(false);
-    setDayModalOpen(true);
-    setReturnDayKey(null);
-    setLibraryStatus("");
-  }
+
 
   // ===== Vibe =====
 
@@ -1415,104 +1546,6 @@ export default function Page() {
 
 
   // ===== Library filter =====
-  const [libFilter, setLibFilter] = useState<ItemType | "all" | string>("all");
-  const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
-  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
-  const [dayModalOpen, setDayModalOpen] = useState(false);
-  const [selectedDayTypeFilter, setSelectedDayTypeFilter] = useState<ItemType | "all">("all");
-  const [selectedDayItems, setSelectedDayItems] = useState<Array<string | number>>([]);
-  const [calendarMoveMode, setCalendarMoveMode] = useState(false);
-  const [pendingMoveTargetKey, setPendingMoveTargetKey] = useState<string | null>(null);
-  const [moveOriginDayKey, setMoveOriginDayKey] = useState<string | null>(null);
-  const [returnDayKey, setReturnDayKey] = useState<string | null>(null);
-  const [lastMovedTargetKey, setLastMovedTargetKey] = useState<string | null>(dayKey(new Date()));
-  const [libraryStatus, setLibraryStatus] = useState("");
-  const filteredItems = useMemo(() => {
-    if (libFilter === "all") return items;
-    if (libFilter === "music" || libFilter === "book" || libFilter === "movie") return items.filter(i => i.type === libFilter);
-    // кастомная категория по id
-    return items.filter(i => i.custom_category_id === libFilter);
-  }, [items, libFilter]);
-
-  const itemsByDay = useMemo(() => {
-    const grouped = new Map<string, DbItem[]>();
-    for (const item of filteredItems) {
-      const dateValue = getItemDateValue(item);
-      if (!dateValue) continue;
-      const key = dayKey(dateValue);
-      if (!key) continue;
-      const bucket = grouped.get(key) ?? [];
-      bucket.push(item);
-      grouped.set(key, bucket);
-    }
-    return grouped;
-  }, [filteredItems]);
-
-  const calendarDays = useMemo(() => {
-    const monthStart = startOfMonth(calendarMonth);
-    const startWeekday = (monthStart.getDay() + 6) % 7;
-    const gridStart = addDays(monthStart, -startWeekday);
-    return Array.from({ length: 42 }, (_, index) => {
-      const date = addDays(gridStart, index);
-      const key = dayKey(date);
-      return {
-        key,
-        date,
-        inMonth: date.getMonth() === calendarMonth.getMonth(),
-        items: itemsByDay.get(key) ?? [],
-      };
-    });
-  }, [calendarMonth, itemsByDay]);
-
-  const selectedDay = useMemo(() => {
-    if (selectedDayKey) return calendarDays.find((entry) => entry.key === selectedDayKey) ?? null;
-    const todayKey = dayKey(new Date());
-    return calendarDays.find((entry) => entry.key === todayKey && entry.inMonth) ?? null;
-  }, [calendarDays, selectedDayKey]);
-
-  const monthlySummary = useMemo(() => {
-    const currentMonthItems = calendarDays.filter((day) => day.inMonth).flatMap((day) => day.items);
-    const previousMonthStart = startOfMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1));
-    const previousMonthItems: DbItem[] = [];
-    for (const [key, dayItems] of itemsByDay.entries()) {
-      const date = new Date(`${key}T00:00:00`);
-      if (date.getFullYear() === previousMonthStart.getFullYear() && date.getMonth() === previousMonthStart.getMonth()) {
-        previousMonthItems.push(...dayItems);
-      }
-    }
-    return generateMonthlySummary(currentMonthItems, previousMonthItems);
-  }, [calendarDays, calendarMonth, itemsByDay]);
-
-  const selectedDayVisibleItems = useMemo(() => {
-    if (!selectedDay) return [];
-    const dayItems = itemsByDay.get(selectedDay.key) ?? [];
-    if (selectedDayTypeFilter === "all") return dayItems;
-    return dayItems.filter((item) => item.type === selectedDayTypeFilter);
-  }, [itemsByDay, selectedDay, selectedDayTypeFilter]);
-
-  const selectedDayCounts = useMemo(() => {
-    const dayItems = selectedDay ? itemsByDay.get(selectedDay.key) ?? [] : [];
-    return {
-      all: dayItems.length,
-      music: dayItems.filter((item) => item.type === "music").length,
-      book: dayItems.filter((item) => item.type === "book").length,
-      movie: dayItems.filter((item) => item.type === "movie").length,
-    };
-  }, [itemsByDay, selectedDay]);
-
-  const pendingMoveTarget = useMemo(
-    () => (pendingMoveTargetKey ? calendarDays.find((entry) => entry.key === pendingMoveTargetKey) ?? null : null),
-    [calendarDays, pendingMoveTargetKey]
-  );
-
-  const returnDay = useMemo(
-    () => (returnDayKey ? calendarDays.find((entry) => entry.key === returnDayKey) ?? null : null),
-    [calendarDays, returnDayKey]
-  );
-  const lastMovedTargetDay = useMemo(
-    () => (lastMovedTargetKey ? calendarDays.find((entry) => entry.key === lastMovedTargetKey) ?? null : null),
-    [calendarDays, lastMovedTargetKey]
-  );
 
   return (
     <>
@@ -2056,19 +2089,19 @@ export default function Page() {
               смотри все вместе или раскладывай по типам. в календаре видно, что с тобой происходило по дням.
             </div>
 
-            {libraryStatus && !libraryError && <div className="status-note">{libraryStatus}</div>}
-            {returnDay && !calendarMoveMode ? (
+            {library.libraryStatus && !libraryError && <div className="status-note">{library.libraryStatus}</div>}
+            {library.returnDay && !library.calendarMoveMode ? (
               <div className="calendar-move-banner" style={{ marginBottom: 16 }}>
                 <div className="calendar-move-copy">
                   <div className="section-label" style={{ marginBottom: 4 }}>
-                    {lastMovedTargetDay
-                      ? `перенесли на ${lastMovedTargetDay.date.toLocaleString("ru-RU", { day: "numeric", month: "long" })}`
+                    {library.lastMovedTargetDay
+                      ? `перенесли на ${library.lastMovedTargetDay.date.toLocaleString("ru-RU", { day: "numeric", month: "long" })}`
                       : "дату перенесли"}
                   </div>
                   <div>если хочешь, можно сразу вернуться к прежнему дню.</div>
                 </div>
-                <button type="button" className="btn btn-outline btn-sm" onClick={jumpBackToReturnDay}>
-                  {`вернуться к ${returnDay.date.toLocaleString("ru-RU", { day: "numeric", month: "long" })}`}
+                <button type="button" className="btn btn-outline btn-sm" onClick={library.jumpBackToReturnDay}>
+                  {`вернуться к ${library.returnDay.date.toLocaleString("ru-RU", { day: "numeric", month: "long" })}`}
                 </button>
               </div>
             ) : null}
@@ -2079,8 +2112,8 @@ export default function Page() {
                   <button
                     key={val}
                     type="button"
-                    className={`filter-btn${libFilter === val ? " active" : ""}`}
-                    onClick={() => setLibFilter(val)}
+                    className={`filter-btn${library.libFilter === val ? " active" : ""}`}
+                    onClick={() => library.setLibFilter(val)}
                   >
                     {label}
                   </button>
@@ -2089,8 +2122,8 @@ export default function Page() {
                   <button
                     key={cat.id}
                     type="button"
-                    className={`filter-btn${libFilter === cat.id ? " active" : ""}`}
-                    onClick={() => setLibFilter(cat.id)}
+                    className={`filter-btn${library.libFilter === cat.id ? " active" : ""}`}
+                    onClick={() => library.setLibFilter(cat.id)}
                   >
                     {cat.emoji} {cat.name}
                   </button>
@@ -2102,26 +2135,26 @@ export default function Page() {
 
             {libraryLoading ? (
               <div className="empty">загружаю…</div>
-            ) : filteredItems.length === 0 ? (
+            ) : library.filteredItems.length === 0 ? (
               <div className="empty">
                 {items.length === 0 ? "пока пусто — добавь что-нибудь!" : "нет айтемов этого типа"}
               </div>
             ) : libraryView === "calendar" ? (
               <>
                 <div className="calendar-shell">
-                  {calendarMoveMode && selectedDayItems.length > 0 ? (
+                  {library.calendarMoveMode && library.selectedDayItems.length > 0 ? (
                     <div className="calendar-move-banner">
                       <div className="calendar-move-copy">
                         <div className="section-label" style={{ marginBottom: 4 }}>перенос даты</div>
-                        <div>выбери новый день для {selectedDayItems.length} {selectedDayItems.length === 1 ? "айтема" : selectedDayItems.length < 5 ? "айтемов" : "айтемов"}.</div>
+                        <div>выбери новый день для {library.selectedDayItems.length} {library.selectedDayItems.length === 1 ? "айтема" : library.selectedDayItems.length < 5 ? "айтемов" : "айтемов"}.</div>
                       </div>
-                      <button type="button" className="btn btn-outline btn-sm" onClick={cancelMoveSelectedDayItems}>отмена</button>
+                      <button type="button" className="btn btn-outline btn-sm" onClick={library.cancelMoveSelectedDayItems}>отмена</button>
                     </div>
                   ) : null}
                   <div className="calendar-top-row">
-                    <button className="calendar-arrow" onClick={() => setCalendarMonth((current) => startOfMonth(new Date(current.getFullYear(), current.getMonth() - 1, 1)))}>‹</button>
+                    <button className="calendar-arrow" onClick={() => library.setCalendarMonth((current) => startOfMonth(new Date(current.getFullYear(), current.getMonth() - 1, 1)))}>‹</button>
                     <div className="calendar-title">
-                      {calendarMonth
+                      {library.calendarMonth
                         .toLocaleString("ru-RU", { month: "long", year: "numeric" })
                         .replace(/\sг\.$/, "")
                         .replace(/^./, (char) => char.toUpperCase())}
@@ -2132,20 +2165,20 @@ export default function Page() {
                         className="calendar-arrow calendar-today"
                         onClick={() => {
                           const today = new Date();
-                          setCalendarMonth(startOfMonth(today));
-                          setSelectedDayKey(dayKey(today));
+                          library.setCalendarMonth(startOfMonth(today));
+                          library.setSelectedDayKey(dayKey(today));
                         }}
                       >
                         сегодня
                       </button>
-                      <button className="calendar-arrow" onClick={() => setCalendarMonth((current) => startOfMonth(new Date(current.getFullYear(), current.getMonth() + 1, 1)))}>›</button>
+                      <button className="calendar-arrow" onClick={() => library.setCalendarMonth((current) => startOfMonth(new Date(current.getFullYear(), current.getMonth() + 1, 1)))}>›</button>
                     </div>
                   </div>
 
-                  {monthlySummary && (
+                  {library.monthlySummary && (
                     <div className="vibe-section vibe-pink" style={{ marginTop: 4, marginBottom: 12 }}>
                       <div className="section-label" style={{ marginBottom: 4 }}>по месяцу</div>
-                      <div>{monthlySummary}</div>
+                      <div>{library.monthlySummary}</div>
                     </div>
                   )}
 
@@ -2156,20 +2189,20 @@ export default function Page() {
                   </div>
 
                   <div className="calendar-grid">
-                    {calendarDays.map((day) => (
+                    {library.calendarDays.map((day) => (
                       <button
                         key={day.key}
                         type="button"
-                        className={`calendar-day${!day.inMonth ? " muted" : ""}${selectedDay?.key === day.key ? " selected" : ""}`}
+                        className={`calendar-day${!day.inMonth ? " muted" : ""}${library.selectedDay?.key === day.key ? " selected" : ""}`}
                         onClick={() => {
-                          if (calendarMoveMode) {
-                            setPendingMoveTargetKey(day.key);
+                          if (library.calendarMoveMode) {
+                            library.setPendingMoveTargetKey(day.key);
                             return;
                           }
-                          setSelectedDayKey(day.key);
-                          setSelectedDayTypeFilter("all");
-                          setSelectedDayItems([]);
-                          setDayModalOpen(true);
+                          library.setSelectedDayKey(day.key);
+                          library.setSelectedDayTypeFilter("all");
+                          library.setSelectedDayItems([]);
+                          library.setDayModalOpen(true);
                         }}
                       >
                         <div className="calendar-day-head">
@@ -2187,20 +2220,21 @@ export default function Page() {
                   </div>
                 </div>
 
-                {dayModalOpen && selectedDay ? (
-                  <div className="day-modal-backdrop" onClick={() => setDayModalOpen(false)}>
+                {library.dayModalOpen && library.selectedDay ? (
+                  <div className="day-modal-backdrop" onClick={() => library.setDayModalOpen(false)}>
                     <div className="day-modal" onClick={(e) => e.stopPropagation()}>
                       <div className="day-modal-head">
                         <div className="card-title" style={{ marginBottom: 0 }}>
-                          {selectedDay.date
+                          {library.selectedDay.date
                             .toLocaleString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
                             .replace(/^./, (char) => char.toUpperCase())}
                         </div>
-                        <button className="btn btn-outline btn-sm" onClick={() => setDayModalOpen(false)}>закрыть</button>
+                        <button className="btn btn-outline btn-sm" onClick={() => library.setDayModalOpen(false)}>закрыть</button>
                       </div>
 
                       <div className="day-week-strip">
                         {Array.from({ length: 7 }, (_, index) => {
+                          const selectedDay = library.selectedDay!;
                           const base = addDays(selectedDay.date, -((selectedDay.date.getDay() + 6) % 7));
                           const date = addDays(base, index);
                           const key = dayKey(date);
@@ -2210,9 +2244,9 @@ export default function Page() {
                               type="button"
                               className={`day-week-pill${key === selectedDay.key ? " active" : ""}`}
                               onClick={() => {
-                                setSelectedDayKey(key);
-                                setSelectedDayTypeFilter("all");
-                                setSelectedDayItems([]);
+                                library.setSelectedDayKey(key);
+                                library.setSelectedDayTypeFilter("all");
+                                library.setSelectedDayItems([]);
                               }}
                             >
                               <div className="day-week-name">{date.toLocaleString("ru-RU", { weekday: "short" })}</div>
@@ -2223,38 +2257,38 @@ export default function Page() {
                       </div>
 
                       <div className="day-type-filters">
-                        {([["all", `все ${selectedDayCounts.all}`], ["music", `музыка ${selectedDayCounts.music}`], ["book", `книги ${selectedDayCounts.book}`], ["movie", `фильмы ${selectedDayCounts.movie}`]] as [ItemType | "all", string][]).map(([value, label]) => (
+                        {([["all", `все ${library.selectedDayCounts.all}`], ["music", `музыка ${library.selectedDayCounts.music}`], ["book", `книги ${library.selectedDayCounts.book}`], ["movie", `фильмы ${library.selectedDayCounts.movie}`]] as [ItemType | "all", string][]).map(([value, label]) => (
                           <button
                             key={value}
                             type="button"
-                            className={`filter-btn compact${selectedDayTypeFilter === value ? " active" : ""}`}
-                            onClick={() => setSelectedDayTypeFilter(value)}
+                            className={`filter-btn compact${library.selectedDayTypeFilter === value ? " active" : ""}`}
+                            onClick={() => library.setSelectedDayTypeFilter(value)}
                           >
                             {label}
                           </button>
                         ))}
                       </div>
 
-                      {selectedDayItems.length > 0 ? (
+                      {library.selectedDayItems.length > 0 ? (
                         <div className="day-action-row">
-                          <button type="button" className="btn btn-outline btn-sm" onClick={startMoveSelectedDayItems}>
-                            {selectedDayItems.length === 1 ? "изменить дату" : `изменить дату (${selectedDayItems.length})`}
+                          <button type="button" className="btn btn-outline btn-sm" onClick={library.startMoveSelectedDayItems}>
+                            {library.selectedDayItems.length === 1 ? "изменить дату" : `изменить дату (${library.selectedDayItems.length})`}
                           </button>
-                          <button type="button" className="btn btn-outline btn-sm" onClick={() => setSelectedDayItems([])}>
+                          <button type="button" className="btn btn-outline btn-sm" onClick={() => library.setSelectedDayItems([])}>
                             снять выбор
                           </button>
                         </div>
                       ) : null}
 
                       <div className="day-modal-scroll">
-                        {selectedDayVisibleItems.length > 0 ? (
+                        {library.selectedDayVisibleItems.length > 0 ? (
                           <div className="day-items-grid">
-                            {selectedDayVisibleItems.map((it) => (
+                            {library.selectedDayVisibleItems.map((it) => (
                               <button
                                 key={String(it.id)}
                                 type="button"
-                                className={`item-card ${it.type}${selectedDayItems.includes(it.id) ? " selected" : ""}`}
-                                onClick={() => toggleSelectedDayItem(it.id)}
+                                className={`item-card ${it.type}${library.selectedDayItems.includes(it.id) ? " selected" : ""}`}
+                                onClick={() => library.toggleSelectedDayItem(it.id)}
                               >
                                 <div className="item-topline">
                                   <div className="item-meta">
@@ -2266,7 +2300,7 @@ export default function Page() {
                                   {it.creator && <div className="item-title">{it.creator}</div>}
                                   <div className="item-creator">{it.title}</div>
                                 </div>
-                                {selectedDayItems.includes(it.id) ? <div className="item-selected-badge">выбрано</div> : null}
+                                {library.selectedDayItems.includes(it.id) ? <div className="item-selected-badge">выбрано</div> : null}
                               </button>
                             ))}
                           </div>
@@ -2278,17 +2312,17 @@ export default function Page() {
                   </div>
                 ) : null}
 
-                {calendarMoveMode && pendingMoveTarget ? (
-                  <div className="day-modal-backdrop" onClick={() => setPendingMoveTargetKey(null)}>
+                {library.calendarMoveMode && library.pendingMoveTarget ? (
+                  <div className="day-modal-backdrop" onClick={() => library.setPendingMoveTargetKey(null)}>
                     <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
                       <div className="card-title" style={{ marginBottom: 10 }}>перенести на другой день?</div>
                       <div className="vibe-helper" style={{ marginBottom: 14 }}>
-                        перенесем {selectedDayItems.length} {selectedDayItems.length === 1 ? "айтем" : selectedDayItems.length < 5 ? "айтема" : "айтемов"} на{" "}
-                        {pendingMoveTarget.date.toLocaleString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}.
+                        перенесем {library.selectedDayItems.length} {library.selectedDayItems.length === 1 ? "айтем" : library.selectedDayItems.length < 5 ? "айтема" : "айтемов"} на{" "}
+                        {library.pendingMoveTarget.date.toLocaleString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}.
                       </div>
                       <div className="day-action-row">
-                        <button type="button" className="btn" onClick={moveSelectedItemsToDay}>да, перенести</button>
-                        <button type="button" className="btn btn-outline" onClick={() => setPendingMoveTargetKey(null)}>не сейчас</button>
+                        <button type="button" className="btn" onClick={library.moveSelectedItemsToDay}>да, перенести</button>
+                        <button type="button" className="btn btn-outline" onClick={() => library.setPendingMoveTargetKey(null)}>не сейчас</button>
                       </div>
                     </div>
                   </div>
@@ -2296,7 +2330,7 @@ export default function Page() {
               </>
             ) : (
               <div className="items-grid">
-                {filteredItems.map((it) => (
+                {library.filteredItems.map((it) => (
                   <div key={String(it.id)} className={`item-card ${it.type}`}>
                     <div className="item-topline">
                       <div className="item-meta">
