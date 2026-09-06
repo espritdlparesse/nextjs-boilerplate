@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useState } from "react";
+import { dayKey, startOfMonth, addDays, calendarGrid } from "../../../lib/dates";
 import { FlatList, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import {
   formatFullDate,
@@ -69,21 +70,6 @@ function monthLabel(consumedAt?: number) {
       year: "numeric",
     })
     .toLowerCase();
-}
-
-function dayKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function startOfMonth(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1, 12, 0, 0, 0);
-}
-
-function addDays(date: Date, days: number) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days, 12, 0, 0, 0);
 }
 
 const CalendarDayCell = memo(function CalendarDayCell({
@@ -288,24 +274,15 @@ export function LibraryScreen({
     return grouped;
   }, [visibleLibrary]);
 
-  const calendarDays = useMemo(() => {
-    const monthStart = startOfMonth(calendarMonth);
-    const startWeekday = (monthStart.getDay() + 6) % 7;
-    const gridStart = addDays(monthStart, -startWeekday);
-
-    return Array.from({ length: 42 }, (_, index) => {
-      const date = addDays(gridStart, index);
-      const key = dayKey(date);
-        return {
-          key,
-          date,
-          inMonth: date.getMonth() === calendarMonth.getMonth(),
-          isToday: key === dayKey(new Date()),
-          items: itemsByDay.get(key) ?? [],
-          steps: dailyStepsByDay[key] ?? 0,
-        };
-      });
-  }, [calendarMonth, dailyStepsByDay, itemsByDay]);
+  const calendarDays = useMemo(
+    () =>
+      calendarGrid(calendarMonth).map((day) => ({
+        ...day,
+        items: itemsByDay.get(day.key) ?? [],
+        steps: dailyStepsByDay[day.key] ?? 0,
+      })),
+    [calendarMonth, dailyStepsByDay, itemsByDay]
+  );
 
   const selectedDay = useMemo(() => {
     if (selectedDayKey) {

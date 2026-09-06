@@ -10,7 +10,8 @@
     "lint": "eslint",
     "migrate": "node scripts/migrate.mjs",
     "warm-context": "node scripts/warm-cultural-context.mjs",
-    "test": "node --test lib/__tests__/*.test.ts"
+    "test": "node --test lib/__tests__/*.test.ts",
+    "complexity": "python scripts/complexity.py app lib apps/mobile scripts/migrate.mjs scripts/warm-cultural-context.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.5",

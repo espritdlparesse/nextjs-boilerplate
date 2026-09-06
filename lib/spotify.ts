@@ -179,3 +179,10 @@ export async function importSpotifyMedia(parsed: { kind: "track" | "album" | "pl
 
   return dedupeItems(items);
 }
+
+export async function fetchSpotify<T>(url: string, accessToken: string) {
+  const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const json = (await response.json().catch(() => null)) as T | null;
+  if (!response.ok || !json) throw new Error(`spotify request failed: ${response.status}`);
+  return json;
+}

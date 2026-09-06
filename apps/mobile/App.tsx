@@ -560,8 +560,8 @@ export default function App() {
                   onSpotifyPlaylistImportPress={app.importSpotifyPlaylist}
                   onLastfmUsernameChange={app.setLastfmUsername}
                   onLetterboxdProfileChange={app.setLetterboxdProfile}
-                  onLastfmProfileImportPress={app.importLastfmProfileByUsername}
-                  onLetterboxdProfileImportPress={app.importLetterboxdPublicProfile}
+                  onLastfmProfileImportPress={() => void app.importProfileSource("lastfm")}
+                  onLetterboxdProfileImportPress={() => void app.importProfileSource("letterboxd")}
                   onDisconnectLastfmPress={app.disconnectLastfmSource}
                   onDisconnectLetterboxdPress={app.disconnectLetterboxdSource}
                   onDisconnectSpotifyPress={app.disconnectSpotifySource}
@@ -704,8 +704,8 @@ export default function App() {
                     onSpotifyPlaylistImportPress={app.importSpotifyPlaylist}
                     onLastfmUsernameChange={app.setLastfmUsername}
                     onLetterboxdProfileChange={app.setLetterboxdProfile}
-                    onLastfmProfileImportPress={app.importLastfmProfileByUsername}
-                    onLetterboxdProfileImportPress={app.importLetterboxdPublicProfile}
+                    onLastfmProfileImportPress={() => void app.importProfileSource("lastfm")}
+                    onLetterboxdProfileImportPress={() => void app.importProfileSource("letterboxd")}
                     onDisconnectLastfmPress={app.disconnectLastfmSource}
                     onDisconnectLetterboxdPress={app.disconnectLetterboxdSource}
                     onDisconnectSpotifyPress={app.disconnectSpotifySource}

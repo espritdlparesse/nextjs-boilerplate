@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { toBase64Url } from "@/lib/base64url";
 
 type AppTokenPayload = {
   sub: string;
@@ -7,14 +8,6 @@ type AppTokenPayload = {
   name?: string;
   iat: number;
 };
-
-function toBase64Url(input: Buffer | string) {
-  return Buffer.from(input)
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
-}
 
 function fromBase64Url(input: string) {
   const normalized = input.replace(/-/g, "+").replace(/_/g, "/");

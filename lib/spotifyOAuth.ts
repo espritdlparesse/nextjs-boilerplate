@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { toBase64Url } from "@/lib/base64url";
 
 type SpotifyOAuthState = {
   ownerKey: string;
@@ -10,14 +11,6 @@ function getSecret() {
   const secret = process.env.EVERYYOU_APP_AUTH_SECRET;
   if (!secret) throw new Error("EVERYYOU_APP_AUTH_SECRET missing");
   return secret;
-}
-
-function toBase64Url(input: Buffer | string) {
-  return Buffer.from(input)
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
 }
 
 function fromBase64Url(input: string) {

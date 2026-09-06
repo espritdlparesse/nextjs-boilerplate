@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fetchSpotify } from "@/lib/spotify";
 import { resolveApiIdentity } from "@/lib/auth";
 import { getSpotifyAccessTokenForOwner } from "@/lib/spotifyConnection";
 import { getEffectiveOwner } from "@/lib/ownerLinks";
@@ -9,18 +10,6 @@ type SpotifyPlaylistsPage = {
   items?: Array<{ id: string; name: string; tracks?: { total?: number } }>;
   next?: string | null;
 };
-
-async function fetchSpotify<T>(url: string, accessToken: string) {
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  const json = (await response.json().catch(() => null)) as T | null;
-  if (!response.ok || !json) throw new Error(`spotify request failed: ${response.status}`);
-  return json;
-}
 
 export async function GET(req: NextRequest) {
   const auth = resolveApiIdentity(req);

@@ -1,3 +1,4 @@
+import { clampTimelineTimestampMs } from "../../../../lib/timeline";
 export type TgUser = {
   id?: number;
   first_name?: string;
@@ -108,15 +109,7 @@ export function clampText(s: string) {
   return s.trim().replace(/\s+/g, " ");
 }
 
-export function sanitizeTimelineTimestamp(ms?: number) {
-  if (typeof ms !== "number" || !Number.isFinite(ms)) return undefined;
-  const now = Date.now();
-  const futureToleranceMs = 5 * 60 * 1000;
-  if (ms > now + futureToleranceMs) {
-    return now;
-  }
-  return ms;
-}
+export const sanitizeTimelineTimestamp = clampTimelineTimestampMs;
 
 export function formatFullDate(ms: number) {
   const d = new Date(sanitizeTimelineTimestamp(ms) ?? ms);

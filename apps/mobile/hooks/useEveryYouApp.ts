@@ -179,6 +179,144 @@ async function loadNumber(mainKey: string, legacyKeys: string[]) {
   return 0;
 }
 
+type ProfileSourcePlatform = "lastfm" | "letterboxd";
+
+const PROFILE_SOURCES: Record<ProfileSourcePlatform, {
+  label: string;
+  emptyInput: string;
+  lookingUp: string;
+  fetching: string;
+  failed: string;
+  analyticsEvent: string;
+  unit: (count: number) => string;
+  fetchItems: (profile: string) => Promise<Omit<LibraryItem, "id">[]>;
+}> = {
+  lastfm: {
+    label: "last.fm",
+    emptyInput: "введи username last.fm",
+    lookingUp: "смотрим профиль last.fm...",
+    fetching: "тянем recent tracks...",
+    failed: "не удалось импортировать профиль last.fm",
+    analyticsEvent: "lastfm_profile_import_completed",
+    unit: () => "трек(ов)",
+    fetchItems: importFromLastfmProfile,
+  },
+  letterboxd: {
+    label: "letterboxd",
+    emptyInput: "вставь username или ссылку на profile letterboxd",
+    lookingUp: "смотрим public profile letterboxd...",
+    fetching: "читаем diary и watched...",
+    failed: "не удалось импортировать profile Letterboxd",
+    analyticsEvent: "letterboxd_profile_import_completed",
+    unit: () => "фильм(ов)",
+    fetchItems: importFromLetterboxdProfile,
+  },
+};
+
+function useOnboarding(library: LibraryItem[]) {
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
+  const [onboardingVariant, setOnboardingVariant] = useState<"fresh" | "linked">("fresh");
+
+  async function finishOnboarding() {
+    await setStoredOnboardingDone(true);
+    setShowOnboarding(false);
+    setOnboardingStep(0);
+  }
+
+  function nextOnboardingStep() {
+    const lastStep = onboardingVariant === "linked" ? 1 : 2;
+    if (onboardingStep >= lastStep) {
+      void finishOnboarding();
+      return;
+    }
+    setOnboardingStep((current) => current + 1);
+  }
+
+  async function skipOnboarding() {
+    await setStoredOnboardingDone(true);
+    setShowOnboarding(false);
+    setOnboardingStep(0);
+  }
+
+  function replayOnboarding() {
+    setOnboardingVariant(library.length > 0 ? "linked" : "fresh");
+    setOnboardingStep(0);
+    setShowOnboarding(true);
+  }
+
+  return {
+    showOnboarding, onboardingStep, onboardingVariant,
+    setShowOnboarding, setOnboardingStep, setOnboardingVariant,
+    finishOnboarding, nextOnboardingStep, skipOnboarding, replayOnboarding,
+  };
+}
+
+function useTelegramLink(deps: {
+  apiToken: string | null;
+  fireAnalytics: (event: string, properties?: Record<string, unknown>) => void;
+  setToastMessage: (message: string | null) => void;
+}) {
+  const { apiToken, fireAnalytics, setToastMessage } = deps;
+  const [telegramLink, setTelegramLink] = useState<TelegramLinkState>({
+    linked: false,
+    telegramOwnerKey: null,
+    code: null,
+    expiresAt: null,
+  });
+  const [telegramLinkLoading, setTelegramLinkLoading] = useState(false);
+  const [telegramLinkStatus, setTelegramLinkStatus] = useState<string | null>(null);
+  const [telegramLinkQrDataUrl, setTelegramLinkQrDataUrl] = useState<string | null>(null);
+  const telegramLinkWasLinkedRef = useRef(false);
+
+  async function createTelegramLinkCode() {
+    if (!apiToken || telegramLinkLoading) return;
+
+    try {
+      setTelegramLinkLoading(true);
+      setTelegramLinkStatus("готовим код для Telegram...");
+      const data = await startTelegramLink(apiToken);
+      setTelegramLink({
+        linked: false,
+        telegramOwnerKey: null,
+        code: data.code,
+        expiresAt: data.expiresAt,
+      });
+      telegramLinkWasLinkedRef.current = false;
+      setTelegramLinkStatus("код готов — введи его в mini app");
+      setToastMessage("код для Telegram готов");
+      fireAnalytics("telegram_link_code_created");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "не удалось создать код";
+      setTelegramLinkStatus(message);
+      setToastMessage("не удалось создать код");
+    } finally {
+      setTelegramLinkLoading(false);
+    }
+  }
+
+  async function openTelegramLinkFlow() {
+    const code = telegramLink.code?.trim().toUpperCase();
+    if (!code) {
+      setTelegramLinkStatus("сначала подготовь код для Telegram");
+      return;
+    }
+
+    try {
+      await Linking.openURL(`https://t.me/every_you_bot?startapp=link_${code}`);
+    } catch {
+      setTelegramLinkStatus("не получилось открыть Telegram автоматически");
+    }
+  }
+
+  return {
+    telegramLink, telegramLinkLoading, telegramLinkStatus, telegramLinkQrDataUrl,
+    telegramLinkWasLinkedRef,
+    setTelegramLink, setTelegramLinkStatus, setTelegramLinkQrDataUrl,
+    createTelegramLinkCode, openTelegramLinkFlow,
+  };
+}
+
 export function useEveryYouApp() {
   const [tab, setTab] = useState<Tab>("home");
   const [user, setUser] = useState<TgUser | null>({ first_name: "ios", last_name: "друг" });
@@ -187,6 +325,7 @@ export function useEveryYouApp() {
   const [title, setTitle] = useState("");
   const [authorOrArtist, setAuthorOrArtist] = useState("");
   const [library, setLibrary] = useState<LibraryItem[]>([]);
+  const onboarding = useOnboarding(library);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [timeQualityFilter, setTimeQualityFilter] = useState<TimeQualityFilter>("all");
@@ -238,19 +377,7 @@ export function useEveryYouApp() {
   );
   const [themeMode, setThemeMode] = useState<ThemeMode>("light");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [telegramLink, setTelegramLink] = useState<TelegramLinkState>({
-    linked: false,
-    telegramOwnerKey: null,
-    code: null,
-    expiresAt: null,
-  });
-  const [telegramLinkLoading, setTelegramLinkLoading] = useState(false);
-  const [telegramLinkStatus, setTelegramLinkStatus] = useState<string | null>(null);
-  const [telegramLinkQrDataUrl, setTelegramLinkQrDataUrl] = useState<string | null>(null);
-  const telegramLinkWasLinkedRef = useRef(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingStep, setOnboardingStep] = useState(0);
-  const [onboardingVariant, setOnboardingVariant] = useState<"fresh" | "linked">("fresh");
+  const telegram = useTelegramLink({ apiToken, fireAnalytics, setToastMessage });
   const [timelineSpreading, setTimelineSpreading] = useState(false);
   const [timelinePromptVisible, setTimelinePromptVisible] = useState(false);
   const [screenshotDateInsight, setScreenshotDateInsight] = useState<DateInsight | null>(null);
@@ -389,15 +516,15 @@ export function useEveryYouApp() {
           // Local settings remain the fallback before the profile migration reaches every environment.
         }
         if (linkStatus) {
-          setTelegramLink(linkStatus);
-          telegramLinkWasLinkedRef.current = linkStatus.linked;
+          telegram.setTelegramLink(linkStatus);
+          telegram.telegramLinkWasLinkedRef.current = linkStatus.linked;
         }
         if (
           remoteLibrary.length === 0 &&
           storedLibrary.length === 0 &&
           linkStatus &&
           !linkStatus.linked &&
-          telegramLinkWasLinkedRef.current
+          telegram.telegramLinkWasLinkedRef.current
         ) {
           nextSyncStatus = "online";
           nextSyncMessage = "похоже, нужно заново связать телеграм и айфон";
@@ -427,9 +554,9 @@ export function useEveryYouApp() {
       setSyncStatus(nextSyncStatus);
       setSyncMessage(nextSyncMessage);
       if (!onboardingDone) {
-        setOnboardingVariant(nextLibrary.length > 0 ? "linked" : "fresh");
-        setShowOnboarding(true);
-        setOnboardingStep(0);
+        onboarding.setOnboardingVariant(nextLibrary.length > 0 ? "linked" : "fresh");
+        onboarding.setShowOnboarding(true);
+        onboarding.setOnboardingStep(0);
       }
       setLoaded(true);
     }
@@ -483,8 +610,8 @@ export function useEveryYouApp() {
     fetchTelegramLinkStatus(apiToken)
       .then((status) => {
         if (cancelled) return;
-        setTelegramLink(status);
-        telegramLinkWasLinkedRef.current = status.linked;
+        telegram.setTelegramLink(status);
+        telegram.telegramLinkWasLinkedRef.current = status.linked;
       })
       .catch(() => undefined);
 
@@ -494,7 +621,7 @@ export function useEveryYouApp() {
   }, [apiToken]);
 
   useEffect(() => {
-    if (!apiToken || telegramLink.linked || !telegramLink.code) return;
+    if (!apiToken || telegram.telegramLink.linked || !telegram.telegramLink.code) return;
 
     let cancelled = false;
     const intervalId = setInterval(async () => {
@@ -502,12 +629,12 @@ export function useEveryYouApp() {
         const status = await fetchTelegramLinkStatus(apiToken);
         if (cancelled) return;
 
-        const justLinked = status.linked && !telegramLinkWasLinkedRef.current;
-        telegramLinkWasLinkedRef.current = status.linked;
-        setTelegramLink(status);
+        const justLinked = status.linked && !telegram.telegramLinkWasLinkedRef.current;
+        telegram.telegramLinkWasLinkedRef.current = status.linked;
+        telegram.setTelegramLink(status);
 
         if (justLinked) {
-          setTelegramLinkStatus("готово — Telegram и приложение теперь связаны");
+          telegram.setTelegramLinkStatus("готово — Telegram и приложение теперь связаны");
           setToastMessage("Telegram подключен");
           await refreshLinkedLibrary(apiToken);
           if (cancelled) return;
@@ -531,23 +658,23 @@ export function useEveryYouApp() {
       cancelled = true;
       clearInterval(intervalId);
     };
-  }, [apiToken, telegramLink.code, telegramLink.linked]);
+  }, [apiToken, telegram.telegramLink.code, telegram.telegramLink.linked]);
 
   useEffect(() => {
-    if (!telegramLink.code) {
-      setTelegramLinkQrDataUrl(null);
+    if (!telegram.telegramLink.code) {
+      telegram.setTelegramLinkQrDataUrl(null);
       return;
     }
 
-    const deepLink = `https://t.me/every_you_bot?startapp=link_${telegramLink.code}`;
+    const deepLink = `https://t.me/every_you_bot?startapp=link_${telegram.telegramLink.code}`;
     QRCode.toDataURL(deepLink, {
       margin: 1,
       width: 480,
       color: { dark: "#111111", light: "#FFFFFF" },
     })
-      .then((uri: string) => setTelegramLinkQrDataUrl(uri))
-      .catch(() => setTelegramLinkQrDataUrl(null));
-  }, [telegramLink.code]);
+      .then((uri: string) => telegram.setTelegramLinkQrDataUrl(uri))
+      .catch(() => telegram.setTelegramLinkQrDataUrl(null));
+  }, [telegram.telegramLink.code]);
 
   useEffect(() => {
     if (!loaded || avatarUri || tab !== "home") return;
@@ -827,6 +954,25 @@ export function useEveryYouApp() {
     return dates.sort((a, b) => b - a);
   }
 
+  async function pushConsumedDates(targets: LibraryItem[], dates: number[], timeOrigin: TimeOrigin) {
+    if (!apiToken) return;
+    const updatedItems: LibraryItem[] = [];
+    for (const [index, item] of targets.entries()) {
+      updatedItems.push(await updateItem(apiToken, {
+        id: item.id,
+        type: item.type,
+        source: item.source,
+        title: item.title,
+        authorOrArtist: item.authorOrArtist,
+        consumedAt: dates[index],
+        timeOrigin,
+      }));
+    }
+    setLibrary((current) =>
+      current.map((item) => updatedItems.find((updated) => updated.id === item.id) ?? item)
+    );
+  }
+
   async function spreadVisibleUndatedItems(preset: TimelineSpreadPreset) {
     const items = undatedVisibleLibrary;
     if (items.length === 0 || timelineSpreading) return;
@@ -836,23 +982,7 @@ export function useEveryYouApp() {
 
     try {
       if (apiToken) {
-        const updatedItems: LibraryItem[] = [];
-        for (const [index, item] of items.entries()) {
-          const updated = await updateItem(apiToken, {
-            id: item.id,
-            type: item.type,
-            source: item.source,
-            title: item.title,
-            authorOrArtist: item.authorOrArtist,
-            consumedAt: dates[index],
-            timeOrigin: "estimated",
-          });
-          updatedItems.push(updated);
-        }
-
-        setLibrary((current) =>
-          current.map((item) => updatedItems.find((updated) => updated.id === item.id) ?? item)
-        );
+        await pushConsumedDates(items, dates, "estimated");
         setSyncStatus("online");
         setSyncMessage("данные синхронизируются с сервером");
       } else {
@@ -934,23 +1064,7 @@ export function useEveryYouApp() {
 
     try {
       if (apiToken) {
-        const updatedItems: LibraryItem[] = [];
-        for (const [index, item] of selectedItems.entries()) {
-          const updated = await updateItem(apiToken, {
-            id: item.id,
-            type: item.type,
-            source: item.source,
-            title: item.title,
-            authorOrArtist: item.authorOrArtist,
-            consumedAt: movedAt[index],
-            timeOrigin: "exact",
-          });
-          updatedItems.push(updated);
-        }
-
-        setLibrary((current) =>
-          current.map((item) => updatedItems.find((updated) => updated.id === item.id) ?? item)
-        );
+        await pushConsumedDates(selectedItems, movedAt, "exact");
         setSyncStatus("online");
         setSyncMessage("данные синхронизируются с сервером");
       } else {
@@ -1513,18 +1627,24 @@ export function useEveryYouApp() {
     setTimelinePromptVisible(items.some((item) => item.consumedAt == null));
   }
 
-  async function importLastfmProfileByUsername() {
-    const normalizedUsername = clampText(lastfmUsername || connectedSources.lastfm?.profile || "");
-    if (!normalizedUsername) {
-      setFileImportStatus("введи username last.fm");
+
+
+
+
+  async function importProfileSource(platform: ProfileSourcePlatform) {
+    const config = PROFILE_SOURCES[platform];
+    const input = platform === "lastfm" ? lastfmUsername : letterboxdProfile;
+    const profile = clampText(input || connectedSources[platform]?.profile || "");
+    if (!profile) {
+      setFileImportStatus(config.emptyInput);
       return;
     }
 
     try {
-      setFileImportStatus("смотрим профиль last.fm...");
+      setFileImportStatus(config.lookingUp);
       setFileImportDateInsight(null);
-      setFileImportStatus("тянем recent tracks...");
-      const items = await importFromLastfmProfile(normalizedUsername);
+      setFileImportStatus(config.fetching);
+      const items = await config.fetchItems(profile);
       await persistImportedLibraryItems(
         items.map((item) => ({
           ...item,
@@ -1532,84 +1652,37 @@ export function useEveryYouApp() {
           timeOrigin: item.timeOrigin ?? undefined,
         })),
         {
-        successLabel: `добавили ${items.length} трек(ов) из last.fm`,
-        successToast: `импортировали ${items.length} трек(ов)`,
-        analyticsEvent: "lastfm_profile_import_completed",
-        analyticsProperties: { username: normalizedUsername },
-        statusSetter: setFileImportStatus,
-        dateInsightSetter: setFileImportDateInsight,
+          successLabel: `добавили ${items.length} ${config.unit(items.length)} из ${config.label}`,
+          successToast: `импортировали ${items.length} ${config.unit(items.length)}`,
+          analyticsEvent: config.analyticsEvent,
+          analyticsProperties: { profile },
+          statusSetter: setFileImportStatus,
+          dateInsightSetter: setFileImportDateInsight,
         }
       );
-      if (apiToken) {
-        try {
-          const result = await saveConnectedSource(apiToken, { platform: "lastfm", profile: normalizedUsername });
-          setConnectedSources((current) => ({
-            ...current,
-            lastfm: { profile: result.source.profile, lastSyncedAt: result.source.lastSyncedAt },
-          }));
-          setLastfmUsername(result.source.profile);
-        } catch {
-          // import can still be successful even if source save failed
-        }
-      }
+      await rememberConnectedSource(platform, profile);
       setFileImportStatus(
         items.length > 0
-          ? `готово: нашли ${items.length} трек(ов) в last.fm`
+          ? `готово: нашли ${items.length} ${config.unit(items.length)} в ${config.label}`
           : "ничего не нашли в этом профиле"
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : "не удалось импортировать профиль last.fm";
-      setFileImportStatus(message);
+      setFileImportStatus(error instanceof Error ? error.message : config.failed);
     }
   }
 
-  async function importLetterboxdPublicProfile() {
-    const normalizedProfile = clampText(letterboxdProfile || connectedSources.letterboxd?.profile || "");
-    if (!normalizedProfile) {
-      setFileImportStatus("вставь username или ссылку на profile letterboxd");
-      return;
-    }
-
+  async function rememberConnectedSource(platform: ProfileSourcePlatform, profile: string) {
+    if (!apiToken) return;
     try {
-      setFileImportStatus("смотрим public profile letterboxd...");
-      setFileImportDateInsight(null);
-      setFileImportStatus("читаем diary и watched...");
-      const items = await importFromLetterboxdProfile(normalizedProfile);
-      await persistImportedLibraryItems(
-        items.map((item) => ({
-          ...item,
-          consumedAt: item.consumedAt ?? undefined,
-          timeOrigin: item.timeOrigin ?? undefined,
-        })),
-        {
-        successLabel: `добавили ${items.length} фильм(ов) из Letterboxd`,
-        successToast: `импортировали ${items.length} фильм(ов)`,
-        analyticsEvent: "letterboxd_profile_import_completed",
-        analyticsProperties: { profile: normalizedProfile },
-        statusSetter: setFileImportStatus,
-        dateInsightSetter: setFileImportDateInsight,
-        }
-      );
-      if (apiToken) {
-        try {
-          const result = await saveConnectedSource(apiToken, { platform: "letterboxd", profile: normalizedProfile });
-          setConnectedSources((current) => ({
-            ...current,
-            letterboxd: { profile: result.source.profile, lastSyncedAt: result.source.lastSyncedAt },
-          }));
-          setLetterboxdProfile(result.source.profile);
-        } catch {
-          // import can still be successful even if source save failed
-        }
-      }
-      setFileImportStatus(
-        items.length > 0
-          ? `готово: нашли ${items.length} фильм(ов) в letterboxd`
-          : "ничего не нашли в этом профиле"
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "не удалось импортировать profile Letterboxd";
-      setFileImportStatus(message);
+      const result = await saveConnectedSource(apiToken, { platform, profile });
+      setConnectedSources((current) => ({
+        ...current,
+        [platform]: { profile: result.source.profile, lastSyncedAt: result.source.lastSyncedAt },
+      }));
+      if (platform === "lastfm") setLastfmUsername(result.source.profile);
+      else setLetterboxdProfile(result.source.profile);
+    } catch {
+      // импорт уже прошёл: не смогли запомнить источник — не повод показывать ошибку
     }
   }
 
@@ -2020,72 +2093,17 @@ export function useEveryYouApp() {
     fireAnalytics("theme_changed", { mode: nextMode });
   }
 
-  async function createTelegramLinkCode() {
-    if (!apiToken || telegramLinkLoading) return;
 
-    try {
-      setTelegramLinkLoading(true);
-      setTelegramLinkStatus("готовим код для Telegram...");
-      const data = await startTelegramLink(apiToken);
-      setTelegramLink({
-        linked: false,
-        telegramOwnerKey: null,
-        code: data.code,
-        expiresAt: data.expiresAt,
-      });
-      telegramLinkWasLinkedRef.current = false;
-      setTelegramLinkStatus("код готов — введи его в mini app");
-      setToastMessage("код для Telegram готов");
-      fireAnalytics("telegram_link_code_created");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "не удалось создать код";
-      setTelegramLinkStatus(message);
-      setToastMessage("не удалось создать код");
-    } finally {
-      setTelegramLinkLoading(false);
-    }
-  }
 
-  async function openTelegramLinkFlow() {
-    const code = telegramLink.code?.trim().toUpperCase();
-    if (!code) {
-      setTelegramLinkStatus("сначала подготовь код для Telegram");
-      return;
-    }
 
-    try {
-      await Linking.openURL(`https://t.me/every_you_bot?startapp=link_${code}`);
-    } catch {
-      setTelegramLinkStatus("не получилось открыть Telegram автоматически");
-    }
-  }
 
-  async function finishOnboarding() {
-    await setStoredOnboardingDone(true);
-    setShowOnboarding(false);
-    setOnboardingStep(0);
-  }
 
-  function nextOnboardingStep() {
-    const lastStep = onboardingVariant === "linked" ? 1 : 2;
-    if (onboardingStep >= lastStep) {
-      void finishOnboarding();
-      return;
-    }
-    setOnboardingStep((current) => current + 1);
-  }
 
-  async function skipOnboarding() {
-    await setStoredOnboardingDone(true);
-    setShowOnboarding(false);
-    setOnboardingStep(0);
-  }
 
-  function replayOnboarding() {
-    setOnboardingVariant(library.length > 0 ? "linked" : "fresh");
-    setOnboardingStep(0);
-    setShowOnboarding(true);
-  }
+
+
+
+
 
   function updateHealthStepsEnabled(value: boolean) {
     setHealthStepsEnabled(value);
@@ -2103,10 +2121,10 @@ export function useEveryYouApp() {
     avatarUri,
     headerAvatarEmoji: HEADER_AVATAR_EMOJIS[headerAvatarEmojiIndex],
     themeMode,
-    telegramLink,
-    telegramLinkLoading,
-    telegramLinkStatus,
-    telegramLinkQrDataUrl,
+    telegramLink: telegram.telegramLink,
+    telegramLinkLoading: telegram.telegramLinkLoading,
+    telegramLinkStatus: telegram.telegramLinkStatus,
+    telegramLinkQrDataUrl: telegram.telegramLinkQrDataUrl,
     namePlaceholder,
     syncStatus,
     syncMessage,
@@ -2170,8 +2188,8 @@ export function useEveryYouApp() {
     clearAvatar,
     setThemeMode: updateThemeMode,
     setHealthStepsEnabled: updateHealthStepsEnabled,
-    createTelegramLinkCode,
-    openTelegramLinkFlow,
+    createTelegramLinkCode: telegram.createTelegramLinkCode,
+    openTelegramLinkFlow: telegram.openTelegramLinkFlow,
     setType,
     setSource,
     setTitle,
@@ -2204,8 +2222,7 @@ export function useEveryYouApp() {
       importSpotifyAccountSource({ mode: "playlist", playlistId }, `playlist ${playlistName}`),
     setLastfmUsername,
     setLetterboxdProfile,
-    importLastfmProfileByUsername,
-    importLetterboxdPublicProfile,
+    importProfileSource,
     disconnectLastfmSource: (deleteContent = false) => disconnectProfileSource("lastfm", deleteContent),
     disconnectLetterboxdSource: (deleteContent = false) => disconnectProfileSource("letterboxd", deleteContent),
     disconnectSpotifySource,
@@ -2251,13 +2268,13 @@ export function useEveryYouApp() {
     dismissTimelinePrompt: () => setTimelinePromptVisible(false),
     promptTimelinePlacement,
     openAnalysisResult: setAnalysisResult,
-    showOnboarding,
-    onboardingStep,
-    onboardingVariant,
-    nextOnboardingStep,
-    skipOnboarding,
-    finishOnboarding,
-    replayOnboarding,
+    showOnboarding: onboarding.showOnboarding,
+    onboardingStep: onboarding.onboardingStep,
+    onboardingVariant: onboarding.onboardingVariant,
+    nextOnboardingStep: onboarding.nextOnboardingStep,
+    skipOnboarding: onboarding.skipOnboarding,
+    finishOnboarding: onboarding.finishOnboarding,
+    replayOnboarding: onboarding.replayOnboarding,
   };
 }
 

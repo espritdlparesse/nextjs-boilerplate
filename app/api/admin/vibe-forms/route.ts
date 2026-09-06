@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { verifyTelegramInitData } from "@/lib/telegram";
 import { isAdminTgId } from "@/lib/admins";
+import { isAdminRequest } from "@/lib/admins";
 import { CONSTRUCTIONS, FLAWS, OTHER_LABEL, collectLabels, describeTaxonomy, type FormLabel } from "@/lib/vibeForms";
 
 export const runtime = "nodejs";
@@ -31,14 +31,6 @@ const INSTRUCTIONS = [
   'Верни только JSON: {runs:[{index:number,construction:string,flaws:string[],note:string}]}. index — номер текста из запроса. note оставь пустым, если other не понадобился.',
 ].join("\n");
 
-function requireAdmin(req: NextRequest) {
-  const verified = verifyTelegramInitData(
-    req.headers.get("x-telegram-init-data") ?? "",
-    process.env.TELEGRAM_BOT_TOKEN!
-  );
-  return verified.ok && isAdminTgId(verified.user?.id);
-}
-
 function parseRuns(raw: string) {
   const match = raw.trim().match(/\{[\s\S]*\}/);
   if (!match) return [];
@@ -61,7 +53,7 @@ async function classify(apiKey: string, model: string, summaries: string[]) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!requireAdmin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  if (!isAdminRequest(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY missing" }, { status: 500 });
@@ -118,7 +110,7 @@ export async function POST(req: NextRequest) {
 // Поверхность для ворот согласия: размеченные тексты рядом с их метками,
 // чтобы сверить полсотни штук руками.
 export async function GET(req: NextRequest) {
-  if (!requireAdmin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  if (!isAdminRequest(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const sb = supabaseAdmin();
   const limit = Math.min(Number(req.nextUrl.searchParams.get("limit") ?? "50"), 200);

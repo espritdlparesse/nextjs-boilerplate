@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { dayKey, parseDayKey, startOfMonth, addDays, calendarGrid } from "../../../lib/dates";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { PillButton } from "../components/PillButton";
 import { appStyles } from "../styles/appStyles";
@@ -36,26 +37,6 @@ type AnalysisScreenProps = {
   onRunPress: (range?: PeriodRange) => void;
   onRunDeepPress: (range?: PeriodRange) => void;
 };
-
-function dayKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function parseDayKey(key: string) {
-  const [year, month, day] = key.split("-").map(Number);
-  return new Date(year, (month ?? 1) - 1, day ?? 1, 12, 0, 0, 0);
-}
-
-function startOfMonth(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1, 12, 0, 0, 0);
-}
-
-function addDays(date: Date, days: number) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days, 12, 0, 0, 0);
-}
 
 function startOfDayMs(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0).getTime();
@@ -140,39 +121,12 @@ export function AnalysisScreen({
   }, [library]);
 
   const calendarDays = useMemo(() => {
-    const monthStart = startOfMonth(calendarMonth);
-    const startWeekday = (monthStart.getDay() + 6) % 7;
-    const gridStart = addDays(monthStart, -startWeekday);
-
-    return Array.from({ length: 42 }, (_, index) => {
-      const date = addDays(gridStart, index);
-      const key = dayKey(date);
-      return {
-        key,
-        date,
-        inMonth: date.getMonth() === calendarMonth.getMonth(),
-        isToday: key === dayKey(new Date()),
-        count: itemsByDay.get(key) ?? 0,
-      };
-    });
+    return calendarGrid(calendarMonth).map((day) => ({ ...day, count: itemsByDay.get(day.key) ?? 0 }));
   }, [calendarMonth, itemsByDay]);
 
   const nextCalendarDays = useMemo(() => {
-    const nextMonth = startOfMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1));
-    const startWeekday = (nextMonth.getDay() + 6) % 7;
-    const gridStart = addDays(nextMonth, -startWeekday);
-
-    return Array.from({ length: 42 }, (_, index) => {
-      const date = addDays(gridStart, index);
-      const key = dayKey(date);
-      return {
-        key,
-        date,
-        inMonth: date.getMonth() === nextMonth.getMonth(),
-        isToday: key === dayKey(new Date()),
-        count: itemsByDay.get(key) ?? 0,
-      };
-    });
+    const nextMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
+    return calendarGrid(nextMonth).map((day) => ({ ...day, count: itemsByDay.get(day.key) ?? 0 }));
   }, [calendarMonth, itemsByDay]);
 
   const draftRange = useMemo(() => buildRange(draftStartKey, draftEndKey), [draftStartKey, draftEndKey]);

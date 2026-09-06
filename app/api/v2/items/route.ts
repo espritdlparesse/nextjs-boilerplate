@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { normalizeLegacySource } from "@/lib/itemSources";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { resolveApiIdentity } from "@/lib/auth";
-import { buildOwnerReadFilter, getOwnerScope, type EffectiveOwner, type OwnerScope } from "@/lib/ownerLinks";
+import { buildOwnerReadFilter, getOwnerScope, type EffectiveOwner, type OwnerScope, legacyNativeTgUserId } from "@/lib/ownerLinks";
 import { safeTimelineIsoFromMs } from "@/lib/timeline";
 
 export const runtime = "nodejs";
@@ -19,14 +19,6 @@ type ItemBody = {
 
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
-}
-
-function legacyNativeTgUserId(ownerKey: string) {
-  let hash = 0;
-  for (let i = 0; i < ownerKey.length; i += 1) {
-    hash = (hash * 31 + ownerKey.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash) || 1;
 }
 
 async function updateLegacyTelegramItem(

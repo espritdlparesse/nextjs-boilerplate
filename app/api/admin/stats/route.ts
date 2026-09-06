@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { verifyTelegramInitData } from "@/lib/telegram";
-import { isAdminTgId } from "@/lib/admins";
+import { isAdminRequest } from "@/lib/admins";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
-  const initData = req.headers.get("x-telegram-init-data") ?? "";
-  const botToken = process.env.TELEGRAM_BOT_TOKEN!;
-  const verified = verifyTelegramInitData(initData, botToken);
-  if (!verified.ok || !isAdminTgId(verified.user?.id)) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  }
+  if (!isAdminRequest(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const sb = supabaseAdmin();
   const { data, error } = await sb.rpc("admin_stats");

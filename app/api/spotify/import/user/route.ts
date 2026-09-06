@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fetchSpotify } from "@/lib/spotify";
 import { resolveApiIdentity } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getSpotifyAccessTokenForOwner } from "@/lib/spotifyConnection";
-import { getEffectiveOwner } from "@/lib/ownerLinks";
+import { getEffectiveOwner, legacyNativeTgUserId } from "@/lib/ownerLinks";
 import { safeTimelineIsoFromMs } from "@/lib/timeline";
 
 export const runtime = "nodejs";
@@ -22,14 +23,6 @@ type SpotifyTrackPage = {
 type SpotifyRecentlyPlayedPage = {
   items?: Array<{ track?: SpotifyTrackShape | null; played_at?: string | null }>;
 };
-
-function legacyNativeTgUserId(ownerKey: string) {
-  let hash = 0;
-  for (let i = 0; i < ownerKey.length; i += 1) {
-    hash = (hash * 31 + ownerKey.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash) || 1;
-}
 
 function trackToItem(
   track: SpotifyTrackShape | null | undefined,
@@ -80,18 +73,6 @@ function buildDateCoverage<T extends { consumedAt?: string | null; timeOrigin?: 
     imported: items.filter((item) => item.timeOrigin === "imported" && item.consumedAt).length,
     undated: items.filter((item) => !item.consumedAt).length,
   };
-}
-
-async function fetchSpotify<T>(url: string, accessToken: string) {
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  const json = (await response.json().catch(() => null)) as T | null;
-  if (!response.ok || !json) throw new Error(`spotify request failed: ${response.status}`);
-  return json;
 }
 
 async function loadSpotifyItems(

@@ -101,3 +101,11 @@ export function generateLinkCode() {
   const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   return Array.from({ length: 6 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
 }
+
+export function legacyNativeTgUserId(ownerKey: string) {
+  let hash = 0;
+  for (let index = 0; index < ownerKey.length; index += 1) {
+    hash = (hash * 31 + ownerKey.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash) || 1;
+}
