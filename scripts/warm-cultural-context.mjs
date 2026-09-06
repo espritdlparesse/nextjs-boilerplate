@@ -1,13 +1,14 @@
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import { readFile, writeFile } from "node:fs/promises";
-import { cardFlaws } from "../lib/culturalCards.ts";
+import { cardFlaws, isUsableCard } from "../lib/culturalCards.ts";
 
 const ownerKey = process.env.CULTURAL_OWNER_KEY ?? null;
-const limit = Number(process.argv[2] ?? "0");
+const skipAttempted = !process.argv.includes("--redo");
+const limit = Number(process.argv.find((arg) => /^\d+$/.test(arg)) ?? "0");
 
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.OPENAI_API_KEY) {
-  throw new Error("Usage: node scripts/warm-cultural-context.mjs [max-batches]. Set CULTURAL_OWNER_KEY to limit to one library.");
+  throw new Error("Usage: node scripts/warm-cultural-context.mjs [max-batches] [--redo]. Set CULTURAL_OWNER_KEY to limit to one library.");
 }
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -76,10 +77,12 @@ async function saveProgress(progress) {
 const items = await allItems();
 const { data: existing, error: contextError } = await supabase
   .from("cultural_context")
-  .select("lookup_key, aliases");
+  .select("lookup_key, aliases, context_note, roast_angles");
 if (contextError) throw contextError;
 
-const known = new Set((existing ?? []).flatMap((row) => [row.lookup_key, ...(row.aliases ?? [])]).map(key));
+const usable = (existing ?? []).filter(isUsableCard);
+const known = new Set(usable.flatMap((row) => [row.lookup_key, ...(row.aliases ?? [])]).map(key));
+console.log(`карточек ${existing?.length ?? 0}, годных ${usable.length} — негодные будут переписаны`);
 const progress = await readProgress();
 const progressKey = ownerKey ?? "all";
 const attempted = new Set(progress[progressKey] ?? []);
@@ -89,7 +92,7 @@ for (const item of items) {
   if (creator.length >= 3) creatorCounts.set(creator, (creatorCounts.get(creator) ?? 0) + 1);
 }
 const candidates = Array.from(creatorCounts.entries())
-  .filter(([creator]) => !known.has(creator) && !attempted.has(creator))
+  .filter(([creator]) => !known.has(creator) && !(skipAttempted && attempted.has(creator)))
   .sort((left, right) => right[1] - left[1])
   .map(([creator]) => creator);
 const batches = Array.from({ length: Math.ceil(candidates.length / 8) }, (_, index) => candidates.slice(index * 8, index * 8 + 8));
