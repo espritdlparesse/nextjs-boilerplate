@@ -22,7 +22,7 @@ export type VibecheckFallbackResult = {
   highlights: string[];
 };
 
-function hashSeed(input: string): number {
+export function hashSeed(input: string): number {
   let h = 2166136261;
   for (let i = 0; i < input.length; i++) {
     h ^= input.charCodeAt(i);

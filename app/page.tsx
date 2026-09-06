@@ -7,6 +7,16 @@ import { generateMonthlySummary } from "@/lib/monthlySummaryEngine";
 
 type Tab = "home" | "add" | "library" | "vibe" | "profile" | "admin";
 
+type VibeDuelVariant = {
+  runId: string | null;
+  summary: string;
+  persona: string;
+  basis: string[];
+  highlights: string[];
+};
+
+type VibeDuel = { id: string; variants: VibeDuelVariant[] };
+
 const ADMIN_TG_ID = 394657396; // espritdlparesse
 type ItemType = "music" | "book" | "movie" | "custom";
 type ItemSource =
@@ -993,6 +1003,10 @@ export default function Page() {
   const [vibeLoading, setVibeLoading] = useState(false);
   const [vibeError, setVibeError] = useState("");
   const [vibeFeedback, setVibeFeedback] = useState<"good" | "bad" | null>(null);
+  const [vibeRunId, setVibeRunId] = useState<string | null>(null);
+  const [vibeDuel, setVibeDuel] = useState<VibeDuel | null>(null);
+  const [vibeShownAt, setVibeShownAt] = useState<number | null>(null);
+  const [shareRunId, setShareRunId] = useState<string | null>(null);
   const [mentalAge, setMentalAge] = useState("");
   const [mentalAgeLoading, setMentalAgeLoading] = useState(false);
   const [deepVibeResult, setDeepVibeResult] = useState("");
@@ -1103,11 +1117,18 @@ export default function Page() {
   }
 
   async function runVibeCheck() {
-    setVibeLoading(true); setVibeError(""); setSummary(""); setVibeFeedback(null);
+    if (summary) {
+      fireAnalytics("vibecheck_rerolled", {
+        runId: vibeRunId,
+        msSinceShown: vibeShownAt ? Date.now() - vibeShownAt : null,
+        rated: vibeFeedback,
+      });
+    }
+    setVibeLoading(true); setVibeError(""); setSummary(""); setVibeFeedback(null); setVibeRunId(null); setVibeDuel(null);
     try {
       const res = await fetch("/api/v2/analysis", {
         method: "POST",
-        headers: { "x-telegram-init-data": getTgInitData() },
+        headers: { "x-telegram-init-data": getTgInitData(), "x-vibecheck-duel": "1" },
       });
       const json = await safeJson(res);
       if (!res.ok) {
@@ -1120,12 +1141,35 @@ export default function Page() {
         );
         return;
       }
+      const duel = json?.duel as VibeDuel | undefined;
+      if (duel?.id && Array.isArray(duel.variants) && duel.variants.length >= 2) {
+        setVibeDuel(duel);
+        setVibeShownAt(Date.now());
+        return;
+      }
       setSummary(json?.summary ?? "");
+      setVibeRunId(typeof json?.runId === "string" ? json.runId : null);
+      setVibeShownAt(Date.now());
     } catch (e: any) {
       setVibeError(e?.message ?? "Network error");
     } finally {
       setVibeLoading(false);
     }
+  }
+
+  async function pickDuelWinner(variant: VibeDuelVariant) {
+    if (!vibeDuel) return;
+    const duelId = vibeDuel.id;
+    setVibeDuel(null);
+    setSummary(variant.summary);
+    setVibeRunId(variant.runId);
+    setVibeShownAt(Date.now());
+    setVibeFeedback(null);
+    await fetch("/api/v2/vibe-duel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-telegram-init-data": getTgInitData() },
+      body: JSON.stringify({ duelId, winnerRunId: variant.runId }),
+    }).catch(() => undefined);
   }
 
   async function rateVibeCheck(rating: "good" | "bad") {
@@ -1134,7 +1178,7 @@ export default function Page() {
     await fetch("/api/v2/vibe-feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-telegram-init-data": getTgInitData() },
-      body: JSON.stringify({ summary, rating }),
+      body: JSON.stringify({ summary, rating, runId: vibeRunId }),
     }).catch(() => undefined);
   }
 
@@ -1348,6 +1392,7 @@ export default function Page() {
   function openSharePicker(text?: string, type?: "vibe" | "deep") {
     setSharePickerText(text);
     setSharePickerType(type);
+    setShareRunId(type === "vibe" ? vibeRunId : null);
     // По умолчанию выбираем все айтемы
     setSharePickerSelected(new Set(items.map(i => i.id)));
     setShowSharePicker(true);
@@ -3460,13 +3505,35 @@ export default function Page() {
                   ? "анализирую..."
                   : counts.total === 0
                     ? "сначала добавь контент"
-                    : summary
+                    : summary || vibeDuel
                       ? "ещё раз!"
                       : "провести вайбчек"}
               </button>
             </div>
 
             {vibeError && <div className="error">{vibeError}</div>}
+            {vibeDuel && (
+              <div className="vibe-section vibe-pink">
+                <div className="card-title" style={{ marginBottom: 4 }}>какой точнее?</div>
+                <div className="vibe-helper" style={{ marginBottom: 12 }}>
+                  сегодня два варианта. выбери тот, что ближе — второй мы больше не покажем.
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {vibeDuel.variants.map((variant, index) => (
+                    <div key={variant.runId ?? index} style={{ background: "#fff", borderRadius: 12, padding: 14 }}>
+                      <VibeResult summary={variant.summary} />
+                      <button
+                        className="btn btn-outline btn-sm"
+                        style={{ width: "100%", marginTop: 10 }}
+                        onClick={() => void pickDuelWinner(variant)}
+                      >
+                        выбрать этот
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {summary && (
               <div className="vibe-section vibe-pink">
                 <div className="card-title" style={{ marginBottom: 10 }}>свежий срез</div>
@@ -3906,6 +3973,7 @@ export default function Page() {
                     const a = document.createElement("a");
                     a.href = shareCardDataUrl; a.download = "everyyou.png"; a.click();
                   }
+                  fireAnalytics("vibecheck_shared", { runId: shareRunId, type: sharePickerType ?? null });
                 }}
               >
                 ↗ поделиться

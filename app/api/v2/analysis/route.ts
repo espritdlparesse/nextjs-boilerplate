@@ -4,11 +4,15 @@ import { resolveApiIdentity } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { buildOwnerReadFilter, getEffectiveOwner, getOwnerScope } from "@/lib/ownerLinks";
 import { generateFallbackVibecheck } from "@/lib/vibecheckFallback";
-import { ITEM_TYPES } from "@/lib/mediaTypes";
+import { countDeliveredRuns, recordVibeDuel, recordVibeRun, type VibeRunOutcome } from "@/lib/vibeRuns";
+import { countItemTypes, type ItemType } from "@/lib/mediaTypes";
 
 export const runtime = "nodejs";
 // The vibecheck makes two editorial model calls in sequence, so the default function window is too short.
 export const maxDuration = 60;
+
+// Bump on every edit to the planner or editor instructions below. The holdout compares against it.
+const PROMPT_VERSION = "2026-09-05.roast-v2-types";
 
 function vibeGenerationErrorResponse(error: unknown) {
   const details = error as { status?: number; code?: string; error?: { code?: string } };
@@ -35,6 +39,7 @@ type AnalysisPayload = {
 type RoastPlanPayload = {
   candidates?: Array<{
     basis?: string[];
+    types?: string[];
     observation?: string;
   }>;
 };
@@ -68,43 +73,9 @@ type CulturalSourceOutlet =
   | "facebook_ilya_krasilshchik"
   | "wonderzine";
 
-type CulturalMemoryResponse = {
-  cards?: Array<{
-    lookup_key?: string;
-    aliases?: string[];
-    display_name?: string;
-    kind?: "artist" | "author" | "director" | "work";
-    context_note?: string;
-    roast_angles?: string[];
-    source_outlet?: CulturalSourceOutlet;
-    source_url?: string;
-    source_published_at?: string;
-  }>;
-};
-
-function buildCreatorContext(
-  items: Array<{ creator: string | null; title: string; type: string }>
-) {
-  const counts = new Map<string, { count: number; sampleTitle: string; type: string }>();
-
-  for (const item of items) {
-    const creator = item.creator?.trim();
-    if (!creator) continue;
-    const key = creator.toLowerCase();
-    const current = counts.get(key);
-    if (current) {
-      current.count += 1;
-      continue;
-    }
-    counts.set(key, { count: 1, sampleTitle: item.title, type: item.type });
-  }
-
-  return Array.from(counts.entries())
-    .sort((left, right) => right[1].count - left[1].count)
-    .slice(0, 12)
-    .map(([creator, meta]) => `${creator} — ${meta.count} (${meta.type}; например, ${meta.sampleTitle})`)
-    .join("\n");
-}
+// Пользовательские категории у каждого свои, поэтому прожарка на них не
+// строится: в выборку идут только общие типы.
+const VIBE_SAMPLE_TYPES: ItemType[] = ["music", "book", "movie"];
 
 function buildVibeSample(items: Array<{ type: string; title: string; creator: string | null }>) {
   const picked: Array<{ type: string; title: string; creator: string | null }> = [];
@@ -120,7 +91,7 @@ function buildVibeSample(items: Array<{ type: string; title: string; creator: st
     return hash >>> 0;
   }
 
-  for (const type of ITEM_TYPES) {
+  for (const type of VIBE_SAMPLE_TYPES) {
     const candidates = items
       .filter((item) => item.type === type)
       .sort((left, right) => score(left) - score(right));
@@ -203,11 +174,6 @@ function looksTooAbstract(text: string) {
   return hitCount >= 3;
 }
 
-function shouldRetryAnalysis(summary: string, highlights: string[], basis: string[]) {
-  const combined = [summary, ...highlights, ...basis].join("\n");
-  return looksTooCorporate(combined) || looksTooAbstract(summary);
-}
-
 function looksTooSoft(summary: string) {
   const normalized = summary.toLowerCase();
   const softSignals = [
@@ -287,6 +253,23 @@ function looksTooGenericRoast(text: string) {
   return genericSignals.some((signal) => normalized.includes(signal));
 }
 
+function blockingGates(text: string) {
+  const hits: string[] = [];
+  if (looksTooComplicated(text)) hits.push("too_complicated");
+  if (looksTooGenericRoast(text)) hits.push("too_generic");
+  return hits;
+}
+
+// Наблюдающие гейты: попадают в gate_hits, но отказ не вызывают. Так копится
+// статистика по фразам, снятым с боевого пути 2026-08-31 в коммите 1d39166.
+function observedGates(text: string) {
+  const hits: string[] = [];
+  if (looksTooCorporate(text)) hits.push("observed_corporate");
+  if (looksTooAbstract(text)) hits.push("observed_abstract");
+  if (looksTooSoft(text)) hits.push("observed_soft");
+  return hits;
+}
+
 function normalizeRoastNames(text: string) {
   return text
     .replace(/big baby tape/gi, "биг бейби тейп")
@@ -334,118 +317,9 @@ async function getCulturalContext(
   });
 }
 
-async function getRecentBadVibes(sb: ReturnType<typeof supabaseAdmin>, auth: Parameters<typeof getEffectiveOwner>[0]) {
-  const owner = await getEffectiveOwner(auth);
-  const { data } = await sb.from("vibe_feedback").select("summary").eq("owner_key", owner.ownerKey).eq("rating", "bad").order("created_at", { ascending: false }).limit(5);
+async function getRecentBadVibes(sb: ReturnType<typeof supabaseAdmin>, ownerKey: string) {
+  const { data } = await sb.from("vibe_feedback").select("summary").eq("owner_key", ownerKey).eq("rating", "bad").order("created_at", { ascending: false }).limit(5);
   return (data ?? []).map((row) => row.summary).filter((summary): summary is string => typeof summary === "string");
-}
-
-function getMemoryCandidates(items: Array<{ title: string; creator: string | null }>) {
-  const creators = items.map((item) => item.creator ?? "");
-  const works = items.map((item) => item.title);
-  return Array.from(new Set([...creators, ...works].map((value) => value.trim()).filter((value) => value.length >= 3))).slice(0, 8);
-}
-
-const CULTURAL_SOURCE_HOSTS: Record<CulturalSourceOutlet, string[]> = {
-  the_atlantic: ["theatlantic.com"],
-  new_yorker: ["newyorker.com"],
-  nyt: ["nytimes.com", "nyt.com"],
-  meduza: ["meduza.io"],
-  the_bell: ["thebell.io"],
-  kinopoisk: ["kinopoisk.ru"],
-  wos: ["w-o-s.ru"],
-  afisha_archive: ["afisha.ru"],
-  x_ilya_krasilshchik: ["x.com", "twitter.com"],
-  facebook_ilya_krasilshchik: ["facebook.com"],
-  wonderzine: ["wonderzine.com"],
-};
-
-function isAllowedMemorySource(url: string, outlet: CulturalSourceOutlet, publishedAt?: string) {
-  try {
-    const hostname = new URL(url).hostname.replace(/^www\./, "");
-    const allowedHost = CULTURAL_SOURCE_HOSTS[outlet]?.some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
-    if (!allowedHost) return false;
-    if (outlet !== "afisha_archive") return true;
-    return Boolean(publishedAt) && new Date(`${publishedAt}T00:00:00Z`).getTime() < Date.UTC(2021, 0, 1);
-  } catch {
-    return false;
-  }
-}
-
-async function enrichCulturalContext(args: {
-  sb: ReturnType<typeof supabaseAdmin>;
-  apiKey: string;
-  model: string;
-  items: Array<{ title: string; creator: string | null }>;
-  existing: CulturalContextRow[];
-}) {
-  const knownKeys = new Set(
-    args.existing.flatMap((entry) => [entry.lookup_key, ...(entry.aliases ?? [])]).map(normalizeContextKey)
-  );
-  const candidates = getMemoryCandidates(args.items).filter((candidate) => !knownKeys.has(normalizeContextKey(candidate)));
-  if (candidates.length === 0) return;
-
-  const raw = await createWebAwareAnalysis({
-    apiKey: args.apiKey,
-    model: args.model,
-    instructions:
-      "Ты пополняешь маленькую культурную память для приложения Everyyou. Ищи сведения только в The Atlantic, The New Yorker, The New York Times, «Медузе», The Bell, Кинопоиске, WOS (w-o-s.ru), архиве «Афиши» до 1 января 2021 года, X/Twitter и Facebook Ильи Красильщика, Wonderzine. Для каждого имени из списка попробуй найти один материал в этих изданиях. Не используй другие сайты и не выдумывай URL. Для X/Facebook принимай только посты самого Ильи Красильщика, а не упоминания о нем. Добавляй карточку только если есть настоящая ссылка именно на разрешенный источник. Карточка — это короткий пересказ фактуры в 1-2 предложениях: репутация, сцена, узнаваемый образ или культурное значение. Не пиши биографию и не оценивай человека. roast_angles — 1-2 короткие опоры для будущего точного наблюдения, не готовые шутки. Если это «Афиша», верни дату публикации в source_published_at строго в формате YYYY-MM-DD и используй только дату до 2021-01-01. Верни только JSON без markdown: {cards:[{lookup_key,aliases,display_name,kind,context_note,roast_angles,source_outlet,source_url,source_published_at}]}. source_outlet должен быть одним из: the_atlantic, new_yorker, nyt, meduza, the_bell, kinopoisk, wos, afisha_archive, x_ilya_krasilshchik, facebook_ilya_krasilshchik, wonderzine. kind может быть только artist, author, director или work.",
-    prompt: `Найди карточки только для этих имен из личной библиотеки:\n${candidates.map((candidate) => `- ${candidate}`).join("\n")}`,
-  });
-  const parsed = extractJson<CulturalMemoryResponse>(raw);
-  const rows = (parsed?.cards ?? [])
-    .map((card) => {
-      const lookupKey = normalizeContextKey(card.lookup_key ?? card.display_name ?? "");
-      const outlet = card.source_outlet;
-      const sourceUrl = card.source_url?.trim() ?? "";
-      if (
-        !lookupKey ||
-        !card.display_name?.trim() ||
-        !card.context_note?.trim() ||
-        !outlet ||
-        !sourceUrl ||
-        !isAllowedMemorySource(sourceUrl, outlet, card.source_published_at)
-      ) {
-        return null;
-      }
-
-      return {
-        lookup_key: lookupKey,
-        aliases: Array.from(new Set([...(card.aliases ?? []), card.display_name])).map(normalizeContextKey).filter(Boolean),
-        display_name: card.display_name.trim(),
-        kind: card.kind ?? "work",
-        context_note: card.context_note.trim().slice(0, 420),
-        roast_angles: (card.roast_angles ?? []).map((angle) => angle.trim()).filter(Boolean).slice(0, 2),
-        source_outlet: outlet,
-        source_url: sourceUrl,
-        source_published_at: card.source_published_at ?? null,
-      };
-    })
-    .filter((row): row is NonNullable<typeof row> => row !== null);
-
-  if (rows.length > 0) {
-    await args.sb.from("cultural_context").upsert(rows, { onConflict: "lookup_key" });
-  }
-}
-
-async function createWebAwareAnalysis(args: {
-  apiKey: string;
-  model: string;
-  prompt: string;
-  instructions: string;
-}) {
-  const client = new OpenAI({ apiKey: args.apiKey });
-
-  const response = await client.responses.create({
-    model: args.model,
-    instructions: args.instructions,
-    input: args.prompt,
-    max_output_tokens: 1100,
-    tools: [{ type: "web_search_preview", search_context_size: "medium" }],
-    tool_choice: "auto",
-  });
-
-  return response.output_text ?? "";
 }
 
 async function createRoastText(args: {
@@ -465,10 +339,132 @@ async function createRoastText(args: {
   return response.output_text ?? "";
 }
 
+type RoastPlan = { basis?: string[]; types?: string[]; observation?: string };
+
+type RoastVariant = {
+  ok: boolean;
+  summary: string;
+  persona: string;
+  basis: string[];
+  highlights: string[];
+  gateHits: string[];
+  retried: boolean;
+  error: unknown;
+};
+
+const ROAST_EDITOR_INSTRUCTIONS =
+  "Ты финальный редактор вайбчека Everyyou. Верни только JSON: {persona:string,hook:string,body:string,closer:string,highlights:string[],basis:string[]}. Напиши ровно две короткие строки: hook и body; closer оставь пустым. В hook назови две реальные позиции из выбранной пары. В body сделай ясный, острый, но человеческий вывод, который невозможен без этой пары. Пиши по-русски, простыми словами, без сложного синтаксиса. Имена артистов и авторов передавай привычной русской транскрипцией и строчными буквами. Не описывай жанры, звук или настроение произведений. Не придумывай декорации и действия: нельзя писать про бас, громкость, кухню, бокалы, вечер, окна, танцпол, взрывы или 'мысли', если этого нет в самих позициях. Не используй 'вайб', 'атмосфера', 'ностальгия', 'разные вселенные', 'на одной волне', 'тебе нравится', 'ты умеешь', 'громкий/тихий + жанр'. Не ставь диагноз и не объясняй шутку. Не добавляй третью мысль. Если выбранная опора слабая, выбери более точную пару из списка. Текст должен звучать как точное замечание знакомого, а не как культурологический разбор.";
+
+const ROAST_REPAIR_SUFFIX =
+  "\n\nПредыдущий вариант был плохим: перепиши с нуля еще короче и конкретнее. Не используй метафору вместо наблюдения.";
+
+function readRoastFields(payload: AnalysisPayload | null, fallbackBasis: string[]) {
+  return {
+    persona: payload?.persona?.trim() ?? "",
+    hook: payload?.hook?.trim() ?? "",
+    body: payload?.body?.trim() ?? "",
+    closer: payload?.closer?.trim() ?? "",
+    highlights: Array.isArray(payload?.highlights)
+      ? payload.highlights.map((line) => line.trim()).filter(Boolean).slice(0, 3)
+      : [],
+    basis: Array.isArray(payload?.basis)
+      ? payload.basis.map((line) => line.trim()).filter(Boolean).slice(0, 3)
+      : fallbackBasis,
+  };
+}
+
+function pickDistinctPlans(plans: RoastPlan[], howMany: number) {
+  const pool = [...plans];
+  for (let index = pool.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [pool[index], pool[swapIndex]] = [pool[swapIndex], pool[index]];
+  }
+  return pool.slice(0, howMany);
+}
+
+async function composeRoastVariant(args: {
+  apiKey: string;
+  model: string;
+  planningPrompt: string;
+  plan: RoastPlan | null;
+}): Promise<RoastVariant> {
+  const planBasis = args.plan?.basis?.slice(0, 3) ?? [];
+  const pairLine = planBasis.join(" | ") || "выбери одну пару из списка";
+  const observation = args.plan?.observation?.trim() || "найди одно точное столкновение этих позиций";
+  const gateHits: string[] = [];
+
+  const write = async (repair: boolean) => {
+    const raw = await createRoastText({
+      apiKey: args.apiKey,
+      model: args.model,
+      instructions: ROAST_EDITOR_INSTRUCTIONS,
+      prompt: `${args.planningPrompt}\n\nВыбранная пара: ${pairLine}\nНаблюдение редактора: ${observation}${repair ? ROAST_REPAIR_SUFFIX : ""}`,
+    });
+    return extractJson<AnalysisPayload>(raw);
+  };
+
+  const failed = (error: unknown, retried: boolean): RoastVariant => ({
+    ok: false,
+    summary: "",
+    persona: "",
+    basis: [],
+    highlights: [],
+    gateHits,
+    retried,
+    error,
+  });
+
+  let fields;
+  try {
+    fields = readRoastFields(await write(false), planBasis);
+  } catch (error) {
+    console.error("vibecheck writing failed", error);
+    return failed(error, false);
+  }
+
+  const firstGates = blockingGates([fields.hook, fields.body, fields.closer].join(" "));
+  gateHits.push(...firstGates);
+
+  let retried = false;
+  if (!fields.hook || !fields.body || firstGates.length > 0) {
+    retried = true;
+    try {
+      const repaired = readRoastFields(await write(true), fields.basis);
+      fields = {
+        persona: repaired.persona || fields.persona,
+        hook: repaired.hook || fields.hook,
+        body: repaired.body || fields.body,
+        closer: repaired.closer,
+        highlights: repaired.highlights.length > 0 ? repaired.highlights : fields.highlights,
+        basis: repaired.basis.length > 0 ? repaired.basis : fields.basis,
+      };
+    } catch (error) {
+      console.error("vibecheck writing failed", error);
+      return failed(error, true);
+    }
+  }
+
+  const summary = normalizeRoastNames([fields.hook, fields.body, fields.closer].filter(Boolean).join(" "));
+  const finalGates = blockingGates(summary);
+  gateHits.push(...finalGates, ...observedGates(summary));
+
+  return {
+    ok: Boolean(fields.hook) && Boolean(fields.body) && finalGates.length === 0,
+    summary,
+    persona: fields.persona,
+    basis: (fields.basis.length > 0 ? fields.basis : planBasis).map(normalizeRoastNames),
+    highlights: fields.highlights.map(normalizeRoastNames),
+    gateHits,
+    retried,
+    error: null,
+  };
+}
+
 export async function POST(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
   const scope = await getOwnerScope(auth);
+  const owner = await getEffectiveOwner(auth);
   const body = (await req.json().catch(() => null)) as AnalysisRequestBody | null;
   const from = typeof body?.from === "number" && Number.isFinite(body.from) ? body.from : null;
   const to = typeof body?.to === "number" && Number.isFinite(body.to) ? body.to : null;
@@ -511,10 +507,6 @@ export async function POST(req: NextRequest) {
   if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY missing" }, { status: 500 });
 
   const vibeSample = buildVibeSample(items);
-  const recentLines = vibeSample
-    .map((item) => `[${item.type}] ${item.title}${item.creator ? ` — ${item.creator}` : ""}`)
-    .join("\n");
-  const creatorContext = buildCreatorContext(items);
   const culturalContext = await getCulturalContext(sb, items);
   const culturalMemory = culturalContext?.length
     ? culturalContext
@@ -524,10 +516,42 @@ export async function POST(req: NextRequest) {
         )
         .join("\n")
     : "карточек для этих имен пока нет";
-  const badFeedback = await getRecentBadVibes(sb, auth);
+  const badFeedback = await getRecentBadVibes(sb, owner.ownerKey);
 
   // A vibecheck is the product, not a background summary: use the stronger editor by default.
   const model = process.env.OPENAI_VIBECHECK_MODEL ?? "gpt-4.1";
+
+  let plansValidCount = 0;
+
+  const saveRun = (fields: {
+    outcome: VibeRunOutcome;
+    summary?: string | null;
+    selectedBasis?: string[];
+    plannerObservation?: string | null;
+    mediaCounts?: Record<string, number>;
+    gateHits?: string[];
+    retryCount?: number;
+  }) =>
+    recordVibeRun(sb, {
+      ownerKey: owner.ownerKey,
+      ownerKind: owner.ownerKind,
+      promptVersion: PROMPT_VERSION,
+      model,
+      itemCount: items.length,
+      plansValidCount,
+      ...fields,
+    });
+
+  const deliverFallback = async (error: unknown) => {
+    const fallback = generateFallbackVibecheck(items);
+    if (!fallback) return vibeGenerationErrorResponse(error);
+    const runId = await saveRun({
+      outcome: "fallback",
+      summary: fallback.summary,
+      selectedBasis: fallback.basis,
+    });
+    return NextResponse.json({ ...fallback, runId });
+  };
   const libraryLines = vibeSample
     .map((item) => `[${item.type}] ${item.title}${item.creator ? ` — ${item.creator}` : ""}`)
     .join("\n");
@@ -538,218 +562,88 @@ export async function POST(req: NextRequest) {
       apiKey,
       model,
       instructions:
-        "Ты редактор, который сначала ищет материал для короткой прожарки. Не пиши сам вайбчек. Верни только JSON: {candidates:[{basis:string[],observation:string}]}. Дай ровно 3 кандидата. В basis укажи две реальные позиции из списка дословно. В каждом кандидате смешивай разные типы медиа, если они есть. Не выбирай одну и ту же пару или одного и того же артиста во всех вариантах. observation — одно простое, проверяемое наблюдение о столкновении именно этих двух позиций: культурная поза, переосмысление названия, видимая социальная или бытовая ситуация. Не пиши про звук, бас, громкость, жанры, атмосферу, ностальгию, абстрактные 'мысли' и внутренний мир пользователя. Не выдумывай факты. Твоя задача — дать автору конкретную опору, а не красивую фразу.",
+        "Ты редактор, который сначала ищет материал для короткой прожарки. Не пиши сам вайбчек. Верни только JSON: {candidates:[{basis:string[],types:string[],observation:string}]}. Дай ровно 3 кандидата. В basis укажи две реальные позиции из списка дословно. В types укажи тип каждой позиции в том же порядке: music, book или movie. В каждом кандидате смешивай разные типы медиа, если они есть. Не выбирай одну и ту же пару или одного и того же артиста во всех вариантах. observation — одно простое, проверяемое наблюдение о столкновении именно этих двух позиций: культурная поза, переосмысление названия, видимая социальная или бытовая ситуация. Не пиши про звук, бас, громкость, жанры, атмосферу, ностальгию, абстрактные 'мысли' и внутренний мир пользователя. Не выдумывай факты. Твоя задача — дать автору конкретную опору, а не красивую фразу.",
       prompt: planningPrompt,
     });
   } catch (error) {
     console.error("vibecheck planning failed", error);
-    const fallback = generateFallbackVibecheck(items);
-    if (fallback) return NextResponse.json(fallback);
-    return vibeGenerationErrorResponse(error);
+    return deliverFallback(error);
   }
   const planned = extractJson<RoastPlanPayload>(planRaw)?.candidates ?? [];
   const plans = planned.filter((candidate) =>
     Array.isArray(candidate.basis) && candidate.basis.length >= 2 && Boolean(candidate.observation?.trim())
   );
-  const selectedPlan = plans.length > 0 ? plans[Math.floor(Math.random() * plans.length)] : null;
-  const selectedBasis = selectedPlan?.basis?.slice(0, 3).join(" | ") ?? "выбери одну пару из списка";
-  const selectedObservation = selectedPlan?.observation?.trim() ?? "найди одно точное столкновение этих позиций";
+  plansValidCount = plans.length;
+  const duelEvery = Number(process.env.VIBECHECK_DUEL_EVERY ?? "5");
+  const clientSupportsDuel = req.headers.get("x-vibecheck-duel") === "1";
+  const duelEnabled = clientSupportsDuel && Number.isFinite(duelEvery) && duelEvery > 0 && plans.length >= 2;
+  const deliveredSoFar = duelEnabled ? await countDeliveredRuns(sb, owner.ownerKey) : 0;
+  const runDuel = duelEnabled && deliveredSoFar % duelEvery === 0;
 
-  let generationError: unknown = null;
-  const writeRoast = async (repair = false) => {
-    try {
-      const raw = await createRoastText({
-      apiKey,
-      model,
-      instructions:
-        "Ты финальный редактор вайбчека Everyyou. Верни только JSON: {persona:string,hook:string,body:string,closer:string,highlights:string[],basis:string[]}. Напиши ровно две короткие строки: hook и body; closer оставь пустым. В hook назови две реальные позиции из выбранной пары. В body сделай ясный, острый, но человеческий вывод, который невозможен без этой пары. Пиши по-русски, простыми словами, без сложного синтаксиса. Имена артистов и авторов передавай привычной русской транскрипцией и строчными буквами. Не описывай жанры, звук или настроение произведений. Не придумывай декорации и действия: нельзя писать про бас, громкость, кухню, бокалы, вечер, окна, танцпол, взрывы или 'мысли', если этого нет в самих позициях. Не используй 'вайб', 'атмосфера', 'ностальгия', 'разные вселенные', 'на одной волне', 'тебе нравится', 'ты умеешь', 'громкий/тихий + жанр'. Не ставь диагноз и не объясняй шутку. Не добавляй третью мысль. Если выбранная опора слабая, выбери более точную пару из списка. Текст должен звучать как точное замечание знакомого, а не как культурологический разбор.",
-      prompt: `${planningPrompt}\n\nВыбранная пара: ${selectedBasis}\nНаблюдение редактора: ${selectedObservation}${repair ? "\n\nПредыдущий вариант был плохим: перепиши с нуля еще короче и конкретнее. Не используй метафору вместо наблюдения." : ""}`,
-      });
-      return extractJson<AnalysisPayload>(raw);
-    } catch (error) {
-      console.error("vibecheck writing failed", error);
-      generationError = error;
-      return null;
-    }
-  };
+  // Планировщик мог не вернуть ни одного пригодного кандидата. Редактор
+  // выбирает пару сам, но прогон всё равно должен попасть в журнал.
+  const chosenPlans = plans.length > 0 ? pickDistinctPlans(plans, runDuel ? 2 : 1) : [null];
+  const attempts = await Promise.all(
+    chosenPlans.map(async (plan) => ({
+      plan,
+      variant: await composeRoastVariant({ apiKey, model, planningPrompt, plan }),
+    }))
+  );
 
-  let finalRoast = await writeRoast();
-  if (generationError) {
-    const fallback = generateFallbackVibecheck(items);
-    if (fallback) return NextResponse.json(fallback);
-    return vibeGenerationErrorResponse(generationError);
-  }
-  let hook = finalRoast?.hook?.trim() ?? "";
-  let bodyText = finalRoast?.body?.trim() ?? "";
-  let closer = finalRoast?.closer?.trim() ?? "";
-  let highlights = Array.isArray(finalRoast?.highlights)
-    ? finalRoast.highlights.map((item) => item.trim()).filter(Boolean).slice(0, 3)
-    : [];
-  let basis = Array.isArray(finalRoast?.basis)
-    ? finalRoast.basis.map((item) => item.trim()).filter(Boolean).slice(0, 3)
-    : selectedPlan?.basis?.slice(0, 3) ?? [];
+  const broken = attempts.find((attempt) => attempt.variant.error);
+  if (broken) return deliverFallback(broken.variant.error);
 
-  const candidateText = [hook, bodyText, closer].join(" ");
-  if (!hook || !bodyText || looksTooComplicated(candidateText) || looksTooGenericRoast(candidateText)) {
-    finalRoast = await writeRoast(true);
-    if (generationError) {
-      const fallback = generateFallbackVibecheck(items);
-      if (fallback) return NextResponse.json(fallback);
-      return vibeGenerationErrorResponse(generationError);
-    }
-    hook = finalRoast?.hook?.trim() ?? hook;
-    bodyText = finalRoast?.body?.trim() ?? bodyText;
-    closer = finalRoast?.closer?.trim() ?? "";
-    highlights = Array.isArray(finalRoast?.highlights)
-      ? finalRoast.highlights.map((item) => item.trim()).filter(Boolean).slice(0, 3)
-      : highlights;
-    basis = Array.isArray(finalRoast?.basis)
-      ? finalRoast.basis.map((item) => item.trim()).filter(Boolean).slice(0, 3)
-      : basis;
-  }
+  const saveAttempt = (attempt: (typeof attempts)[number], outcome: VibeRunOutcome) =>
+    saveRun({
+      outcome,
+      summary: attempt.variant.summary,
+      selectedBasis: attempt.variant.basis,
+      plannerObservation: attempt.plan?.observation?.trim() ?? null,
+      mediaCounts: countItemTypes(attempt.plan?.types ?? []),
+      gateHits: Array.from(new Set(attempt.variant.gateHits)),
+      retryCount: attempt.variant.retried ? 1 : 0,
+    });
 
-  hook = normalizeRoastNames(hook);
-  bodyText = normalizeRoastNames(bodyText);
-  closer = normalizeRoastNames(closer);
-  highlights = highlights.map(normalizeRoastNames);
-  basis = basis.map(normalizeRoastNames);
-
-  const combinedSummary = [hook, bodyText, closer].filter(Boolean).join(" ");
-  if (!hook || !bodyText || looksTooComplicated(combinedSummary) || looksTooGenericRoast(combinedSummary)) {
+  const passing = attempts.filter((attempt) => attempt.variant.ok);
+  if (passing.length === 0) {
+    await Promise.all(attempts.map((attempt) => saveAttempt(attempt, "rejected_422")));
     return NextResponse.json(
       { error: "сегодня алгоритм не нашел достаточно точную пару. попробуй еще раз — лучше пусто, чем банально." },
       { status: 422 }
     );
   }
-  if (combinedSummary) {
-    return NextResponse.json({
-      itemCount: items.length,
-      persona: finalRoast?.persona?.trim() ?? "",
-      summary: combinedSummary,
-      basis: basis.length > 0 ? basis : selectedPlan?.basis?.slice(0, 3) ?? [],
-      highlights,
-    });
-  }
 
-  {
-  const prompt = `Сделай вайбчек по этому списку и верни JSON. Не выбирай двух артистов, если в выборке есть книги или фильмы: ищи более неожиданное столкновение между типами. Ответ недействителен, если он сводится к формуле «громкий/тихий + жанр», например «громкий трэп и тихие стихи». Нужен поворот смысла: переиначенное название, узнаваемая культурная поза или точное человеческое наблюдение.
+  const delivered = await Promise.all(
+    passing.map(async (attempt) => ({
+      runId: await saveAttempt(attempt, "delivered"),
+      persona: attempt.variant.persona,
+      summary: attempt.variant.summary,
+      basis: attempt.variant.basis,
+      highlights: attempt.variant.highlights,
+    }))
+  );
 
-Последние и самые заметные айтемы:
-${recentLines}
+  const ordered = delivered.length >= 2 && Math.random() < 0.5 ? [delivered[1], delivered[0]] : delivered;
+  const leading = ordered[0];
 
-Повторяющиеся авторы и артисты:
-${creatorContext || "повторов почти нет"}
-
-Культурная память (используй только если она делает вывод точнее; не пересказывай карточки и не упоминай источники):
-${culturalMemory}
-
-Представительная выборка из разных типов:
-${recentLines}`;
-
-  const raw = await createWebAwareAnalysis({
-    apiKey,
-    model,
-    instructions:
-      "Ты пишешь обычный вайбчек по библиотеке. Это короткая прожарка в простом, разговорном стиле: как одно точное наблюдение из телеграм-канала, а не как культурный разбор. Говори на 'ты'. Сначала выбери две или три позиции, которые действительно противоречат друг другу по стилю, репутации, настроению или аудитории. Не выбирай просто похожие любимые вещи. Затем строй вайбчек вокруг этой пары, а не вокруг всей библиотеки. В поле «Культурная память» есть проверенные факты и возможные углы: используй их как фактуру, но никогда не пересказывай карточку, не называй источник и не подменяй наблюдение биографией. Лучший результат обычно состоит из двух коротких строк. Первая называет пару. Она может быть вопросом, но не должна всегда начинаться с вопроса. Вторая строка дает точный смешной вывод, который существует только из-за этой пары. Не придумывай кинематографическую бытовую сцену: никаких бокалов на кухне, вечерних окон, взрывов, танцполов и других декораций, которых нет в библиотеке. Называя артистов и авторов, всегда используй привычную русскую передачу имен строчными буквами: 'биг бейби тейп', 'авраам руссо', 'джастин тимберлейк', 'блейди'. Не используй латиницу для имен исполнителей, если имя можно нормально написать по-русски. Хорошая форма: 'биг бейби тейп и авраам руссо. кажется, на семейном празднике тебе наконец дали поставить музыку.' Это пример конкретности, а не заготовка для копирования. Примеры формы: 'Блейди и София Коппола? набор эстета в депрессии, жму руку.', 'Ого, Блейди и София Коппола. кажется, у кого-то была непростая неделя.', '«Я обязательно уволюсь» и Lovestoned? похоже, ты решила уволиться из отношений. рабочих или романтических.', '«Комната Вагинова» и «Канистра»? похоже, сегодня хотелось грязи.' или 'Ого, «Ученичество, или Книга наслаждений» и SexyBack вместе! круто, когда во время духовного роста в перерывах можно потанцевать.' Не копируй эти фразы дословно и не используй их как заготовку. Если у айтемов есть общая узнаваемая фактура, называй ее прямо одним понятным словом. Лучше 'сегодня хотелось грязи', чем пустое описание формы вроде 'хотелось чего-то тесного и громкого'. Можно сделать острее двумя способами: переиначить название произведения ('«Фрагменты речи влюбленного»? скорее фрагменты речи того, кто боится говорить о своих чувствах.') или уколоть видимую культурную позу, сцену, статусную фантазию или отношение к привилегии ('«Наследники» и Fleetwood Mac? тебе нравится критиковать богатых, пока это красиво снято.'). Целью критики должна быть эстетическая поза, а не врожденная идентичность человека. Не угадывай и не высмеивай расу, гендерную идентичность, сексуальность, религию, национальность, инвалидность, возраст или класс пользователя по библиотеке. Если список это поддерживает, используй мягкое противоречие: назови внешнее качество, а затем скрытое человеческое напряжение. Пример: 'тебе, кажется, нравится, когда все красиво, но никому не хорошо'. Это не лозунг и не шаблон: используй его только при реальной опоре на айтемы. Текст должен быть простым: короткие фразы, один смысл, без сложного синтаксиса. Каждая строка должна быть понятна сразу, без расшифровки частной метафоры. Ответ недействителен, если после удаления имен артистов он подходит к любой другой случайной паре. Нельзя просто назвать два жанра, «вайб», «ностальгию», «атмосферу» или сказать 'тебе нравится X и Y'. Запрещены пустые формулы: 'разные вселенные', 'на одной волне', 'заряжаешься', 'раскачиваешься', 'старый советский шик', 'уличный рэп с московских окраин', 'громко взорвать', 'тихо посидеть с бокалом на кухне'. Не используй англоязычную конструкцию панча и пустые пары слов вроде 'и кризис, и припев'. Не прикрепляй человеческое действие к абстракции ради контраста: можно танцевать во время духовного роста, но нельзя танцевать под духовный рост. Если игра слов не складывается в ясную русскую мысль, убери ее. Не объясняй шутку и не пытайся быть остроумным в каждой строке. Ирония не обязательна. Лучше тихое, немного неловкое наблюдение, чем громкий панч. Неправильно: 'список контента балансирует на грани', 'музыка вызывает ассоциации', 'в целом сочетание', 'книги исследуют', 'фильмы варьируются', 'это указывает на', 'это говорит о'. Не пиши как культуролог, психолог, редактор медиа или школьный отличник. Не используй слова 'контент', 'аудитория', 'тенденции', 'современность', 'поп-культура', 'самопознание', 'восприятие', 'разнообразие'. Не описывай жанры и не пересказывай, кто популярен. Не давай рекомендации, не ставь диагнозы, не пиши 'красный флаг'. Не приписывай человеку скрытые мотивы или поведение, которых библиотека не может показать: нельзя писать 'поэтому ты молчишь', 'тебе никто не нужен' или 'ты боишься'. Легкий вывод о настроении выбранного периода допустим, если он прямо поддержан айтемами. Не выдумывай факты. Не копируй мемные шаблоны и готовые формулы из чужих каналов. Не заканчивай текст большой литературной фразой, лозунгом или нарочито умной игрой слов. В полном тексте можно использовать не больше одного сравнения и нельзя строить фразы по схеме 'ты делаешь X, как будто Y'. Верни только JSON без markdown с полями persona:string, hook:string, body:string, closer:string, highlights:string[], basis:string[]. persona — короткий ярлык на 2-5 простых слов. hook — первая строка с двумя или тремя айтемами, до 16 слов. body — вторая строка до 20 слов. closer — пустая строка, если первые две уже работают; иначе до 12 слов. highlights — 3 короткие реплики на 'ты', каждая до 12 слов и без новой темы. basis — именно те 2-3 позиции, на которых держится вывод.",
-    prompt,
-  });
-
-  let parsed = extractJson(raw);
-  let persona = parsed?.persona?.trim() || "";
-  let hook = parsed?.hook?.trim() || "";
-  let bodyText = parsed?.body?.trim() || "";
-  let closer = parsed?.closer?.trim() || "";
-  let summary =
-    parsed?.summary?.trim() ||
-    `в библиотеке ${items.length} айтемов. чувствуется устойчивый культурный паттерн, но ответ модели вернулся не в том формате.`;
-  let highlights = Array.isArray(parsed?.highlights)
-    ? parsed.highlights.map((item) => item.trim()).filter(Boolean).slice(0, 6)
-    : [];
-  let basis = Array.isArray(parsed?.basis)
-    ? parsed.basis.map((item) => item.trim()).filter(Boolean).slice(0, 3)
-    : [];
-
-  if (
-    shouldRetryAnalysis(summary, highlights, basis) ||
-    looksTooSoft(summary) ||
-    looksTooComplicated([hook, bodyText, closer, ...highlights].join(" ")) ||
-    looksTooGenericRoast([hook, bodyText, closer, ...highlights].join(" ")) ||
-    !hook ||
-    !bodyText
-  ) {
-    const retryRaw = await createWebAwareAnalysis({
-      apiKey,
-      model,
-      instructions:
-        "Ты уже один раз написал слишком сложно или слишком общо. Перепиши вайбчек как короткое наблюдение из хорошего телеграм-канала. Простые слова. Две короткие строки. Сначала выбери две или три позиции, которые действительно противоречат друг другу по стилю, репутации или настроению. Первая строка называет эту пару. Вторая строка дает неожиданный, но понятный вывод, который работает только с этой парой. Никаких придуманных бытовых сцен и декораций: не пиши про бокал на кухне, вечер, окна, взрывы, танцпол или одиночество, если этого прямо не дают названия и сами произведения. Нельзя просто назвать «вайб», «ностальгию», «атмосферу» или написать 'тебе нравится X и Y'. Запрещены формулы 'разные вселенные', 'на одной волне', 'заряжаешься', 'раскачиваешься', 'советский шик', 'уличный рэп с окраин', 'громко взорвать', 'тихо посидеть'. Если после удаления имен артистов текст подходит любой случайной паре, он плохой. Пиши имена артистов привычной русской передачей, без латиницы и строчными буквами: 'биг бейби тейп', 'авраам руссо', 'джастин тимберлейк'. Формы: 'Блейди и София Коппола? набор эстета в депрессии, жму руку.' или 'Ого, Блейди и София Коппола. кажется, у кого-то была непростая неделя.' Не копируй примеры дословно. Можно переиначить название произведения или уколоть видимую культурную позу, статусную фантазию и отношение к привилегии. Не критикуй и не угадывай по библиотеке расу, гендерную идентичность, сексуальность, религию, национальность, инвалидность, возраст или класс пользователя. Каждая строка должна быть понятна сразу. Не используй англоязычный ритм панча и пустые пары слов вроде 'и кризис, и припев'. Не объясняй вывод. Не строй сравнения одно на другом. Никакой статьи про культуру и никаких рекомендаций. Запрещены конструкции: 'список балансирует', 'музыка вызывает ассоциации', 'в целом это сочетание', 'можно заметить', 'представленная здесь музыка', 'книги исследуют', 'фильмы варьируются', 'это говорит о', 'это указывает на'. Хороший пример: 'вижу Блейди и Зебальда. кажется, ты выбираешь вещи, где кому-то так же плохо, как иногда тебе'. Плохой пример: 'эклектичный вкус сочетает популярную музыку с философской литературой'. Не используй конструкцию 'ты делаешь X, как будто Y', мемные шаблоны, лозунги или нарочито умные финальные фразы. Верни только JSON без markdown с полями persona:string, hook:string, body:string, closer:string, highlights:string[], basis:string[]. persona — 2-5 простых слов. hook — первая строка до 16 слов. body — вторая строка до 20 слов. closer — пустая строка, если первые две уже работают; иначе до 12 слов. highlights — 3 короткие реплики на 'ты', без новых тем. basis — только те 2-3 конкретные позиции, на которых держится вывод.",
-      prompt: `${prompt}
-
-Сейчас особенно важно: сначала найди одно главное противоречие вкуса и строй текст только вокруг него. Не пиши академически. Не пиши абзац как сочинение. Пиши как короткую устную оценку.`,
-    });
-    const retryParsed = extractJson(retryRaw);
-    if (retryParsed) {
-      parsed = retryParsed;
-      persona = retryParsed.persona?.trim() || persona;
-      hook = retryParsed.hook?.trim() || hook;
-      bodyText = retryParsed.body?.trim() || bodyText;
-      closer = retryParsed.closer?.trim() || closer;
-      summary =
-        retryParsed.summary?.trim() ||
-        summary;
-      highlights = Array.isArray(retryParsed.highlights)
-        ? retryParsed.highlights.map((item) => item.trim()).filter(Boolean).slice(0, 6)
-        : highlights;
-      basis = Array.isArray(retryParsed.basis)
-        ? retryParsed.basis.map((item) => item.trim()).filter(Boolean).slice(0, 3)
-        : basis;
-    }
-  }
-
-  // A retry is still model output, so reject stock imagery a second time before it reaches the card.
-  if (looksTooGenericRoast([hook, bodyText, closer, ...highlights].join(" "))) {
-    const lastChanceRaw = await createWebAwareAnalysis({
-      apiKey,
-      model,
-      instructions:
-        "Перепиши ответ с нуля. Предыдущий текст не годится: он заменил наблюдение выдуманной сценкой. Верни две короткие, ясные строки. В первой назови две конкретные позиции из списка. Во второй сделай точный вывод только из их столкновения. Не пиши про кухню, бокалы, вечер, окна, взрыв, тишину, танцпол, атмосферу или ностальгию. Не описывай жанры. Не ставь диагноз пользователю. Не объясняй шутку. Имена артистов пиши по-русски и строчными буквами. Верни только JSON: {persona:string,hook:string,body:string,closer:string,highlights:string[],basis:string[]}.",
-      prompt,
-    });
-    const lastChance = extractJson(lastChanceRaw);
-    if (lastChance?.hook?.trim() && lastChance.body?.trim()) {
-      persona = lastChance.persona?.trim() || persona;
-      hook = lastChance.hook.trim();
-      bodyText = lastChance.body.trim();
-      closer = lastChance.closer?.trim() || "";
-      highlights = Array.isArray(lastChance.highlights)
-        ? lastChance.highlights.map((item) => item.trim()).filter(Boolean).slice(0, 6)
-        : highlights;
-      basis = Array.isArray(lastChance.basis)
-        ? lastChance.basis.map((item) => item.trim()).filter(Boolean).slice(0, 3)
-        : basis;
-    }
-  }
-
-  hook = normalizeRoastNames(hook);
-  bodyText = normalizeRoastNames(bodyText);
-  closer = normalizeRoastNames(closer);
-  summary = normalizeRoastNames(summary);
-  highlights = highlights.map(normalizeRoastNames);
-  basis = basis.map(normalizeRoastNames);
-
-  const combinedSummary = [hook, bodyText || summary, closer].filter(Boolean).join(" ");
+  const duelId =
+    ordered.length >= 2 && ordered[0].runId && ordered[1].runId
+      ? await recordVibeDuel(sb, {
+          ownerKey: owner.ownerKey,
+          ownerKind: owner.ownerKind,
+          runIdA: ordered[0].runId,
+          runIdB: ordered[1].runId,
+          shownFirst: ordered[0].runId,
+        })
+      : null;
 
   return NextResponse.json({
     itemCount: items.length,
-    persona,
-    summary: combinedSummary,
-    basis:
-      basis.length > 0
-        ? basis
-        : ["последние айтемы периода", "повторяющиеся артисты и авторы"],
-    highlights:
-      highlights.length > 0
-        ? highlights
-      : ["многое держится вокруг повторяющихся авторов и артистов", "у вкуса уже есть понятный эмоциональный контур"],
+    persona: leading.persona,
+    summary: leading.summary,
+    basis: leading.basis,
+    highlights: leading.highlights,
+    runId: leading.runId,
+    ...(duelId ? { duel: { id: duelId, variants: ordered } } : {}),
   });
-  }
 }
