@@ -120,14 +120,23 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   if (!requireAdmin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
+  const sb = supabaseAdmin();
   const limit = Math.min(Number(req.nextUrl.searchParams.get("limit") ?? "50"), 200);
-  const { data, error } = await supabaseAdmin()
-    .from("vibe_runs")
-    .select("id, summary, outcome, gate_hits, vibe_forms(label, kind, note)")
-    .not("form_labeled_at", "is", null)
-    .order("form_labeled_at", { ascending: false })
-    .limit(limit);
+  const [labelled, pending] = await Promise.all([
+    sb
+      .from("vibe_runs")
+      .select("id, summary, outcome, gate_hits, vibe_forms(label, kind, note)")
+      .not("form_labeled_at", "is", null)
+      .order("form_labeled_at", { ascending: false })
+      .limit(limit),
+    sb
+      .from("vibe_runs")
+      .select("id", { count: "exact", head: true })
+      .is("form_labeled_at", null)
+      .not("summary", "is", null)
+      .neq("outcome", "fallback"),
+  ]);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ runs: data ?? [] });
+  if (labelled.error) return NextResponse.json({ error: labelled.error.message }, { status: 500 });
+  return NextResponse.json({ runs: labelled.data ?? [], remaining: pending.count ?? 0 });
 }
