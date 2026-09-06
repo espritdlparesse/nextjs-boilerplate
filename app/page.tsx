@@ -382,6 +382,120 @@ function useVibecheck() {
   };
 }
 
+function useProfile(deps: { loadLibrary: () => void; setLibraryError: (message: string) => void }) {
+  const { loadLibrary, setLibraryError } = deps;
+  const [telegramLinkCode, setTelegramLinkCode] = useState("");
+  const [telegramLinkLoading, setTelegramLinkLoading] = useState(false);
+  const [telegramLinkStatus, setTelegramLinkStatus] = useState("");
+  const [telegramLinkSuccess, setTelegramLinkSuccess] = useState(false);
+  const [showTelegramManualLink, setShowTelegramManualLink] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [profileNameDraft, setProfileNameDraft] = useState("");
+  const [editingProfileName, setEditingProfileName] = useState(false);
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
+  const [profileTheme, setProfileTheme] = useState<"light" | "dark">("light");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const profileAvatarInputRef = useRef<HTMLInputElement>(null);
+
+  async function loadProfileSettings() {
+    try {
+      const res = await fetch("/api/v2/profile", { headers: { "x-telegram-init-data": getTgInitData() } });
+      const json = await safeJson(res);
+      if (!res.ok) return;
+      const name = typeof json?.displayName === "string" ? json.displayName : "";
+      setProfileName(name);
+      setProfileNameDraft(name);
+      setEditingProfileName(!name);
+      setProfileAvatarUrl(typeof json?.avatarUrl === "string" ? json.avatarUrl : null);
+      setProfileTheme(json?.themeMode === "dark" ? "dark" : "light");
+    } catch {}
+  }
+
+  async function saveProfileSettings(next: { displayName?: string; avatarUrl?: string | null; themeMode?: "light" | "dark" }) {
+    setProfileSaving(true);
+    try {
+      const res = await fetch("/api/v2/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "x-telegram-init-data": getTgInitData() },
+        body: JSON.stringify({
+          displayName: "displayName" in next ? next.displayName : profileName,
+          avatarUrl: "avatarUrl" in next ? next.avatarUrl : profileAvatarUrl,
+          themeMode: "themeMode" in next ? next.themeMode : profileTheme,
+        }),
+      });
+      const json = await safeJson(res);
+      if (!res.ok) throw new Error(json?.error ?? "не удалось сохранить профиль");
+      setProfileName(json?.displayName ?? "");
+      setProfileNameDraft(json?.displayName ?? "");
+      setProfileAvatarUrl(json?.avatarUrl ?? null);
+      setProfileTheme(json?.themeMode === "dark" ? "dark" : "light");
+      return true;
+    } catch (error) {
+      setLibraryError(error instanceof Error ? error.message : "не удалось сохранить профиль");
+      return false;
+    } finally { setProfileSaving(false); }
+  }
+
+  async function uploadProfileAvatar(file: File) {
+    setProfileSaving(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/v2/profile/avatar", { method: "POST", headers: { "x-telegram-init-data": getTgInitData() }, body: form });
+      const json = await safeJson(res);
+      if (!res.ok) throw new Error(json?.error ?? "не удалось загрузить аватар");
+      setProfileAvatarUrl(json?.avatarUrl ?? null);
+    } catch (error) {
+      setLibraryError(error instanceof Error ? error.message : "не удалось загрузить аватар");
+    } finally { setProfileSaving(false); }
+  }
+
+  async function linkMobileAccount(prefilledCode?: string) {
+    const code = (prefilledCode ?? telegramLinkCode).trim().toUpperCase();
+    if (!code) {
+      setTelegramLinkStatus("введи код из мобильного приложения");
+      setTelegramLinkSuccess(false);
+      return;
+    }
+
+    setTelegramLinkLoading(true);
+    setTelegramLinkStatus("");
+    setTelegramLinkSuccess(false);
+    try {
+      const res = await fetch("/api/telegram/link", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-telegram-init-data": getTgInitData(),
+        },
+        body: JSON.stringify({ code }),
+      });
+      const json = await safeJson(res);
+      if (!res.ok) {
+        setTelegramLinkStatus(json?.error ?? "не удалось связать аккаунты");
+        return;
+      }
+      setTelegramLinkStatus("готово — Telegram и мобильное приложение теперь связаны");
+      setTelegramLinkSuccess(true);
+      setTelegramLinkCode("");
+      await loadLibrary();
+    } catch (e: any) {
+      setTelegramLinkStatus(e?.message ?? "не удалось связать аккаунты");
+    } finally {
+      setTelegramLinkLoading(false);
+    }
+  }
+
+  return {
+    telegramLinkCode, telegramLinkLoading, telegramLinkStatus, telegramLinkSuccess,
+    showTelegramManualLink, profileName, profileNameDraft, editingProfileName,
+    profileAvatarUrl, profileTheme, profileSaving, profileAvatarInputRef,
+    setTelegramLinkCode, setTelegramLinkStatus, setTelegramLinkSuccess, setShowTelegramManualLink,
+    setProfileNameDraft, setEditingProfileName, setProfileTheme, setProfileName,
+    loadProfileSettings, saveProfileSettings, uploadProfileAvatar, linkMobileAccount,
+  };
+}
+
 export default function Page() {
   const [tab, setTab] = useState<Tab>("profile");
   const [aboutStep, setAboutStep] = useState(0);
@@ -443,10 +557,10 @@ export default function Page() {
 
     autoLinkHandledRef.current = true;
     const code = match[1].toUpperCase();
-    setTelegramLinkCode(code);
-    setShowTelegramManualLink(true);
-    setTelegramLinkStatus("код из qr уже подставили");
-    void linkMobileAccount(code);
+    profile.setTelegramLinkCode(code);
+    profile.setShowTelegramManualLink(true);
+    profile.setTelegramLinkStatus("код из qr уже подставили");
+    void profile.linkMobileAccount(code);
   }, []);
 
   useEffect(() => {
@@ -480,18 +594,6 @@ export default function Page() {
   const [sharePickerText, setSharePickerText] = useState<string | undefined>(undefined);
   const [sharePickerType, setSharePickerType] = useState<"vibe" | "deep" | undefined>(undefined);
   const [spotifySyncing, setSpotifySyncing] = useState(false);
-  const [telegramLinkCode, setTelegramLinkCode] = useState("");
-  const [telegramLinkLoading, setTelegramLinkLoading] = useState(false);
-  const [telegramLinkStatus, setTelegramLinkStatus] = useState("");
-  const [telegramLinkSuccess, setTelegramLinkSuccess] = useState(false);
-  const [showTelegramManualLink, setShowTelegramManualLink] = useState(false);
-  const [profileName, setProfileName] = useState("");
-  const [profileNameDraft, setProfileNameDraft] = useState("");
-  const [editingProfileName, setEditingProfileName] = useState(false);
-  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
-  const [profileTheme, setProfileTheme] = useState<"light" | "dark">("light");
-  const [profileSaving, setProfileSaving] = useState(false);
-  const profileAvatarInputRef = useRef<HTMLInputElement>(null);
   const autoLinkHandledRef = useRef(false);
 
 
@@ -536,61 +638,14 @@ export default function Page() {
   }
 
 
-  async function loadProfileSettings() {
-    try {
-      const res = await fetch("/api/v2/profile", { headers: { "x-telegram-init-data": getTgInitData() } });
-      const json = await safeJson(res);
-      if (!res.ok) return;
-      const name = typeof json?.displayName === "string" ? json.displayName : "";
-      setProfileName(name);
-      setProfileNameDraft(name);
-      setEditingProfileName(!name);
-      setProfileAvatarUrl(typeof json?.avatarUrl === "string" ? json.avatarUrl : null);
-      setProfileTheme(json?.themeMode === "dark" ? "dark" : "light");
-    } catch {}
-  }
 
-  async function saveProfileSettings(next: { displayName?: string; avatarUrl?: string | null; themeMode?: "light" | "dark" }) {
-    setProfileSaving(true);
-    try {
-      const res = await fetch("/api/v2/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "x-telegram-init-data": getTgInitData() },
-        body: JSON.stringify({
-          displayName: "displayName" in next ? next.displayName : profileName,
-          avatarUrl: "avatarUrl" in next ? next.avatarUrl : profileAvatarUrl,
-          themeMode: "themeMode" in next ? next.themeMode : profileTheme,
-        }),
-      });
-      const json = await safeJson(res);
-      if (!res.ok) throw new Error(json?.error ?? "не удалось сохранить профиль");
-      setProfileName(json?.displayName ?? "");
-      setProfileNameDraft(json?.displayName ?? "");
-      setProfileAvatarUrl(json?.avatarUrl ?? null);
-      setProfileTheme(json?.themeMode === "dark" ? "dark" : "light");
-      return true;
-    } catch (error) {
-      setLibraryError(error instanceof Error ? error.message : "не удалось сохранить профиль");
-      return false;
-    } finally { setProfileSaving(false); }
-  }
 
-  async function uploadProfileAvatar(file: File) {
-    setProfileSaving(true);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/v2/profile/avatar", { method: "POST", headers: { "x-telegram-init-data": getTgInitData() }, body: form });
-      const json = await safeJson(res);
-      if (!res.ok) throw new Error(json?.error ?? "не удалось загрузить аватар");
-      setProfileAvatarUrl(json?.avatarUrl ?? null);
-    } catch (error) {
-      setLibraryError(error instanceof Error ? error.message : "не удалось загрузить аватар");
-    } finally { setProfileSaving(false); }
-  }
+
+
 
 
   const vibe = useVibecheck();
+  const profile = useProfile({ loadLibrary, setLibraryError });
   const fileRef = useRef<HTMLInputElement | null>(null);
   const csvImportRef = useRef<HTMLInputElement | null>(null);
   const [importLoading, setImportLoading] = useState(false);
@@ -869,7 +924,7 @@ export default function Page() {
     csvImportRef.current?.click();
   }
 
-  useEffect(() => { loadLibrary(); loadCustomCategories(); vibe.fetchDeepVibeAccess(); loadConnectedProfiles(); loadProfileSettings(); }, []);
+  useEffect(() => { loadLibrary(); loadCustomCategories(); vibe.fetchDeepVibeAccess(); loadConnectedProfiles(); profile.loadProfileSettings(); }, []);
 
   const counts = useMemo(() => ({
     total: items.length,
@@ -1308,41 +1363,7 @@ export default function Page() {
 
 
 
-  async function linkMobileAccount(prefilledCode?: string) {
-    const code = (prefilledCode ?? telegramLinkCode).trim().toUpperCase();
-    if (!code) {
-      setTelegramLinkStatus("введи код из мобильного приложения");
-      setTelegramLinkSuccess(false);
-      return;
-    }
 
-    setTelegramLinkLoading(true);
-    setTelegramLinkStatus("");
-    setTelegramLinkSuccess(false);
-    try {
-      const res = await fetch("/api/telegram/link", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-telegram-init-data": getTgInitData(),
-        },
-        body: JSON.stringify({ code }),
-      });
-      const json = await safeJson(res);
-      if (!res.ok) {
-        setTelegramLinkStatus(json?.error ?? "не удалось связать аккаунты");
-        return;
-      }
-      setTelegramLinkStatus("готово — Telegram и мобильное приложение теперь связаны");
-      setTelegramLinkSuccess(true);
-      setTelegramLinkCode("");
-      await loadLibrary();
-    } catch (e: any) {
-      setTelegramLinkStatus(e?.message ?? "не удалось связать аккаунты");
-    } finally {
-      setTelegramLinkLoading(false);
-    }
-  }
 
   // Генерируем карточку по текущему состоянию приложения
 
@@ -1501,7 +1522,7 @@ export default function Page() {
       <div className="app">
         <div className="header">
           <div className="header-row">
-            <div className="header-avatar">{profileAvatarUrl ? <img src={profileAvatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "999px" }} /> : headerAvatar}</div>
+            <div className="header-avatar">{profile.profileAvatarUrl ? <img src={profile.profileAvatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "999px" }} /> : headerAvatar}</div>
             <div className="header-copy">
               <button className="brand-link" onClick={() => { setAboutStep(0); setTab("home"); }}>
                 everyyou
@@ -1566,30 +1587,30 @@ export default function Page() {
               <div className="card-title">профиль</div>
               <p className="card-text">здесь живут тихие настройки твоей библиотеки.</p>
               <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 16 }}>
-                <div className="header-avatar">{profileAvatarUrl ? <img src={profileAvatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "999px" }} /> : headerAvatar}</div>
+                <div className="header-avatar">{profile.profileAvatarUrl ? <img src={profile.profileAvatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "999px" }} /> : headerAvatar}</div>
                 <div style={{ flex: 1 }}>
-                  <input ref={profileAvatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadProfileAvatar(file); event.target.value = ""; }} />
-                  <button className="btn btn-secondary btn-sm" onClick={() => profileAvatarInputRef.current?.click()} disabled={profileSaving}>загрузить аватар</button>
-                  {profileAvatarUrl ? <button className="btn btn-outline btn-sm" style={{ marginTop: 8 }} onClick={() => void saveProfileSettings({ avatarUrl: null })} disabled={profileSaving}>убрать</button> : null}
+                  <input ref={profile.profileAvatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(event) => { const file = event.target.files?.[0]; if (file) void profile.uploadProfileAvatar(file); event.target.value = ""; }} />
+                  <button className="btn btn-secondary btn-sm" onClick={() => profile.profileAvatarInputRef.current?.click()} disabled={profile.profileSaving}>загрузить аватар</button>
+                  {profile.profileAvatarUrl ? <button className="btn btn-outline btn-sm" style={{ marginTop: 8 }} onClick={() => void profile.saveProfileSettings({ avatarUrl: null })} disabled={profile.profileSaving}>убрать</button> : null}
                 </div>
               </div>
-              {editingProfileName || !profileName ? (
+              {profile.editingProfileName || !profile.profileName ? (
                 <>
                   <div className="input-group" style={{ marginTop: 16 }}>
                     <div className="input-label">как тебя зовут</div>
-                    <input className="input" value={profileNameDraft} placeholder="например, настя" onChange={(event) => setProfileNameDraft(event.target.value)} />
+                    <input className="input" value={profile.profileNameDraft} placeholder="например, настя" onChange={(event) => profile.setProfileNameDraft(event.target.value)} />
                   </div>
-                  <button className="btn btn-secondary" style={{ marginTop: 10 }} onClick={async () => { if (await saveProfileSettings({ displayName: profileNameDraft })) setEditingProfileName(false); }} disabled={profileSaving}>
-                    {profileSaving ? "сохраняем..." : "сохранить"}
+                  <button className="btn btn-secondary" style={{ marginTop: 10 }} onClick={async () => { if (await profile.saveProfileSettings({ displayName: profile.profileNameDraft })) profile.setEditingProfileName(false); }} disabled={profile.profileSaving}>
+                    {profile.profileSaving ? "сохраняем..." : "сохранить"}
                   </button>
                 </>
               ) : (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 16 }}>
                   <div>
                     <div className="input-label">имя</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, marginTop: 3 }}>{profileName}</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, marginTop: 3 }}>{profile.profileName}</div>
                   </div>
-                  <button className="btn btn-outline btn-sm" style={{ width: "auto" }} onClick={() => setEditingProfileName(true)}>изменить</button>
+                  <button className="btn btn-outline btn-sm" style={{ width: "auto" }} onClick={() => profile.setEditingProfileName(true)}>изменить</button>
                 </div>
               )}
               <div className="stats" style={{ marginTop: 16 }}>
