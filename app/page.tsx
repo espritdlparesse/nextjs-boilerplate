@@ -710,157 +710,15 @@ function useLibrary(deps: {
   };
 }
 
-export default function Page() {
-  const [tab, setTab] = useState<Tab>("profile");
-  const [aboutStep, setAboutStep] = useState(0);
-  const [libraryView, setLibraryView] = useState<"tiles" | "calendar">("calendar");
-  const [helloName, setHelloName] = useState("привет!");
-  const [tgUserId, setTgUserId] = useState<number | null>(null);
-  const [adminViewOff, setAdminViewOff] = useState(false);
-  const isAdmin = isAdminTgId(tgUserId) && !adminViewOff;
-
-  useEffect(() => {
-    try {
-      setAdminViewOff(localStorage.getItem("everyyou:admin-view-off") === "1");
-    } catch {}
-  }, []);
-
-  function toggleAdminView() {
-    const next = !adminViewOff;
-    setAdminViewOff(next);
-    if (next && tab === "admin") setTab("home");
-    try {
-      localStorage.setItem("everyyou:admin-view-off", next ? "1" : "0");
-    } catch {}
-  }
-
-  // Telegram Analytics SDK
-  useEffect(() => {
-    if (document.getElementById("tg-analytics-sdk")) return;
-    const script = document.createElement("script");
-    script.id = "tg-analytics-sdk";
-    script.async = true;
-    script.src = "https://tonsdk.io/sdk.js";
-    script.setAttribute("data-telegram-analytics-token", process.env.NEXT_PUBLIC_TG_ANALYTICS_TOKEN || "");
-    document.head.appendChild(script);
-  }, []);
-
-  useEffect(() => {
-    const tg = (window as any).Telegram?.WebApp;
-    try { tg?.ready?.(); tg?.expand?.(); } catch {}
-    const first = tg?.initDataUnsafe?.user?.first_name;
-    const last = tg?.initDataUnsafe?.user?.last_name;
-    const username = tg?.initDataUnsafe?.user?.username;
-    const name = first || last
-      ? [first, last].filter(Boolean).join(" ")
-      : username ? `@${username}` : "";
-    setHelloName(name ? `привет, ${name}` : "привет");
-    const uid = tg?.initDataUnsafe?.user?.id;
-    if (uid) setTgUserId(Number(uid));
-  }, []);
-
-  useEffect(() => {
-    if (autoLinkHandledRef.current) return;
-    const tg = (window as any).Telegram?.WebApp;
-    const startParam = tg?.initDataUnsafe?.start_param;
-    const url = typeof window !== "undefined" ? new URL(window.location.href) : null;
-    const fallbackParam = url?.searchParams.get("tgWebAppStartParam") ?? url?.searchParams.get("startapp") ?? "";
-    const raw = `${startParam ?? fallbackParam}`.trim();
-    const match = raw.match(/^link[_: -]?([A-Z0-9]+)$/i);
-    if (!match?.[1]) return;
-
-    autoLinkHandledRef.current = true;
-    const code = match[1].toUpperCase();
-    profile.setTelegramLinkCode(code);
-    profile.setShowTelegramManualLink(true);
-    profile.setTelegramLinkStatus("код из qr уже подставили");
-    void profile.linkMobileAccount(code);
-  }, []);
-
-  useEffect(() => {
-    if (!tgUserId) return;
-    fireAnalytics("app_open", {
-      librarySize: items.length,
-      hasCustomName: Boolean(helloName.replace(/^привет,?\s*/i, "").trim()),
-      themeMode: "light",
-    });
-  }, [tgUserId]);
-
-  useEffect(() => {
-    if (!tgUserId) return;
-    fireAnalytics("screen_view", { screen: tab });
-  }, [tab, tgUserId]);
-
-  // ===== Library =====
-  const [items, setItems] = useState<DbItem[]>([]);
-  const [libraryLoading, setLibraryLoading] = useState(false);
-  const [libraryError, setLibraryError] = useState("");
+function useImports(deps: { items: DbItem[]; loadLibrary: () => void; setTab: (tab: Tab) => void }) {
+  const { items, loadLibrary, setTab } = deps;
   const [spotifyConnected, setSpotifyConnected] = useState<boolean | null>(null);
   const [spotifyProfileName, setSpotifyProfileName] = useState<string | null>(null);
   const [connectedProfiles, setConnectedProfiles] = useState<{
     lastfm: { profile: string; lastSyncedAt: string | null } | null;
     letterboxd: { profile: string; lastSyncedAt: string | null } | null;
   }>({ lastfm: null, letterboxd: null });
-  const [showShareCard, setShowShareCard] = useState(false);
-  const [shareCardDataUrl, setShareCardDataUrl] = useState<string | null>(null);
-  const [showSharePicker, setShowSharePicker] = useState(false);
-  const [sharePickerSelected, setSharePickerSelected] = useState<Set<string | number>>(new Set());
-  const [sharePickerText, setSharePickerText] = useState<string | undefined>(undefined);
-  const [sharePickerType, setSharePickerType] = useState<"vibe" | "deep" | undefined>(undefined);
   const [spotifySyncing, setSpotifySyncing] = useState(false);
-  const autoLinkHandledRef = useRef(false);
-
-
-
-  async function loadLibrary() {
-    setLibraryLoading(true);
-    setLibraryError("");
-    try {
-      const res = await fetch("/api/items", {
-        headers: { "x-telegram-init-data": getTgInitData() },
-      });
-      const json = await safeJson(res);
-      if (!res.ok) { setLibraryError(json?.error ?? "Ошибка загрузки"); setItems([]); return; }
-      setItems(Array.isArray(json?.items) ? json.items : []);
-    } catch (e: any) {
-      setLibraryError(e?.message ?? "Network error");
-    } finally {
-      setLibraryLoading(false);
-    }
-  }
-
-  async function loadConnectedProfiles() {
-    try {
-      const res = await fetch("/api/v2/connected-sources", {
-        headers: { "x-telegram-init-data": getTgInitData() },
-      });
-      const json = await safeJson(res);
-      if (!res.ok) return;
-      const next = { lastfm: null, letterboxd: null } as typeof connectedProfiles;
-      for (const source of Array.isArray(json?.sources) ? json.sources : []) {
-        if (source?.platform === "lastfm") {
-          next.lastfm = { profile: source.profile, lastSyncedAt: source.lastSyncedAt ?? null };
-        }
-        if (source?.platform === "letterboxd") {
-          next.letterboxd = { profile: source.profile, lastSyncedAt: source.lastSyncedAt ?? null };
-        }
-      }
-      setConnectedProfiles(next);
-      if (next.lastfm?.profile) setLastfmProfileInput(next.lastfm.profile);
-      if (next.letterboxd?.profile) setLetterboxdProfileInput(next.letterboxd.profile);
-    } catch {}
-  }
-
-
-
-
-
-
-
-
-  const vibe = useVibecheck();
-  const library = useLibrary({ items, loadLibrary, setLibraryError, setLibraryLoading });
-  const profile = useProfile({ loadLibrary, setLibraryError });
   const fileRef = useRef<HTMLInputElement | null>(null);
   const csvImportRef = useRef<HTMLInputElement | null>(null);
   const [importLoading, setImportLoading] = useState(false);
@@ -1139,7 +997,292 @@ export default function Page() {
     csvImportRef.current?.click();
   }
 
-  useEffect(() => { loadLibrary(); loadCustomCategories(); vibe.fetchDeepVibeAccess(); loadConnectedProfiles(); profile.loadProfileSettings(); }, []);
+  async function checkSpotify() {
+    try {
+      const res = await fetch("/api/spotify/status", {
+        headers: { "x-telegram-init-data": getTgInitData() },
+      });
+      const json = await safeJson(res);
+      setSpotifyConnected(json?.connected ?? false);
+      setSpotifyProfileName(json?.profile?.displayName ?? null);
+    } catch {
+      setSpotifyConnected(false);
+      setSpotifyProfileName(null);
+    }
+  }
+
+  async function disconnectSpotify(deleteContent = false) {
+    setSpotifySyncing(true);
+    setImportError("");
+    setImportStatus(deleteContent ? "отвязываем spotify и чистим импорт..." : "отвязываем spotify...");
+    try {
+      const res = await fetch(`/api/spotify/sync?deleteContent=${deleteContent ? "1" : "0"}`, {
+        method: "DELETE",
+        headers: { "x-telegram-init-data": getTgInitData() },
+      });
+      const json = await safeJson(res);
+      if (!res.ok) {
+        setImportError(json?.error ?? "не удалось отвязать spotify");
+        return;
+      }
+      setSpotifyConnected(false);
+      setSpotifyProfileName(null);
+      await loadLibrary();
+      setImportStatus(
+        deleteContent
+          ? `готово: spotify отвязали и убрали ${json?.deletedItems ?? 0} айтем(ов)`
+          : "готово: spotify больше не подключен"
+      );
+    } catch (e: any) {
+      setImportError(e?.message ?? "не удалось отвязать spotify");
+    } finally {
+      setSpotifySyncing(false);
+    }
+  }
+
+  async function connectSpotify() {
+    const initData = getTgInitData();
+    const url = `/api/spotify/auth?initData=${encodeURIComponent(initData)}`;
+    const tg = (window as any).Telegram?.WebApp;
+    tg?.openLink ? tg.openLink(url) : window.open(url, "_blank");
+    // Проверяем подключение через 5 секунд
+    setTimeout(() => checkSpotify(), 5000);
+  }
+
+  async function syncSpotify() {
+    setSpotifySyncing(true);
+    try {
+      const res = await fetch("/api/spotify/sync", {
+        method: "POST",
+        headers: { "x-telegram-init-data": getTgInitData() },
+      });
+      const json = await safeJson(res);
+      if (json?.ok) loadLibrary();
+    } catch {}
+    finally { setSpotifySyncing(false); }
+  }
+
+  async function disconnectConnectedProfile(
+    platform: "lastfm" | "letterboxd",
+    deleteContent = false
+  ) {
+    setImportLoading(true);
+    setImportError("");
+    setImportStatus(deleteContent ? "отвязываем источник и чистим импорт..." : "отвязываем источник...");
+    try {
+      const res = await fetch("/api/v2/connected-sources", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          "x-telegram-init-data": getTgInitData(),
+        },
+        body: JSON.stringify({ platform, deleteContent }),
+      });
+      const json = await safeJson(res);
+      if (!res.ok) {
+        setImportError(json?.error ?? "не удалось отвязать источник");
+        return;
+      }
+      setConnectedProfiles((current) => ({ ...current, [platform]: null }));
+      if (platform === "lastfm") setLastfmProfileInput("");
+      if (platform === "letterboxd") setLetterboxdProfileInput("");
+      await loadLibrary();
+      setImportStatus(
+        deleteContent
+          ? `готово: отвязали ${platform} и убрали ${json?.deletedItems ?? 0} айтем(ов)`
+          : `готово: ${platform} больше не подключен`
+      );
+    } catch (e: any) {
+      setImportError(e?.message ?? "не удалось отвязать источник");
+    } finally {
+      setImportLoading(false);
+    }
+  }
+
+  async function loadConnectedProfiles() {
+    try {
+      const res = await fetch("/api/v2/connected-sources", {
+        headers: { "x-telegram-init-data": getTgInitData() },
+      });
+      const json = await safeJson(res);
+      if (!res.ok) return;
+      const next = { lastfm: null, letterboxd: null } as typeof connectedProfiles;
+      for (const source of Array.isArray(json?.sources) ? json.sources : []) {
+        if (source?.platform === "lastfm") {
+          next.lastfm = { profile: source.profile, lastSyncedAt: source.lastSyncedAt ?? null };
+        }
+        if (source?.platform === "letterboxd") {
+          next.letterboxd = { profile: source.profile, lastSyncedAt: source.lastSyncedAt ?? null };
+        }
+      }
+      setConnectedProfiles(next);
+      if (next.lastfm?.profile) setLastfmProfileInput(next.lastfm.profile);
+      if (next.letterboxd?.profile) setLetterboxdProfileInput(next.letterboxd.profile);
+    } catch {}
+  }
+
+  return {
+    spotifyConnected, spotifyProfileName, connectedProfiles, spotifySyncing,
+    fileRef, csvImportRef, importLoading, importError, importStatus, imported,
+    selectedIdx, savingImported, selectedImportService,
+    lastfmProfileInput, letterboxdProfileInput, yandexMusicUrl,
+    setImportError, setImportStatus, setImported, setSelectedIdx, setImportLoading,
+    setSelectedImportService, setLastfmProfileInput, setLetterboxdProfileInput, setYandexMusicUrl,
+    importCsvPlatform, importYandexMusicPlaylist, toggleImported, runImport, saveSelected,
+    saveSelectedImported, startImportService, importLastfmProfileWeb,
+    importLetterboxdProfileWeb, confirmCsvImport,
+    checkSpotify, disconnectSpotify, connectSpotify, syncSpotify,
+    disconnectConnectedProfile, loadConnectedProfiles,
+  };
+}
+
+export default function Page() {
+  const [tab, setTab] = useState<Tab>("profile");
+  const [aboutStep, setAboutStep] = useState(0);
+  const [libraryView, setLibraryView] = useState<"tiles" | "calendar">("calendar");
+  const [helloName, setHelloName] = useState("привет!");
+  const [tgUserId, setTgUserId] = useState<number | null>(null);
+  const [adminViewOff, setAdminViewOff] = useState(false);
+  const isAdmin = isAdminTgId(tgUserId) && !adminViewOff;
+
+  useEffect(() => {
+    try {
+      setAdminViewOff(localStorage.getItem("everyyou:admin-view-off") === "1");
+    } catch {}
+  }, []);
+
+  function toggleAdminView() {
+    const next = !adminViewOff;
+    setAdminViewOff(next);
+    if (next && tab === "admin") setTab("home");
+    try {
+      localStorage.setItem("everyyou:admin-view-off", next ? "1" : "0");
+    } catch {}
+  }
+
+  // Telegram Analytics SDK
+  useEffect(() => {
+    if (document.getElementById("tg-analytics-sdk")) return;
+    const script = document.createElement("script");
+    script.id = "tg-analytics-sdk";
+    script.async = true;
+    script.src = "https://tonsdk.io/sdk.js";
+    script.setAttribute("data-telegram-analytics-token", process.env.NEXT_PUBLIC_TG_ANALYTICS_TOKEN || "");
+    document.head.appendChild(script);
+  }, []);
+
+  useEffect(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    try { tg?.ready?.(); tg?.expand?.(); } catch {}
+    const first = tg?.initDataUnsafe?.user?.first_name;
+    const last = tg?.initDataUnsafe?.user?.last_name;
+    const username = tg?.initDataUnsafe?.user?.username;
+    const name = first || last
+      ? [first, last].filter(Boolean).join(" ")
+      : username ? `@${username}` : "";
+    setHelloName(name ? `привет, ${name}` : "привет");
+    const uid = tg?.initDataUnsafe?.user?.id;
+    if (uid) setTgUserId(Number(uid));
+  }, []);
+
+  useEffect(() => {
+    if (autoLinkHandledRef.current) return;
+    const tg = (window as any).Telegram?.WebApp;
+    const startParam = tg?.initDataUnsafe?.start_param;
+    const url = typeof window !== "undefined" ? new URL(window.location.href) : null;
+    const fallbackParam = url?.searchParams.get("tgWebAppStartParam") ?? url?.searchParams.get("startapp") ?? "";
+    const raw = `${startParam ?? fallbackParam}`.trim();
+    const match = raw.match(/^link[_: -]?([A-Z0-9]+)$/i);
+    if (!match?.[1]) return;
+
+    autoLinkHandledRef.current = true;
+    const code = match[1].toUpperCase();
+    profile.setTelegramLinkCode(code);
+    profile.setShowTelegramManualLink(true);
+    profile.setTelegramLinkStatus("код из qr уже подставили");
+    void profile.linkMobileAccount(code);
+  }, []);
+
+  useEffect(() => {
+    if (!tgUserId) return;
+    fireAnalytics("app_open", {
+      librarySize: items.length,
+      hasCustomName: Boolean(helloName.replace(/^привет,?\s*/i, "").trim()),
+      themeMode: "light",
+    });
+  }, [tgUserId]);
+
+  useEffect(() => {
+    if (!tgUserId) return;
+    fireAnalytics("screen_view", { screen: tab });
+  }, [tab, tgUserId]);
+
+  // ===== Library =====
+  const [items, setItems] = useState<DbItem[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryError, setLibraryError] = useState("");
+  const [showShareCard, setShowShareCard] = useState(false);
+  const [shareCardDataUrl, setShareCardDataUrl] = useState<string | null>(null);
+  const [showSharePicker, setShowSharePicker] = useState(false);
+  const [sharePickerSelected, setSharePickerSelected] = useState<Set<string | number>>(new Set());
+  const [sharePickerText, setSharePickerText] = useState<string | undefined>(undefined);
+  const [sharePickerType, setSharePickerType] = useState<"vibe" | "deep" | undefined>(undefined);
+  const autoLinkHandledRef = useRef(false);
+
+
+
+  async function loadLibrary() {
+    setLibraryLoading(true);
+    setLibraryError("");
+    try {
+      const res = await fetch("/api/items", {
+        headers: { "x-telegram-init-data": getTgInitData() },
+      });
+      const json = await safeJson(res);
+      if (!res.ok) { setLibraryError(json?.error ?? "Ошибка загрузки"); setItems([]); return; }
+      setItems(Array.isArray(json?.items) ? json.items : []);
+    } catch (e: any) {
+      setLibraryError(e?.message ?? "Network error");
+    } finally {
+      setLibraryLoading(false);
+    }
+  }
+
+
+
+
+
+
+
+
+
+
+  const vibe = useVibecheck();
+  const imports = useImports({ items, loadLibrary, setTab });
+  const library = useLibrary({ items, loadLibrary, setLibraryError, setLibraryLoading });
+  const profile = useProfile({ loadLibrary, setLibraryError });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  useEffect(() => { loadLibrary(); loadCustomCategories(); vibe.fetchDeepVibeAccess(); imports.loadConnectedProfiles(); profile.loadProfileSettings(); }, []);
 
   const countsUnknown = libraryLoading && items.length === 0;
   const counts = useMemo(() => ({
@@ -1378,107 +1521,15 @@ export default function Page() {
 
   // ===== Vibe =====
 
-  async function checkSpotify() {
-    try {
-      const res = await fetch("/api/spotify/status", {
-        headers: { "x-telegram-init-data": getTgInitData() },
-      });
-      const json = await safeJson(res);
-      setSpotifyConnected(json?.connected ?? false);
-      setSpotifyProfileName(json?.profile?.displayName ?? null);
-    } catch {
-      setSpotifyConnected(false);
-      setSpotifyProfileName(null);
-    }
-  }
 
-  async function disconnectConnectedProfile(
-    platform: "lastfm" | "letterboxd",
-    deleteContent = false
-  ) {
-    setImportLoading(true);
-    setImportError("");
-    setImportStatus(deleteContent ? "отвязываем источник и чистим импорт..." : "отвязываем источник...");
-    try {
-      const res = await fetch("/api/v2/connected-sources", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          "x-telegram-init-data": getTgInitData(),
-        },
-        body: JSON.stringify({ platform, deleteContent }),
-      });
-      const json = await safeJson(res);
-      if (!res.ok) {
-        setImportError(json?.error ?? "не удалось отвязать источник");
-        return;
-      }
-      setConnectedProfiles((current) => ({ ...current, [platform]: null }));
-      if (platform === "lastfm") setLastfmProfileInput("");
-      if (platform === "letterboxd") setLetterboxdProfileInput("");
-      await loadLibrary();
-      setImportStatus(
-        deleteContent
-          ? `готово: отвязали ${platform} и убрали ${json?.deletedItems ?? 0} айтем(ов)`
-          : `готово: ${platform} больше не подключен`
-      );
-    } catch (e: any) {
-      setImportError(e?.message ?? "не удалось отвязать источник");
-    } finally {
-      setImportLoading(false);
-    }
-  }
 
-  async function disconnectSpotify(deleteContent = false) {
-    setSpotifySyncing(true);
-    setImportError("");
-    setImportStatus(deleteContent ? "отвязываем spotify и чистим импорт..." : "отвязываем spotify...");
-    try {
-      const res = await fetch(`/api/spotify/sync?deleteContent=${deleteContent ? "1" : "0"}`, {
-        method: "DELETE",
-        headers: { "x-telegram-init-data": getTgInitData() },
-      });
-      const json = await safeJson(res);
-      if (!res.ok) {
-        setImportError(json?.error ?? "не удалось отвязать spotify");
-        return;
-      }
-      setSpotifyConnected(false);
-      setSpotifyProfileName(null);
-      await loadLibrary();
-      setImportStatus(
-        deleteContent
-          ? `готово: spotify отвязали и убрали ${json?.deletedItems ?? 0} айтем(ов)`
-          : "готово: spotify больше не подключен"
-      );
-    } catch (e: any) {
-      setImportError(e?.message ?? "не удалось отвязать spotify");
-    } finally {
-      setSpotifySyncing(false);
-    }
-  }
 
-  async function connectSpotify() {
-    const initData = getTgInitData();
-    const url = `/api/spotify/auth?initData=${encodeURIComponent(initData)}`;
-    const tg = (window as any).Telegram?.WebApp;
-    tg?.openLink ? tg.openLink(url) : window.open(url, "_blank");
-    // Проверяем подключение через 5 секунд
-    setTimeout(() => checkSpotify(), 5000);
-  }
 
-  async function syncSpotify() {
-    setSpotifySyncing(true);
-    try {
-      const res = await fetch("/api/spotify/sync", {
-        method: "POST",
-        headers: { "x-telegram-init-data": getTgInitData() },
-      });
-      const json = await safeJson(res);
-      if (json?.ok) loadLibrary();
-    } catch {}
-    finally { setSpotifySyncing(false); }
-  }
+
+
+
+
+
 
 
 
@@ -1536,8 +1587,8 @@ export default function Page() {
       vibe.fetchDeepVibeAccess();
     }
     if (tab === "add" && prevTabRef.current !== "add") {
-      checkSpotify();
-      loadConnectedProfiles();
+      imports.checkSpotify();
+      imports.loadConnectedProfiles();
       if (vibe.deepVibeAccess === null) vibe.fetchDeepVibeAccess();
     }
     prevTabRef.current = tab;
@@ -1678,20 +1729,20 @@ export default function Page() {
                 <div style={{ padding: "14px", border: "1px solid #e7e2d9", borderRadius: 18 }}>
                   <div style={{ fontWeight: 800 }}>Spotify</div>
                   <div className="card-text" style={{ marginTop: 4 }}>
-                    {spotifyConnected ? `подключен${spotifyProfileName ? `: ${spotifyProfileName}` : ""}` : "не подключен"}
+                    {imports.spotifyConnected ? `подключен${imports.spotifyProfileName ? `: ${imports.spotifyProfileName}` : ""}` : "не подключен"}
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-                    {spotifyConnected ? (
+                    {imports.spotifyConnected ? (
                       <>
-                        <button className="btn btn-secondary btn-sm" onClick={() => void syncSpotify()} disabled={spotifySyncing}>
-                          {spotifySyncing ? "обновляем..." : "обновить импорт"}
+                        <button className="btn btn-secondary btn-sm" onClick={() => void imports.syncSpotify()} disabled={imports.spotifySyncing}>
+                          {imports.spotifySyncing ? "обновляем..." : "обновить импорт"}
                         </button>
-                        <button className="btn btn-outline btn-sm" onClick={() => void disconnectSpotify(false)} disabled={spotifySyncing}>
+                        <button className="btn btn-outline btn-sm" onClick={() => void imports.disconnectSpotify(false)} disabled={imports.spotifySyncing}>
                           отвязать
                         </button>
                       </>
                     ) : (
-                      <button className="btn btn-secondary btn-sm" onClick={() => void connectSpotify()}>
+                      <button className="btn btn-secondary btn-sm" onClick={() => void imports.connectSpotify()}>
                         подключить
                       </button>
                     )}
@@ -1701,14 +1752,14 @@ export default function Page() {
                 <div style={{ padding: "14px", border: "1px solid #e7e2d9", borderRadius: 18 }}>
                   <div style={{ fontWeight: 800 }}>last.fm</div>
                   <div className="card-text" style={{ marginTop: 4 }}>
-                    {connectedProfiles.lastfm ? `подключен: ${connectedProfiles.lastfm.profile}` : "не подключен"}
+                    {imports.connectedProfiles.lastfm ? `подключен: ${imports.connectedProfiles.lastfm.profile}` : "не подключен"}
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-                    <button className="btn btn-secondary btn-sm" onClick={() => setSelectedImportService(importServices.find((service) => service.id === "lastfm") ?? null)} disabled={importLoading}>
-                      {connectedProfiles.lastfm ? "обновить импорт" : "подключить"}
+                    <button className="btn btn-secondary btn-sm" onClick={() => imports.setSelectedImportService(importServices.find((service) => service.id === "lastfm") ?? null)} disabled={imports.importLoading}>
+                      {imports.connectedProfiles.lastfm ? "обновить импорт" : "подключить"}
                     </button>
-                    {connectedProfiles.lastfm ? (
-                      <button className="btn btn-outline btn-sm" onClick={() => void disconnectConnectedProfile("lastfm", false)} disabled={importLoading}>
+                    {imports.connectedProfiles.lastfm ? (
+                      <button className="btn btn-outline btn-sm" onClick={() => void imports.disconnectConnectedProfile("lastfm", false)} disabled={imports.importLoading}>
                         отвязать
                       </button>
                     ) : null}
@@ -1718,14 +1769,14 @@ export default function Page() {
                 <div style={{ padding: "14px", border: "1px solid #e7e2d9", borderRadius: 18 }}>
                   <div style={{ fontWeight: 800 }}>Letterboxd</div>
                   <div className="card-text" style={{ marginTop: 4 }}>
-                    {connectedProfiles.letterboxd ? `подключен: ${connectedProfiles.letterboxd.profile}` : "не подключен"}
+                    {imports.connectedProfiles.letterboxd ? `подключен: ${imports.connectedProfiles.letterboxd.profile}` : "не подключен"}
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-                    <button className="btn btn-secondary btn-sm" onClick={() => setSelectedImportService(importServices.find((service) => service.id === "letterboxd") ?? null)} disabled={importLoading}>
-                      {connectedProfiles.letterboxd ? "обновить импорт" : "подключить"}
+                    <button className="btn btn-secondary btn-sm" onClick={() => imports.setSelectedImportService(importServices.find((service) => service.id === "letterboxd") ?? null)} disabled={imports.importLoading}>
+                      {imports.connectedProfiles.letterboxd ? "обновить импорт" : "подключить"}
                     </button>
-                    {connectedProfiles.letterboxd ? (
-                      <button className="btn btn-outline btn-sm" onClick={() => void disconnectConnectedProfile("letterboxd", false)} disabled={importLoading}>
+                    {imports.connectedProfiles.letterboxd ? (
+                      <button className="btn btn-outline btn-sm" onClick={() => void imports.disconnectConnectedProfile("letterboxd", false)} disabled={imports.importLoading}>
                         отвязать
                       </button>
                     ) : null}
@@ -1736,8 +1787,8 @@ export default function Page() {
               <button className="btn btn-outline" style={{ marginTop: 14 }} onClick={() => setTab("add")}>
                 добавить из другого сервиса
               </button>
-              {importStatus ? <div style={{ marginTop: 10, fontSize: 13, color: "#666" }}>{importStatus}</div> : null}
-              {importError ? <div className="error" style={{ marginTop: 10 }}>{importError}</div> : null}
+              {imports.importStatus ? <div style={{ marginTop: 10, fontSize: 13, color: "#666" }}>{imports.importStatus}</div> : null}
+              {imports.importError ? <div className="error" style={{ marginTop: 10 }}>{imports.importError}</div> : null}
             </div>
 
           </>
@@ -1923,8 +1974,8 @@ export default function Page() {
                       <button
                         type="button"
                         className="import-service-help"
-                        onClick={() => setSelectedImportService(service)}
-                        disabled={importLoading || savingImported || spotifySyncing}
+                        onClick={() => imports.setSelectedImportService(service)}
+                        disabled={imports.importLoading || imports.savingImported || imports.spotifySyncing}
                         aria-label={`инструкция ${service.title}`}
                       >
                         ?
@@ -1932,8 +1983,8 @@ export default function Page() {
                       <button
                         type="button"
                         className="import-service-main"
-                        onClick={() => startImportService(service)}
-                        disabled={importLoading || savingImported || spotifySyncing}
+                        onClick={() => imports.startImportService(service)}
+                        disabled={imports.importLoading || imports.savingImported || imports.spotifySyncing}
                       >
                         <div className="import-service-head">
                           <div className="import-service-icon">{service.icon}</div>
@@ -1950,60 +2001,60 @@ export default function Page() {
                   <input
                     className="input"
                     placeholder="вставь публичную ссылку на плейлист"
-                    value={yandexMusicUrl}
-                    onChange={(e) => setYandexMusicUrl(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && importYandexMusicPlaylist()}
+                    value={imports.yandexMusicUrl}
+                    onChange={(e) => imports.setYandexMusicUrl(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && imports.importYandexMusicPlaylist()}
                     autoCapitalize="none"
                     autoCorrect="off"
                   />
                   <div className="card-text" style={{ marginTop: 6 }}>плейлист должен быть открыт по ссылке</div>
-                  <button className="btn btn-outline" style={{ marginTop: 10 }} onClick={importYandexMusicPlaylist} disabled={importLoading}>
-                    {importLoading ? "читаем плейлист..." : "импортировать плейлист"}
+                  <button className="btn btn-outline" style={{ marginTop: 10 }} onClick={imports.importYandexMusicPlaylist} disabled={imports.importLoading}>
+                    {imports.importLoading ? "читаем плейлист..." : "импортировать плейлист"}
                   </button>
                 </div>
 
                 <input
-                  ref={csvImportRef}
+                  ref={imports.csvImportRef}
                   type="file"
                   accept=".csv,text/csv"
                   style={{ display: "none" }}
                   onChange={(e) => {
                     const f = e.target.files?.[0];
-                    if (f && selectedImportService && selectedImportService.id !== "spotify") {
-                      importCsvPlatform(selectedImportService.id, f);
+                    if (f && imports.selectedImportService && imports.selectedImportService.id !== "spotify") {
+                      imports.importCsvPlatform(imports.selectedImportService.id, f);
                     }
                     e.target.value = "";
                   }}
                 />
 
                 <input
-                  ref={fileRef}
+                  ref={imports.fileRef}
                   type="file"
                   accept="image/*"
                   multiple
                   style={{ display: "none" }}
                   onChange={(e) => {
                     const files = Array.from(e.target.files ?? []);
-                    if (files.length > 0) runImport(files);
+                    if (files.length > 0) imports.runImport(files);
                   }}/>
 
                 <button
                   className="btn btn-outline"
-                  onClick={() => fileRef.current?.click()}
-                  disabled={importLoading}
+                  onClick={() => imports.fileRef.current?.click()}
+                  disabled={imports.importLoading}
                 >
-                  {importLoading ? "разбираю изображения..." : "загрузить изображения →"}
+                  {imports.importLoading ? "разбираю изображения..." : "загрузить изображения →"}
                 </button>
 
-                {importStatus && !importError && (
-                  <div style={{marginTop:12,fontSize:13,color:"#6f6a63"}}>{importStatus}</div>
+                {imports.importStatus && !imports.importError && (
+                  <div style={{marginTop:12,fontSize:13,color:"#6f6a63"}}>{imports.importStatus}</div>
                 )}
-                {importError && <div className="error">{importError}</div>}
+                {imports.importError && <div className="error">{imports.importError}</div>}
 
-                {imported.length > 0 && (
+                {imports.imported.length > 0 && (
                   <>
                     <hr className="divider" />
-                    <div className="section-label">найдено {imported.length} айтемов</div>
+                    <div className="section-label">найдено {imports.imported.length} айтемов</div>
                     <div
                       style={{
                         position: "sticky",
@@ -2017,23 +2068,23 @@ export default function Page() {
                       <button
                         className="btn"
                         style={{ marginBottom: 0 }}
-                        onClick={saveSelectedImported}
-                        disabled={savingImported}
+                        onClick={imports.saveSelectedImported}
+                        disabled={imports.savingImported}
                       >
-                        {savingImported ? "сохраняю..." : `сохранить выбранное (${selectedIdx.size}) →`}
+                        {imports.savingImported ? "сохраняю..." : `сохранить выбранное (${imports.selectedIdx.size}) →`}
                       </button>
                     </div>
 
-                  {imported.map((it, i) => (
+                  {imports.imported.map((it, i) => (
                       <div
                         key={i}
-                        className={`import-item${selectedIdx.has(i) ? " selected" : ""}`}
-                        onClick={() => toggleImported(i)}
+                        className={`import-item${imports.selectedIdx.has(i) ? " selected" : ""}`}
+                        onClick={() => imports.toggleImported(i)}
                       >
                         <input
                           type="checkbox"
-                          checked={selectedIdx.has(i)}
-                          onChange={() => toggleImported(i)}
+                          checked={imports.selectedIdx.has(i)}
+                          onChange={() => imports.toggleImported(i)}
                           onClick={(e) => e.stopPropagation()}
                           style={{ marginTop: 3, flexShrink: 0 }}
                         />
@@ -2050,10 +2101,10 @@ export default function Page() {
                     <button
                       className="btn"
                       style={{ marginTop: 8 }}
-                      onClick={saveSelectedImported}
-                      disabled={savingImported}
+                      onClick={imports.saveSelectedImported}
+                      disabled={imports.savingImported}
                     >
-                      {savingImported ? "сохраняю..." : `сохранить выбранное (${selectedIdx.size}) →`}
+                      {imports.savingImported ? "сохраняю..." : `сохранить выбранное (${imports.selectedIdx.size}) →`}
                     </button>
                   </>
                 )}
@@ -2534,54 +2585,54 @@ export default function Page() {
           </div>
         )}
 
-        {selectedImportService && (
-          <div className="service-modal-backdrop" onClick={() => setSelectedImportService(null)}>
+        {imports.selectedImportService && (
+          <div className="service-modal-backdrop" onClick={() => imports.setSelectedImportService(null)}>
             <div className="service-modal" onClick={(e) => e.stopPropagation()}>
               <div className="service-modal-top">
-                <div className="service-modal-title">{selectedImportService.title}</div>
-                <button className="btn btn-outline btn-sm" onClick={() => setSelectedImportService(null)}>
+                <div className="service-modal-title">{imports.selectedImportService.title}</div>
+                <button className="btn btn-outline btn-sm" onClick={() => imports.setSelectedImportService(null)}>
                   закрыть
                 </button>
               </div>
 
-              {selectedImportService.instructions && (
+              {imports.selectedImportService.instructions && (
                 <div className="service-modal-copy">
                   <ul>
-                    {selectedImportService.instructions.map((line) => (
+                    {imports.selectedImportService.instructions.map((line) => (
                       <li key={line}>{line}</li>
                     ))}
                   </ul>
                 </div>
               )}
 
-              {selectedImportService.id === "lastfm" && (
+              {imports.selectedImportService.id === "lastfm" && (
                 <div className="input-group" style={{ marginTop: 12 }}>
-                  {connectedProfiles.lastfm ? (
+                  {imports.connectedProfiles.lastfm ? (
                     <div style={{ marginBottom: 10, fontSize: 13, color: "rgba(255,255,255,0.84)", lineHeight: 1.5 }}>
-                      last.fm подключен: {connectedProfiles.lastfm.profile}
+                      last.fm подключен: {imports.connectedProfiles.lastfm.profile}
                     </div>
                   ) : null}
                   <div className="input-label">username last.fm</div>
                   <input
                     className="input"
                     placeholder="например: nastyad"
-                    value={lastfmProfileInput}
-                    onChange={(e) => setLastfmProfileInput(e.target.value)}
+                    value={imports.lastfmProfileInput}
+                    onChange={(e) => imports.setLastfmProfileInput(e.target.value)}
                   />
                   <div style={{ marginTop: 8, fontSize: 13, color: "rgba(255,255,255,0.84)", lineHeight: 1.5 }}>
                     импортируем recent tracks из публичного профиля last.fm
                   </div>
-                  {importLoading ? (
+                  {imports.importLoading ? (
                     <div style={{ marginTop: 8, fontSize: 13, color: "rgba(255,255,255,0.84)", lineHeight: 1.5 }}>
-                      {importStatus || "смотрим профиль..."}
+                      {imports.importStatus || "смотрим профиль..."}
                     </div>
                   ) : null}
-                  {connectedProfiles.lastfm ? (
+                  {imports.connectedProfiles.lastfm ? (
                     <button
                       className="btn btn-outline"
                       style={{ marginTop: 12 }}
-                      onClick={() => disconnectConnectedProfile("lastfm", false)}
-                      disabled={importLoading}
+                      onClick={() => imports.disconnectConnectedProfile("lastfm", false)}
+                      disabled={imports.importLoading}
                     >
                       отвязать last.fm
                     </button>
@@ -2589,43 +2640,43 @@ export default function Page() {
                 </div>
               )}
 
-              {selectedImportService.id === "letterboxd" && (
+              {imports.selectedImportService.id === "letterboxd" && (
                 <div className="input-group" style={{ marginTop: 12 }}>
-                  {connectedProfiles.letterboxd ? (
+                  {imports.connectedProfiles.letterboxd ? (
                     <div style={{ marginBottom: 10, fontSize: 13, color: "rgba(255,255,255,0.84)", lineHeight: 1.5 }}>
-                      letterboxd подключен: {connectedProfiles.letterboxd.profile}
+                      letterboxd подключен: {imports.connectedProfiles.letterboxd.profile}
                     </div>
                   ) : null}
                   <div className="input-label">username или ссылка на profile</div>
                   <input
                     className="input"
                     placeholder="например: letterboxd.com/nastyad/"
-                    value={letterboxdProfileInput}
-                    onChange={(e) => setLetterboxdProfileInput(e.target.value)}
+                    value={imports.letterboxdProfileInput}
+                    onChange={(e) => imports.setLetterboxdProfileInput(e.target.value)}
                   />
                   <div style={{ marginTop: 8, fontSize: 13, color: "rgba(255,255,255,0.84)", lineHeight: 1.5 }}>
                     public profile beta: лучше всего работает с открытым профилем
                   </div>
-                  {importLoading ? (
+                  {imports.importLoading ? (
                     <div style={{ marginTop: 8, fontSize: 13, color: "rgba(255,255,255,0.84)", lineHeight: 1.5 }}>
-                      {importStatus || "смотрим профиль..."}
+                      {imports.importStatus || "смотрим профиль..."}
                     </div>
                   ) : null}
-                  {connectedProfiles.letterboxd ? (
+                  {imports.connectedProfiles.letterboxd ? (
                     <>
                       <button
                         className="btn btn-outline"
                         style={{ marginTop: 12 }}
-                        onClick={() => disconnectConnectedProfile("letterboxd", false)}
-                        disabled={importLoading}
+                        onClick={() => imports.disconnectConnectedProfile("letterboxd", false)}
+                        disabled={imports.importLoading}
                       >
                         отвязать letterboxd
                       </button>
                       <button
                         className="btn btn-outline"
                         style={{ marginTop: 12 }}
-                        onClick={() => disconnectConnectedProfile("letterboxd", true)}
-                        disabled={importLoading}
+                        onClick={() => imports.disconnectConnectedProfile("letterboxd", true)}
+                        disabled={imports.importLoading}
                       >
                         отвязать и убрать импорт
                       </button>
@@ -2634,40 +2685,40 @@ export default function Page() {
                 </div>
               )}
 
-              {selectedImportService.id === "lastfm" ? (
+              {imports.selectedImportService.id === "lastfm" ? (
                 <>
                   <button
                     className="btn"
                     style={{ marginTop: 16 }}
-                    onClick={importLastfmProfileWeb}
-                    disabled={importLoading}
+                    onClick={imports.importLastfmProfileWeb}
+                    disabled={imports.importLoading}
                   >
                     импортировать профиль
                   </button>
                   <button
                     className="btn btn-outline"
                     style={{ marginTop: 12 }}
-                    onClick={confirmCsvImport}
-                    disabled={importLoading}
+                    onClick={imports.confirmCsvImport}
+                    disabled={imports.importLoading}
                   >
                     или выбрать csv
                   </button>
                 </>
-              ) : selectedImportService.id === "letterboxd" ? (
+              ) : imports.selectedImportService.id === "letterboxd" ? (
                 <>
                   <button
                     className="btn"
                     style={{ marginTop: 16 }}
-                    onClick={importLetterboxdProfileWeb}
-                    disabled={importLoading}
+                    onClick={imports.importLetterboxdProfileWeb}
+                    disabled={imports.importLoading}
                   >
                     импортировать профиль
                   </button>
                   <button
                     className="btn btn-outline"
                     style={{ marginTop: 12 }}
-                    onClick={confirmCsvImport}
-                    disabled={importLoading}
+                    onClick={imports.confirmCsvImport}
+                    disabled={imports.importLoading}
                   >
                     или выбрать csv
                   </button>
@@ -2676,22 +2727,22 @@ export default function Page() {
                 <button
                   className="btn"
                   style={{ marginTop: 16 }}
-                  onClick={confirmCsvImport}
-                  disabled={importLoading}
+                  onClick={imports.confirmCsvImport}
+                  disabled={imports.importLoading}
                 >
-                  {selectedImportService.actionLabel ?? "выбрать файл"}
+                  {imports.selectedImportService.actionLabel ?? "выбрать файл"}
                 </button>
               )}
 
-              {selectedImportService.id === "spotify" && spotifyConnected ? (
+              {imports.selectedImportService.id === "spotify" && imports.spotifyConnected ? (
                 <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
                   <div style={{ fontSize: 13, color: "rgba(255,255,255,0.84)", lineHeight: 1.5 }}>
-                    spotify подключен{spotifyProfileName ? `: ${spotifyProfileName}` : ""}
+                    spotify подключен{imports.spotifyProfileName ? `: ${imports.spotifyProfileName}` : ""}
                   </div>
-                  <button className="btn btn-outline" onClick={() => disconnectSpotify(false)} disabled={spotifySyncing}>
+                  <button className="btn btn-outline" onClick={() => imports.disconnectSpotify(false)} disabled={imports.spotifySyncing}>
                     отвязать spotify
                   </button>
-                  <button className="btn btn-outline" onClick={() => disconnectSpotify(true)} disabled={spotifySyncing}>
+                  <button className="btn btn-outline" onClick={() => imports.disconnectSpotify(true)} disabled={imports.spotifySyncing}>
                     отвязать и убрать импорт
                   </button>
                 </div>
