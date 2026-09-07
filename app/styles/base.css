@@ -1,5 +1,9 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Без этого .nav, спозиционированная от вьюпорта, меняет ширину каждый раз,
+   когда вкладка становится длиннее или короче и полоса прокрутки появляется. */
+html { scrollbar-gutter: stable; }
+
 body {
   background: #f7f5f1;
   color: #111111;
