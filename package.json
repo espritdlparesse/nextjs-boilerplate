@@ -7,14 +7,14 @@
     "dev:network": "next dev --hostname 0.0.0.0 --port 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint app lib --max-warnings 0",
     "migrate": "node scripts/migrate.mjs",
     "warm-context": "node scripts/warm-cultural-context.mjs",
     "test": "node --test lib/__tests__/*.test.ts",
     "complexity": "python scripts/complexity.py app lib apps/mobile scripts/migrate.mjs scripts/warm-cultural-context.mjs",
     "typecheck": "tsc --noEmit",
     "typecheck:mobile": "tsc --noEmit -p apps/mobile",
-    "check": "npm test && npm run typecheck && npm run typecheck:mobile && npm run build && npm run complexity"
+    "check": "npm test && npm run typecheck && npm run typecheck:mobile && npm run lint && npm run build && npm run complexity"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.5",

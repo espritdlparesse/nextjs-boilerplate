@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { resolveApiIdentity } from "@/lib/auth";
 import { buildOwnerReadFilter, getOwnerScope } from "@/lib/ownerLinks";
-import { verifyTelegramInitData, getTgUserIdOrThrow } from "@/lib/telegram";
+import { getTgUserIdOrThrow } from "@/lib/telegram";
 
 export const runtime = "nodejs";
 
@@ -139,9 +139,6 @@ export async function POST(req: NextRequest) {
     if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
     const scope = await getOwnerScope(auth);
     const sb = supabaseAdmin();
-
-    const body = await req.json().catch(() => ({}));
-    const paymentChargeId = body?.payment_charge_id ?? null;
 
     if (!(await consumeDeepVibeUse(sb, tgUserId))) {
       return NextResponse.json({ error: "no_access", usesLeft: 0 }, { status: 403 });

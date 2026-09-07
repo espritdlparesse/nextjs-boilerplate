@@ -1,7 +1,6 @@
 import { errorMessage } from "@/lib/text";
-import type { Tab, VibeDuel, VibeDuelVariant, ItemType, ItemSource, ImportedItem, DbItem, ImportPlatform, ImportService } from "@/app/types";
-import { apiFetch, getTgInitData, safeJson } from "@/app/apiFetch";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { apiFetch } from "@/app/apiFetch";
+import { useState } from "react";
 
 export function useProfile(deps: { loadLibrary: () => void; setLibraryError: (message: string) => void }) {
   const { loadLibrary, setLibraryError } = deps;
@@ -16,7 +15,6 @@ export function useProfile(deps: { loadLibrary: () => void; setLibraryError: (me
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
   const [profileTheme, setProfileTheme] = useState<"light" | "dark">("light");
   const [profileSaving, setProfileSaving] = useState(false);
-  const profileAvatarInputRef = useRef<HTMLInputElement>(null);
 
   async function loadProfileSettings() {
     try {
@@ -92,7 +90,7 @@ export function useProfile(deps: { loadLibrary: () => void; setLibraryError: (me
   return {
     telegramLinkCode, telegramLinkLoading, telegramLinkStatus, telegramLinkSuccess,
     showTelegramManualLink, profileName, profileNameDraft, editingProfileName,
-    profileAvatarUrl, profileTheme, profileSaving, profileAvatarInputRef,
+    profileAvatarUrl, profileTheme, profileSaving,
     setTelegramLinkCode, setTelegramLinkStatus, setTelegramLinkSuccess, setShowTelegramManualLink,
     setProfileNameDraft, setEditingProfileName, setProfileTheme, setProfileName,
     loadProfileSettings, saveProfileSettings, uploadProfileAvatar, linkMobileAccount,

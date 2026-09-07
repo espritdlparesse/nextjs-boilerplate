@@ -1,4 +1,4 @@
-import { resolveApiIdentity, type ApiIdentity } from "@/lib/auth";
+import { type ApiIdentity } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 type EffectiveOwner = {

@@ -22,7 +22,7 @@ export function useDeepVibe() {
 
   async function fetchDeepVibeAccess() {
     try {
-      const { res, json } = await apiFetch("/api/deep-vibe");
+      const { json } = await apiFetch("/api/deep-vibe");
       setDeepVibeAccess(json?.access ?? "none");
       setDeepVibeUsesLeft(json?.usesLeft ?? 0);
     } catch {}
@@ -31,7 +31,7 @@ export function useDeepVibe() {
   async function runDeepVibe() {
     setDeepVibeLoading(true); setDeepVibeResult("");
     try {
-      const { res, json } = await apiFetch("/api/deep-vibe", { method: "POST", body: JSON.stringify({}), });
+      const { json } = await apiFetch("/api/deep-vibe", { method: "POST", body: JSON.stringify({}), });
       if (json?.error === "no_access") {
         setDeepVibeAccess("none");
         setDeepVibeUsesLeft(0);
@@ -40,7 +40,7 @@ export function useDeepVibe() {
       setDeepVibeResult(json?.result ?? "");
       // Обновляем счётчик после использования
       fetchDeepVibeAccess();
-    } catch (e) {
+    } catch {
       setDeepVibeResult("не удалось загрузить");
     } finally {
       setDeepVibeLoading(false);

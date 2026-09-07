@@ -1,7 +1,7 @@
 import { errorMessage } from "@/lib/text";
-import type { Tab, VibeDuel, VibeDuelVariant, ItemType, ItemSource, ImportedItem, DbItem, ImportPlatform, ImportService } from "@/app/types";
+import type { Tab, ImportedItem, ImportPlatform, ImportService } from "@/app/types";
 import { apiFetch, getTgInitData, safeJson } from "@/app/apiFetch";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useState } from "react";
 import { parseImportedFile } from "@/lib/fileImports";
 import { telegramWebApp } from "@/lib/telegramWebApp";
 import { isItemType } from "@/lib/mediaTypes";
@@ -67,8 +67,8 @@ const PROFILE_IMPORTS = {
   },
 } as const;
 
-export function useImports(deps: { items: DbItem[]; loadLibrary: () => void; setTab: (tab: Tab) => void }) {
-  const { items, loadLibrary, setTab } = deps;
+export function useImports(deps: { loadLibrary: () => void; setTab: (tab: Tab) => void }) {
+  const { loadLibrary, setTab } = deps;
   const [spotifyConnected, setSpotifyConnected] = useState<boolean | null>(null);
   const [spotifyProfileName, setSpotifyProfileName] = useState<string | null>(null);
   const [connectedProfiles, setConnectedProfiles] = useState<{
@@ -76,8 +76,6 @@ export function useImports(deps: { items: DbItem[]; loadLibrary: () => void; set
     letterboxd: { profile: string; lastSyncedAt: string | null } | null;
   }>({ lastfm: null, letterboxd: null });
   const [spotifySyncing, setSpotifySyncing] = useState(false);
-  const fileRef = useRef<HTMLInputElement | null>(null);
-  const csvImportRef = useRef<HTMLInputElement | null>(null);
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState("");
   const [importStatus, setImportStatus] = useState("");
@@ -149,7 +147,8 @@ export function useImports(deps: { items: DbItem[]; loadLibrary: () => void; set
 
   function toggleImported(i: number) {
     const next = new Set(selectedIdx);
-    next.has(i) ? next.delete(i) : next.add(i);
+    if (next.has(i)) next.delete(i);
+    else next.add(i);
     setSelectedIdx(next);
   }
 
@@ -273,13 +272,9 @@ export function useImports(deps: { items: DbItem[]; loadLibrary: () => void; set
     }
   }
 
-  function confirmCsvImport() {
-    csvImportRef.current?.click();
-  }
-
   async function checkSpotify() {
     try {
-      const { res, json } = await apiFetch("/api/spotify/status");
+      const { json } = await apiFetch("/api/spotify/status");
       setSpotifyConnected(json?.connected ?? false);
       setSpotifyProfileName(json?.profile?.displayName ?? null);
     } catch {
@@ -317,7 +312,9 @@ export function useImports(deps: { items: DbItem[]; loadLibrary: () => void; set
     const initData = getTgInitData();
     const url = `/api/spotify/auth?initData=${encodeURIComponent(initData)}`;
     const tg = telegramWebApp();
-    tg?.openLink ? tg.openLink(url) : window.open(url, "_blank");
+    const openLink = tg?.openLink;
+    if (openLink) openLink(url);
+    else window.open(url, "_blank");
     // Проверяем подключение через 5 секунд
     setTimeout(() => checkSpotify(), 5000);
   }
@@ -325,7 +322,7 @@ export function useImports(deps: { items: DbItem[]; loadLibrary: () => void; set
   async function syncSpotify() {
     setSpotifySyncing(true);
     try {
-      const { res, json } = await apiFetch("/api/spotify/sync", { method: "POST" });
+      const { json } = await apiFetch("/api/spotify/sync", { method: "POST" });
       if (json?.ok) loadLibrary();
     } catch {}
     finally { setSpotifySyncing(false); }
@@ -381,13 +378,13 @@ export function useImports(deps: { items: DbItem[]; loadLibrary: () => void; set
 
   return {
     spotifyConnected, spotifyProfileName, connectedProfiles, spotifySyncing,
-    fileRef, csvImportRef, importLoading, importError, importStatus, imported,
+    importLoading, importError, importStatus, imported,
     selectedIdx, savingImported, selectedImportService,
     lastfmProfileInput, letterboxdProfileInput, yandexMusicUrl,
     setImportError, setImportStatus, setImported, setSelectedIdx, setImportLoading,
     setSelectedImportService, setLastfmProfileInput, setLetterboxdProfileInput, setYandexMusicUrl,
     importCsvPlatform, importYandexMusicPlaylist, toggleImported, runImport, saveSelected,
-    saveSelectedImported, startImportService, importProfileWeb, confirmCsvImport,
+    saveSelectedImported, startImportService, importProfileWeb,
     checkSpotify, disconnectSpotify, connectSpotify, syncSpotify,
     disconnectConnectedProfile, loadConnectedProfiles,
   };

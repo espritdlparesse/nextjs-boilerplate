@@ -1,13 +1,12 @@
+import { FilePickerButton } from "@/app/components/FilePickerButton";
 import type { ImportService } from "@/app/types";
-import type { Tab, ItemType } from "@/app/types";
-import { Dispatch, SetStateAction } from "react";
+import type { ItemType } from "@/app/types";
 import { useImports } from "@/app/hooks/useImports";
 import { useDeepVibe } from "@/app/hooks/useVibecheck";
 import { useAddForm } from "@/app/hooks/useAddForm";
 import { TYPE_LABELS, TYPE_ICONS } from "@/app/tabs/typeMeta";
 
-export function AddTab({ tab, importServices, imports, deepVibe, addForm }: {
-  tab: Tab;
+export function AddTab({ importServices, imports, deepVibe, addForm }: {
   importServices: ImportService[];
   imports: ReturnType<typeof useImports>;
   deepVibe: ReturnType<typeof useDeepVibe>;
@@ -231,38 +230,13 @@ export function AddTab({ tab, importServices, imports, deepVibe, addForm }: {
                   </button>
                 </div>
 
-                <input
-                  ref={imports.csvImportRef}
-                  type="file"
-                  accept=".csv,text/csv"
-                  style={{ display: "none" }}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f && imports.selectedImportService && imports.selectedImportService.id !== "spotify") {
-                      imports.importCsvPlatform(imports.selectedImportService.id, f);
-                    }
-                    e.target.value = "";
-                  }}
-                />
-
-                <input
-                  ref={imports.fileRef}
-                  type="file"
+                <FilePickerButton
+                  label={imports.importLoading ? "разбираю изображения..." : "загрузить изображения →"}
                   accept="image/*"
                   multiple
-                  style={{ display: "none" }}
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files ?? []);
-                    if (files.length > 0) imports.runImport(files);
-                  }}/>
-
-                <button
-                  className="btn btn-outline"
-                  onClick={() => imports.fileRef.current?.click()}
                   disabled={imports.importLoading}
-                >
-                  {imports.importLoading ? "разбираю изображения..." : "загрузить изображения →"}
-                </button>
+                  onPick={(files) => imports.runImport(files)}
+                />
 
                 {imports.importStatus && !imports.importError && (
                   <div style={{marginTop:12,fontSize:13,color:"#6f6a63"}}>{imports.importStatus}</div>

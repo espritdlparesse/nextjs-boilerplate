@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { isAdminTgId } from "@/lib/admins";
 import { isAdminRequest } from "@/lib/admins";
 import { CONSTRUCTIONS, FLAWS, OTHER_LABEL, collectLabels, describeTaxonomy, type FormLabel } from "@/lib/vibeForms";
 

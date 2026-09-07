@@ -47,11 +47,11 @@ pooler host.
 npm run check
 ```
 
-That is `npm test`, both typechecks, `npm run build` and `npm run complexity`. `npm run lint`
-is deliberately **not** in it: `react-hooks/refs` reports 33 errors on `AddTab` and
-`ProfileTab`, which pass file input refs around inside a hook result. Fixing that means moving
-the `<input type="file">` ownership, and it is not done yet. Run `npm run lint` by hand and
-compare against 33, not against zero.
+That is `npm test`, both typechecks, `npm run lint`, `npm run build` and `npm run complexity`.
+
+`npm run lint` runs with `--max-warnings 0` and is clean, so any new warning fails the check.
+`no-explicit-any` is an error, not a warning. Do not lower either back to keep a change
+moving.
 
 One pass per set of edits, at the end. Do not run them after deleting a comment, renaming a
 local variable or reformatting — those edits cannot change behaviour. Do not re-run a suite
@@ -113,6 +113,16 @@ The file layout mirrors the interface. A tab is a file in `app/tabs/`: `HomeTab`
 `app/analytics.ts`.
 
 `page.tsx` holds only the shell — state the tabs share, navigation, modals.
+
+**A hook must not return a ref.** `react-hooks/refs` treats an object that carries a ref as
+ref-tainted, so one `fileRef` in a hook's return made every read of that hook's result in
+render an error — 33 of them from three refs. A widget that needs a DOM node owns it:
+`app/components/FilePickerButton.tsx` keeps the hidden `<input type="file">` and its ref next
+to the button that opens it.
+
+Keep the widget next to the click for a second reason: while the csv `<input>` lived in
+`AddTab` and the modal that opened it lived in `page.tsx`, "или выбрать csv" did nothing at
+all on the profile tab, because `AddTab` was not mounted.
 
 A tab takes whole hooks as props, not state picked apart: `AddTab` needed thirty props until
 the form and the categories became `useAddForm`.

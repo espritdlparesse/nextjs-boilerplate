@@ -29,12 +29,6 @@ export async function GET(req: NextRequest) {
       today: rows.filter(r => new Date(r.created_at) >= today).length,
     };
 
-    // Получаем кол-во уникальных пользователей отдельно
-    const { count } = await sb
-      .from("items")
-      .select("tg_user_id", { count: "exact", head: false });
-
-    // Уникальные через distinct
     const { data: users } = await sb
       .from("items")
       .select("tg_user_id");

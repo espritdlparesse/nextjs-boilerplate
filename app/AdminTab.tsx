@@ -107,7 +107,7 @@ export function AdminTab() {
   if (!stats) return <div style={{padding:"32px",textAlign:"center",color:"#888"}}>ошибка загрузки</div>;
 
   return (
-    <div style={{padding:"24px 16px",maxWidth:480,margin:"0 auto"}}>
+    <>
       <div style={{fontFamily:"'Unbounded',sans-serif",fontWeight:700,fontSize:18,marginBottom:24}}>статистика</div>
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:24}}>
@@ -141,7 +141,7 @@ export function AdminTab() {
           </div>
         </>
       )}
-    </div>
+    </>
   );
 }
 

@@ -1,7 +1,7 @@
 import { errorMessage } from "@/lib/text";
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { verifyTelegramInitData, getTgUserIdOrThrow } from "@/lib/telegram";
+import { getTgUserIdOrThrow } from "@/lib/telegram";
 
 export const runtime = "nodejs";
 

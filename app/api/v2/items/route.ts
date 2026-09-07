@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { normalizeLegacySource } from "@/lib/itemSources";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { resolveApiIdentity } from "@/lib/auth";
-import { buildOwnerReadFilter, getOwnerScope, type EffectiveOwner, type OwnerScope, legacyNativeTgUserId } from "@/lib/ownerLinks";
+import { buildOwnerReadFilter, getOwnerScope, type OwnerScope, legacyNativeTgUserId } from "@/lib/ownerLinks";
 import { safeTimelineIsoFromMs } from "@/lib/timeline";
 
 export const runtime = "nodejs";

@@ -5,10 +5,9 @@ import { itemsWord } from "@/lib/plural";
 import { Dispatch, SetStateAction } from "react";
 import { useLibrary } from "@/app/hooks/useLibrary";
 import { formatShortDate, dayKey, addDays, startOfMonth, getItemDateValue } from "@/lib/dates";
-import { TYPE_LABELS, TYPE_ICONS, TYPE_COLORS } from "@/app/tabs/typeMeta";
+import { TYPE_LABELS } from "@/app/tabs/typeMeta";
 
-export function LibraryTab({ tab, items, libraryLoading, libraryError, libraryView, setLibraryView, setTab, customCategories, deletingId, deleteItem, library }: {
-  tab: Tab;
+export function LibraryTab({ items, libraryLoading, libraryError, libraryView, setLibraryView, setTab, customCategories, deletingId, deleteItem, library }: {
   items: DbItem[];
   libraryLoading: boolean;
   libraryError: string;

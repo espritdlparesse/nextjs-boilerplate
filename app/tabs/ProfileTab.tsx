@@ -1,3 +1,4 @@
+import { FilePickerButton } from "@/app/components/FilePickerButton";
 import type { ImportService } from "@/app/types";
 import type { LibraryCounts } from "@/app/hooks/useItems";
 import type { Tab } from "@/app/types";
@@ -6,8 +7,7 @@ import { useImports } from "@/app/hooks/useImports";
 import { useProfile } from "@/app/hooks/useProfile";
 import { isAdminTgId } from "@/lib/admins";
 
-export function ProfileTab({ tab, tgUserId, counts, countsUnknown, headerAvatar, adminViewOff, toggleAdminView, importServices, setTab, imports, profile }: {
-  tab: Tab;
+export function ProfileTab({ tgUserId, counts, countsUnknown, headerAvatar, adminViewOff, toggleAdminView, importServices, setTab, imports, profile }: {
   tgUserId: number | null;
   counts: LibraryCounts;
   countsUnknown: boolean;
@@ -27,8 +27,13 @@ export function ProfileTab({ tab, tgUserId, counts, countsUnknown, headerAvatar,
               <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 16 }}>
                 <div className="header-avatar">{profile.profileAvatarUrl ? <img src={profile.profileAvatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "999px" }} /> : headerAvatar}</div>
                 <div style={{ flex: 1 }}>
-                  <input ref={profile.profileAvatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(event) => { const file = event.target.files?.[0]; if (file) void profile.uploadProfileAvatar(file); event.target.value = ""; }} />
-                  <button className="btn btn-secondary btn-sm" onClick={() => profile.profileAvatarInputRef.current?.click()} disabled={profile.profileSaving}>загрузить аватар</button>
+                  <FilePickerButton
+                    label="загрузить аватар"
+                    accept="image/*"
+                    className="btn btn-secondary btn-sm"
+                    disabled={profile.profileSaving}
+                    onPick={([file]) => void profile.uploadProfileAvatar(file)}
+                  />
                   {profile.profileAvatarUrl ? <button className="btn btn-outline btn-sm" style={{ marginTop: 8 }} onClick={() => void profile.saveProfileSettings({ avatarUrl: null })} disabled={profile.profileSaving}>убрать</button> : null}
                 </div>
               </div>

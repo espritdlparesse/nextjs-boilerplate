@@ -19,7 +19,6 @@ export async function POST(req: NextRequest) {
       const msg = update.message;
       const payment = msg.successful_payment;
       const tgUserId = msg.from.id;
-      const tgUsername = msg.from.username ?? null;
 
       // payload содержит JSON: { product, tg_user_id }
       let product = "deep_vibe_once";
@@ -87,7 +86,7 @@ async function answerPreCheckoutQuery(id: string, ok: boolean, errorMessage?: st
   });
 }
 
-async function sendMessage(chatId: number, text: string, extra?: Record<string, any>) {
+async function sendMessage(chatId: number, text: string, extra?: Record<string, unknown>) {
   const token = process.env.TELEGRAM_BOT_TOKEN!;
   await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",

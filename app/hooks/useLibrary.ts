@@ -1,9 +1,9 @@
 import { errorMessage } from "@/lib/text";
-import type { Tab, VibeDuel, VibeDuelVariant, ItemType, ItemSource, ImportedItem, DbItem, ImportPlatform, ImportService } from "@/app/types";
-import { apiFetch, getTgInitData, safeJson } from "@/app/apiFetch";
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import type { ItemType, DbItem } from "@/app/types";
+import { apiFetch } from "@/app/apiFetch";
+import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { generateMonthlySummary } from "@/lib/monthlySummaryEngine";
-import { dayKey, addDays, startOfMonth, getItemDateValue, calendarGrid } from "@/lib/dates";
+import { dayKey, startOfMonth, getItemDateValue, calendarGrid } from "@/lib/dates";
 
 export function useLibrary(deps: {
   items: DbItem[];

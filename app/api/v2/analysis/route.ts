@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { resolveApiIdentity } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { buildOwnerReadFilter, getEffectiveOwner, getOwnerScope } from "@/lib/ownerLinks";
+import { getEffectiveOwner, getOwnerScope } from "@/lib/ownerLinks";
 import { generateFallbackVibecheck } from "@/lib/vibecheckFallback";
 import { countDeliveredRuns, recordVibeDuel, recordVibeRun, type VibeRunOutcome } from "@/lib/vibeRuns";
-import { countItemTypes, type ItemType } from "@/lib/mediaTypes";
+import { countItemTypes } from "@/lib/mediaTypes";
 import { blockingGates, observedGates, normalizeRoastNames } from "@/lib/vibeGates";
 import { loadTimelineItems, readRange } from "@/lib/vibeItems";
 import { trimList } from "@/lib/textLists";
@@ -57,7 +57,6 @@ type AnalysisRequestBody = {
 
 // Пользовательские категории у каждого свои, поэтому прожарка на них не
 // строится: в выборку идут только общие типы.
-const VIBE_SAMPLE_TYPES: ItemType[] = ["music", "book", "movie"];
 
 function extractJson<T = AnalysisPayload>(text: string) {
   const trimmed = text.trim();
@@ -391,8 +390,7 @@ export async function POST(req: NextRequest) {
 
   const journal = createRunJournal(sb, owner, model, items);
 
-  const libraryLines = vibeSample.map((item) => describeItem(item, contextIndex)).join("\n");
-  const planningPrompt = `Вот выборка из библиотеки. Под позицией с отступом — проверенная фактура о ней: опирайся на неё, но не пересказывай и не называй источник.\n${libraryLines}\n\nПользователь уже забраковал эти формулировки. Не повторяй их приемы и не пересказывай их другими словами:\n${badFeedback.join("\n") || "пока нет"}`;
+  const planningPrompt = buildPlanningPrompt(vibeSample, contextIndex, badFeedback);
   let plans: RoastPlan[];
   try {
     plans = await planRoastCandidates(apiKey, model, planningPrompt);

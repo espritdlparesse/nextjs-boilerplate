@@ -61,7 +61,8 @@ export function ShareModals({ share, items, fireAnalytics, shareRunId }: {
                     style={{display:"flex",alignItems:"center",gap:12,padding:"10px 20px",cursor:"pointer",background:selected?"#ede7d9":"transparent"}}
                     onClick={() => share.setSharePickerSelected(prev => {
                       const next = new Set(prev);
-                      selected ? next.delete(item.id) : next.add(item.id);
+                      if (selected) next.delete(item.id);
+                      else next.add(item.id);
                       return next;
                     })}
                   >

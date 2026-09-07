@@ -1,8 +1,7 @@
 import type { Tab } from "@/app/types";
 import { Dispatch, SetStateAction } from "react";
 
-export function HomeTab({ tab, setTab, aboutStep, setAboutStep }: {
-  tab: Tab;
+export function HomeTab({ setTab, aboutStep, setAboutStep }: {
   setTab: Dispatch<SetStateAction<Tab>>;
   aboutStep: number;
   setAboutStep: Dispatch<SetStateAction<number>>;

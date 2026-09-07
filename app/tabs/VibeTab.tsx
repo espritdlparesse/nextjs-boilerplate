@@ -1,9 +1,7 @@
-import type { Tab } from "@/app/types";
 import { useDeepVibe, useVibecheck } from "@/app/hooks/useVibecheck";
 import { MarkdownText, VibeResult } from "@/app/tabs/VibeResult";
 
-export function VibeTab({ tab, counts, countsUnknown, shareVibeCard, vibe, deepVibe }: {
-  tab: Tab;
+export function VibeTab({ counts, countsUnknown, shareVibeCard, vibe, deepVibe }: {
   counts: { total: number; music: number; books: number; movies: number };
   countsUnknown: boolean;
   shareVibeCard: (text: string, type: "vibe" | "deep") => void;

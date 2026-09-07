@@ -13,11 +13,16 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
-  // Legacy API handlers still use untyped third-party payloads. Keep them visible while
-  // we replace them route by route, but do not let that cleanup block release checks.
   {
     rules: {
-      "@typescript-eslint/no-explicit-any": "warn",
+      // any в проекте не осталось: пусть новый ломает проверку, а не копится.
+      "@typescript-eslint/no-explicit-any": "error",
+      // `const { consumed_at, ...rest } = payload` — это способ выбросить поле,
+      // а не забытая переменная.
+      "@typescript-eslint/no-unused-vars": ["error", { ignoreRestSiblings: true }],
+      // Аватары и иконка вайбчека приходят как удаленные URL и data-URI,
+      // next/image здесь только добавляет прослойку.
+      "@next/next/no-img-element": "off",
     },
   },
 ]);

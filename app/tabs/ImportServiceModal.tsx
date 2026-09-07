@@ -1,3 +1,5 @@
+import { FilePickerButton } from "@/app/components/FilePickerButton";
+import type { ImportPlatform } from "@/app/types";
 import type { useImports } from "@/app/hooks/useImports";
 
 type Imports = ReturnType<typeof useImports>;
@@ -68,17 +70,34 @@ function ProfileImportPanel({ platform, imports }: { platform: ProfilePlatform; 
   );
 }
 
-function ImportActions({ platform, imports, actionLabel }: {
+function CsvPickerButton({ csvPlatform, imports, label, className, marginTop }: {
+  csvPlatform: Exclude<ImportPlatform, "spotify">;
+  imports: Imports;
+  label: string;
+  className: string;
+  marginTop: number;
+}) {
+  return (
+    <FilePickerButton
+      label={label}
+      accept=".csv,text/csv"
+      className={className}
+      style={{ marginTop }}
+      disabled={imports.importLoading}
+      onPick={([file]) => imports.importCsvPlatform(csvPlatform, file)}
+    />
+  );
+}
+
+function ImportActions({ platform, csvPlatform, imports, actionLabel }: {
   platform: ProfilePlatform | null;
+  csvPlatform: Exclude<ImportPlatform, "spotify"> | null;
   imports: Imports;
   actionLabel: string;
 }) {
   if (!platform) {
-    return (
-      <button className="btn" style={{ marginTop: 16 }} onClick={imports.confirmCsvImport} disabled={imports.importLoading}>
-        {actionLabel}
-      </button>
-    );
+    if (!csvPlatform) return null;
+    return <CsvPickerButton csvPlatform={csvPlatform} imports={imports} label={actionLabel} className="btn" marginTop={16} />;
   }
 
   return (
@@ -91,14 +110,7 @@ function ImportActions({ platform, imports, actionLabel }: {
       >
         импортировать профиль
       </button>
-      <button
-        className="btn btn-outline"
-        style={{ marginTop: 12 }}
-        onClick={imports.confirmCsvImport}
-        disabled={imports.importLoading}
-      >
-        или выбрать csv
-      </button>
+      <CsvPickerButton csvPlatform={platform} imports={imports} label="или выбрать csv" className="btn btn-outline" marginTop={12} />
     </>
   );
 }
@@ -149,6 +161,7 @@ export function ImportServiceModal({ imports }: { imports: Imports }) {
 
         <ImportActions
           platform={profilePlatform}
+          csvPlatform={service.id === "spotify" ? null : service.id}
           imports={imports}
           actionLabel={service.actionLabel ?? "выбрать файл"}
         />

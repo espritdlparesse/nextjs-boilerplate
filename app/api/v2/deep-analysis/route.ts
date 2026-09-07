@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { resolveApiIdentity } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { buildOwnerReadFilter, getOwnerScope } from "@/lib/ownerLinks";
+import { getOwnerScope } from "@/lib/ownerLinks";
 import { loadTimelineItems, readRange } from "@/lib/vibeItems";
 import { trimList } from "@/lib/textLists";
 
@@ -88,7 +88,6 @@ export async function GET(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
   const scope = await getOwnerScope(auth);
-  const owner = scope.primaryOwner;
 
   const sb = supabaseAdmin();
   const { count, error } = await sb

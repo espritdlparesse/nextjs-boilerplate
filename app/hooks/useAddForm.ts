@@ -1,13 +1,13 @@
 import { errorMessage } from "@/lib/text";
 import { useState } from "react";
-import type { DbItem, ItemType } from "@/app/types";
+import type { ItemType } from "@/app/types";
 import { apiFetch, getTgInitData, safeJson } from "@/app/apiFetch";
 import { useAnimatedPlaceholder } from "@/app/hooks/useAnimatedPlaceholder";
 
 export type CustomCategory = { id: string; name: string; emoji: string };
 
-export function useAddForm(deps: { items: DbItem[]; loadLibrary: () => void }) {
-  const { items, loadLibrary } = deps;
+export function useAddForm(deps: { loadLibrary: () => void }) {
+  const { loadLibrary } = deps;
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
   const [showCreateCategory, setShowCreateCategory] = useState(false);
   const [newCatName, setNewCatName] = useState("");
