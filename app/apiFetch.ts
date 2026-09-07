@@ -1,6 +1,8 @@
+
+import { telegramInitData } from "@/lib/telegramWebApp";
+
 export function getTgInitData(): string {
-  if (typeof window === "undefined") return "";
-  return (window as any).Telegram?.WebApp?.initData || "";
+  return telegramInitData();
 }
 
 export async function safeJson(res: Response) {

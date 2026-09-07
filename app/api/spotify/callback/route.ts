@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
   );
 }
 
-async function syncSpotify(tgUserId: number, accessToken: string, sb: any) {
+async function syncSpotify(tgUserId: number, accessToken: string, sb: ReturnType<typeof supabaseAdmin>) {
   const res = await fetch("https://api.spotify.com/v1/me/player/recently-played?limit=50", {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -83,7 +83,7 @@ async function syncSpotify(tgUserId: number, accessToken: string, sb: any) {
     const track = item.track;
     const playedAt = item.played_at;
     const title = track.name;
-    const creator = track.artists?.map((a: any) => a.name).join(", ") ?? null;
+    const creator = track.artists?.map((artist: { name?: string }) => artist.name).join(", ") ?? null;
 
     await sb.from("items").upsert({
       tg_user_id: tgUserId,

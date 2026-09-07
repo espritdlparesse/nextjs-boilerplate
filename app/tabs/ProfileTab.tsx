@@ -1,3 +1,5 @@
+import type { ImportService } from "@/app/types";
+import type { LibraryCounts } from "@/app/hooks/useItems";
 import type { Tab } from "@/app/types";
 import { Dispatch, SetStateAction } from "react";
 import { useImports } from "@/app/hooks/useImports";
@@ -7,12 +9,12 @@ import { isAdminTgId } from "@/lib/admins";
 export function ProfileTab({ tab, tgUserId, counts, countsUnknown, headerAvatar, adminViewOff, toggleAdminView, importServices, setTab, imports, profile }: {
   tab: Tab;
   tgUserId: number | null;
-  counts: any;
+  counts: LibraryCounts;
   countsUnknown: boolean;
   headerAvatar: string;
   adminViewOff: boolean;
   toggleAdminView: () => void;
-  importServices: any[];
+  importServices: ImportService[];
   setTab: Dispatch<SetStateAction<Tab>>;
   imports: ReturnType<typeof useImports>;
   profile: ReturnType<typeof useProfile>;

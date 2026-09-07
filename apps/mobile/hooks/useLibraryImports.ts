@@ -9,9 +9,10 @@ import * as ImagePicker from "expo-image-picker";
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
 import { clampText, STORAGE_KEY_IMPORT, uid, type LibraryItem, type Tab } from "../shared/everyyou/domain";
 import { analyzeScreenshot, createItem, disconnectConnectedSource, fetchItems, saveConnectedSource, importFromLastfmProfile, importFromLetterboxdProfile } from "../lib/api";
-import { parseImportedFile } from "../lib/fileImports";
+import { parseImportedFile } from "../../../lib/fileImports";
 import type { SyncStatus } from "./appTypes";
 import type { FilePlatform } from "./importTypes";
+import type { ProfileImportedItem } from "../lib/apiCore";
 
 type ProfileSourcePlatform = "lastfm" | "letterboxd";
 
@@ -23,7 +24,7 @@ const PROFILE_SOURCES: Record<ProfileSourcePlatform, {
   failed: string;
   analyticsEvent: string;
   unit: (count: number) => string;
-  fetchItems: (profile: string) => Promise<Omit<LibraryItem, "id">[]>;
+  fetchItems: (profile: string) => Promise<ProfileImportedItem[]>;
 }> = {
   lastfm: {
     label: "last.fm",

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { generateShareCard } from "@/lib/shareCard";
+import { telegramWebApp } from "@/lib/telegramWebApp";
 import type { DbItem } from "@/app/types";
 import { useVibecheck } from "@/app/hooks/useVibecheck";
 
@@ -13,14 +14,16 @@ export function useShareCard(deps: { items: DbItem[]; vibe: ReturnType<typeof us
   const [sharePickerType, setSharePickerType] = useState<"vibe" | "deep" | undefined>(undefined);
 
   useEffect(() => {
-    const tg = (window as any).Telegram?.WebApp;
-    if (typeof tg?.onEvent !== "function") return;
+    const tg = telegramWebApp();
+    const subscribe = tg?.onEvent;
+    const unsubscribe = tg?.offEvent;
+    if (!subscribe || !unsubscribe) return;
     const handler = async () => {
       setShareCardDataUrl(await generateShareCard(items));
       setShowShareCard(true);
     };
-    tg.onEvent("screenshot_taken", handler);
-    return () => tg.offEvent("screenshot_taken", handler);
+    subscribe("screenshot_taken", handler);
+    return () => unsubscribe("screenshot_taken", handler);
   }, [items]);
 
   function openSharePicker(text?: string, type?: "vibe" | "deep") {

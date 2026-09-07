@@ -1,5 +1,5 @@
 "use client";
-import type { Tab, VibeDuelVariant, VibeDuel, ItemType, ItemSource, ImportedItem, DbItem, ImportPlatform, ImportService } from "@/app/types";
+import type { LibraryView, Tab, VibeDuelVariant, VibeDuel, ItemType, ItemSource, ImportedItem, DbItem, ImportPlatform, ImportService } from "@/app/types";
 import { apiFetch, getTgInitData, safeJson } from "@/app/apiFetch";
 import { fireAnalytics } from "@/app/analytics";
 import { useDeepVibe, useVibecheck } from "@/app/hooks/useVibecheck";
@@ -30,7 +30,7 @@ import { openTelegramInvoice } from "@/lib/telegramInvoice";
 import Script from "next/script";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { isAdminTgId } from "@/lib/admins";
-import { parseImportedFile } from "@/apps/mobile/lib/fileImports";
+import { parseImportedFile } from "@/lib/fileImports";
 import { generateMonthlySummary } from "@/lib/monthlySummaryEngine";
 
 // Примеры плейсхолдеров — твой вкус
@@ -38,7 +38,7 @@ import { generateMonthlySummary } from "@/lib/monthlySummaryEngine";
 export default function Page() {
   const [tab, setTab] = useState<Tab>("profile");
   const [aboutStep, setAboutStep] = useState(0);
-  const [libraryView, setLibraryView] = useState<"tiles" | "calendar">("calendar");
+  const [libraryView, setLibraryView] = useState<LibraryView>("calendar");
   const { items, setItems, libraryLoading, libraryError, setLibraryError, setLibraryLoading, loadLibrary, counts, countsUnknown } = useItems();
   const vibe = useVibecheck();
   const deepVibe = useDeepVibe();

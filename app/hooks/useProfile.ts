@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/text";
 import type { Tab, VibeDuel, VibeDuelVariant, ItemType, ItemSource, ImportedItem, DbItem, ImportPlatform, ImportService } from "@/app/types";
 import { apiFetch, getTgInitData, safeJson } from "@/app/apiFetch";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -42,7 +43,7 @@ export function useProfile(deps: { loadLibrary: () => void; setLibraryError: (me
       setProfileTheme(json?.themeMode === "dark" ? "dark" : "light");
       return true;
     } catch (error) {
-      setLibraryError(error instanceof Error ? error.message : "не удалось сохранить профиль");
+      setLibraryError(errorMessage(error, "не удалось сохранить профиль"));
       return false;
     } finally { setProfileSaving(false); }
   }
@@ -56,7 +57,7 @@ export function useProfile(deps: { loadLibrary: () => void; setLibraryError: (me
       if (!res.ok) throw new Error(json?.error ?? "не удалось загрузить аватар");
       setProfileAvatarUrl(json?.avatarUrl ?? null);
     } catch (error) {
-      setLibraryError(error instanceof Error ? error.message : "не удалось загрузить аватар");
+      setLibraryError(errorMessage(error, "не удалось загрузить аватар"));
     } finally { setProfileSaving(false); }
   }
 
@@ -81,8 +82,8 @@ export function useProfile(deps: { loadLibrary: () => void; setLibraryError: (me
       setTelegramLinkSuccess(true);
       setTelegramLinkCode("");
       await loadLibrary();
-    } catch (e: any) {
-      setTelegramLinkStatus(e?.message ?? "не удалось связать аккаунты");
+    } catch (e) {
+      setTelegramLinkStatus(errorMessage(e, "не удалось связать аккаунты"));
     } finally {
       setTelegramLinkLoading(false);
     }

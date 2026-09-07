@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/text";
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { verifyTelegramInitData, getTgUserIdOrThrow } from "@/lib/telegram";
@@ -40,12 +41,12 @@ export async function POST(req: NextRequest) {
       if (error.code === "23505") {
         return NextResponse.json({ ok: true });
       }
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true });
 
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+  } catch (e) {
+    return NextResponse.json({ error: errorMessage(e) }, { status: 500 });
   }
 }

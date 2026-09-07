@@ -75,16 +75,16 @@ export type SpotifyImportResponse = {
   }>;
 };
 
-export type ProfileImportResponse = {
-  items: Array<{
-    type: LibraryItem["type"];
-    source: LibraryItem["source"];
-    title: string;
-    authorOrArtist: string;
-    consumedAt?: number | null;
-    timeOrigin?: LibraryItem["timeOrigin"] | null;
-  }>;
+export type ProfileImportedItem = {
+  type: LibraryItem["type"];
+  source: LibraryItem["source"];
+  title: string;
+  authorOrArtist: string;
+  consumedAt?: number | null;
+  timeOrigin?: LibraryItem["timeOrigin"] | null;
 };
+
+export type ProfileImportResponse = { items: ProfileImportedItem[] };
 
 export type SpotifyOAuthStartResponse = {
   authUrl: string;

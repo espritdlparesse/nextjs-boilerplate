@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/text";
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
       .eq("tg_user_id", tgUserId)
       .order("created_at", { ascending: false });
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
 
     if (!items || items.length === 0) {
       return NextResponse.json({ result: "Добавь хоть что-нибудь — тогда посчитаем." });
@@ -70,8 +71,8 @@ export async function POST(req: NextRequest) {
     const result = response.choices[0]?.message?.content ?? "";
     return NextResponse.json({ result });
 
-  } catch (e: any) {
-    const msg = typeof e?.message === "string" ? e.message : "unknown error";
+  } catch (e) {
+    const msg = errorMessage(e, "unknown error");
     const status = msg.startsWith("tg auth failed") || msg.includes("tg user") ? 401 : 500;
     return NextResponse.json({ error: msg }, { status });
   }

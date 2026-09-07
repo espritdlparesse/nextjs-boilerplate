@@ -1,43 +1,29 @@
-import { clampText, sanitizeTimelineTimestamp, type ContentType, type LibraryItem } from "../shared/everyyou/domain";
+import Papa from "papaparse";
+import { clampText } from "./text.ts";
+import { clampTimelineTimestampMs as sanitizeTimelineTimestamp } from "./timeline.ts";
+import type { ItemType } from "./mediaTypes.ts";
 
-type ImportPlatform = "livelib" | "goodreads" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi";
+export type ImportPlatform = "livelib" | "goodreads" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi";
 
-type DraftItem = Pick<
-  LibraryItem,
-  "type" | "source" | "title" | "authorOrArtist" | "consumedAt" | "timeOrigin"
->;
+type ContentType = Exclude<ItemType, "custom">;
 
-function parseCsvLine(line: string) {
-  const result: string[] = [];
-  let current = "";
-  let inQuotes = false;
+export type DraftItem = {
+  type: ContentType;
+  source: "manual";
+  title: string;
+  authorOrArtist: string;
+  consumedAt?: number;
+  timeOrigin?: "exact";
+};
 
-  for (let i = 0; i < line.length; i += 1) {
-    const ch = line[i];
-    const next = line[i + 1];
-
-    if (ch === '"' && inQuotes && next === '"') {
-      current += '"';
-      i += 1;
-      continue;
-    }
-
-    if (ch === '"') {
-      inQuotes = !inQuotes;
-      continue;
-    }
-
-    if (ch === "," && !inQuotes) {
-      result.push(current.trim());
-      current = "";
-      continue;
-    }
-
-    current += ch;
-  }
-
-  result.push(current.trim());
-  return result;
+// Papa сам определяет разделитель и перевод строки и понимает перенос внутри
+// кавычек: самописный построчный разбор ломал такие поля молча.
+function readCsvRows(text: string) {
+  const parsed = Papa.parse<string[]>(text.replace(/^\uFEFF/, ""), {
+    delimiter: "",
+    skipEmptyLines: "greedy",
+  });
+  return parsed.data.map((row) => row.map((cell) => cell.trim()));
 }
 
 function dedupeDrafts(items: DraftItem[]) {
@@ -128,10 +114,10 @@ function withYear(title: string, year: string) {
 }
 
 function parseCsvExport(text: string, spec: ExportSpec) {
-  const lines = text.split(/\r?\n/).filter(Boolean);
-  if (lines.length < 2) throw new Error(spec.emptyFileError ?? "файл пустой");
+  const rows = readCsvRows(text);
+  if (rows.length < 2) throw new Error(spec.emptyFileError ?? "файл пустой");
 
-  const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase());
+  const headers = rows[0].map((header) => header.toLowerCase());
   const columnIndex: Record<string, number> = {};
   for (const [column, aliases] of Object.entries(spec.columns)) {
     columnIndex[column] = findColumn(headers, aliases);
@@ -142,8 +128,8 @@ function parseCsvExport(text: string, spec: ExportSpec) {
   if (!allPresent || !anyPresent) throw new Error(spec.formatError);
 
   const items: DraftItem[] = [];
-  for (let index = 1; index < lines.length; index += 1) {
-    const cells = parseCsvLine(lines[index]);
+  for (let index = 1; index < rows.length; index += 1) {
+    const cells = rows[index];
     const raw = (column: string) => cells[columnIndex[column]];
     const reader: RowReader = {
       raw,

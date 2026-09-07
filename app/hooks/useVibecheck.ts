@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/text";
 import type { VibeDuel, VibeDuelVariant } from "@/app/types";
 import { apiFetch, getTgInitData } from "@/app/apiFetch";
 import { fireAnalytics } from "@/app/analytics";
@@ -39,7 +40,7 @@ export function useDeepVibe() {
       setDeepVibeResult(json?.result ?? "");
       // Обновляем счётчик после использования
       fetchDeepVibeAccess();
-    } catch (e: any) {
+    } catch (e) {
       setDeepVibeResult("не удалось загрузить");
     } finally {
       setDeepVibeLoading(false);
@@ -79,8 +80,8 @@ async function requestVibeCheck(): Promise<VibeOutcome> {
       summary: json?.summary ?? "",
       runId: typeof json?.runId === "string" ? json.runId : null,
     };
-  } catch (e: any) {
-    return { kind: "error", message: e?.message ?? "Network error" };
+  } catch (e) {
+    return { kind: "error", message: errorMessage(e, "Network error") };
   }
 }
 

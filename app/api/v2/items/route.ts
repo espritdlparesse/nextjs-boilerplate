@@ -108,7 +108,7 @@ async function selectItemsForOwner(
   scope: OwnerScope
 ) {
   const pageSize = 1000;
-  const rows: any[] = [];
+  const rows: Record<string, unknown>[] = [];
   const seenIds = new Set<string>();
   let from = 0;
   let orderBy: "consumed_at" | "created_at" = "consumed_at";

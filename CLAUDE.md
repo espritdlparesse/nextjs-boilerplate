@@ -19,7 +19,13 @@ npm test             tests
 npm run migrate      apply database migrations
 npm run warm-context fill the cultural memory
 npm run complexity   report functions over the limit
+npm run typecheck    web client
+npm run typecheck:mobile  mobile client
+npm run check        all of the above
 ```
+
+`apps/mobile` has its own `node_modules`. Run `npm i` there once, or
+`typecheck:mobile` cannot resolve expo and react-native and silently reports nothing useful.
 
 Tests use Node's own runner: vitest wants `@types/node` 22 against this project's 20. Node
 runs TypeScript directly here, so `.mjs` scripts import `.ts` from `lib/` without a build step.
@@ -38,8 +44,14 @@ pooler host.
 ## Checks
 
 ```
-npm test && npm run build && npx eslint app lib && npm run complexity
+npm run check
 ```
+
+That is `npm test`, both typechecks, `npm run build` and `npm run complexity`. `npm run lint`
+is deliberately **not** in it: `react-hooks/refs` reports 33 errors on `AddTab` and
+`ProfileTab`, which pass file input refs around inside a hook result. Fixing that means moving
+the `<input type="file">` ownership, and it is not done yet. Run `npm run lint` by hand and
+compare against 33, not against zero.
 
 One pass per set of edits, at the end. Do not run them after deleting a comment, renaming a
 local variable or reformatting — those edits cannot change behaviour. Do not re-run a suite
@@ -83,10 +95,14 @@ names, the seeded RNG in three engines, the date helpers three times, the calend
 times, the profile importer twice in each client.
 
 Shared code lives in `lib/`: `mediaTypes`, `itemSources`, `dates`, `seededRandom`, `topEntry`,
-`admins`, `telegram`, `spotify`, `culturalCards`. Look there first, then at a sibling module
-solving the same problem. When a shared function is close but not enough, extend it in place.
+`admins`, `telegram`, `telegramWebApp`, `spotify`, `culturalCards`, `fileImports`, `text`,
+`plural`, `vibeItems`, `textLists`. Look there first, then at a sibling module solving the
+same problem. When a shared function is close but not enough, extend it in place.
 
 The mobile client imports from `lib/` by relative path — its tsconfig has no `@/lib` alias.
+A file in `lib/` that mobile imports must therefore use relative paths internally too, and if
+`npm test` imports it, those paths need the `.ts` extension: Node's ESM resolver takes no
+aliases and adds no extensions. Both tsconfigs set `allowImportingTsExtensions`.
 
 ## Web client layout
 
@@ -116,7 +132,22 @@ Default to none. Write one when the logic is easy to get wrong, or to pin a fix 
 that broke. Do not write a test proving that code you just wrote does what it says.
 
 The tests in `lib/__tests__/` cover only what decides something: the source normaliser, where
-three copies disagreed, and the card filter, which gates what reaches a prompt.
+three copies disagreed; the card filter, which gates what reaches a prompt; and the CSV
+reader, which silently corrupted an import on a quoted newline and on a `;` delimiter.
+
+## Types
+
+`strict` is on in both clients and there is no `any` left in `app/`, `lib/`, `scripts/` or
+`apps/mobile/`. Keep it that way: when a payload really is unknown, declare its shape with
+`unknown` fields and read them with a check, rather than reaching for `any`.
+
+`errorMessage` in `lib/text.ts` covers both error shapes this repo has — a thrown `Error` and
+a Supabase result error, whose `message` sits on a plain object. Use it instead of
+`catch (e: any)`.
+
+The Telegram WebApp global is declared in `lib/telegramWebApp.ts`. Reach it through
+`telegramWebApp()`, never through `window as any` — two real bugs hid behind that cast,
+both unguarded calls to methods an older client may not expose.
 
 ## Traps
 

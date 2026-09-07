@@ -11,18 +11,23 @@
     "migrate": "node scripts/migrate.mjs",
     "warm-context": "node scripts/warm-cultural-context.mjs",
     "test": "node --test lib/__tests__/*.test.ts",
-    "complexity": "python scripts/complexity.py app lib apps/mobile scripts/migrate.mjs scripts/warm-cultural-context.mjs"
+    "complexity": "python scripts/complexity.py app lib apps/mobile scripts/migrate.mjs scripts/warm-cultural-context.mjs",
+    "typecheck": "tsc --noEmit",
+    "typecheck:mobile": "tsc --noEmit -p apps/mobile",
+    "check": "npm test && npm run typecheck && npm run typecheck:mobile && npm run build && npm run complexity"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.5",
     "next": "16.1.1",
     "openai": "^4.104.0",
+    "papaparse": "^5.7.0",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/text";
 import { NextRequest, NextResponse } from "next/server";
 import { normalizeLegacySource } from "@/lib/itemSources";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -40,14 +41,23 @@ function authTg(req: NextRequest) {
  */
 type ItemRow = ReturnType<typeof toItemRow>;
 
-function toItemRow(item: any, tgUserId: number) {
+type RawBulkItem = {
+  type?: unknown;
+  source?: unknown;
+  title?: unknown;
+  creator?: unknown;
+  consumedAt?: unknown;
+  timeOrigin?: unknown;
+};
+
+function toItemRow(item: RawBulkItem, tgUserId: number) {
   return {
     tg_user_id: tgUserId,
     type: item?.type,
     source: normalizeLegacySource(item?.source),
     title: item?.title,
     creator: item?.creator ?? null,
-    consumed_at: safeTimelineIsoFromMs(item?.consumedAt),
+    consumed_at: safeTimelineIsoFromMs(typeof item?.consumedAt === "number" ? item.consumedAt : null),
     time_origin: typeof item?.timeOrigin === "string" ? item.timeOrigin : null,
   };
 }
@@ -68,7 +78,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "items[] is required" }, { status: 400 });
     }
 
-    const rows = items.slice(0, 100).map((item: any) => toItemRow(item, auth.tgUserId));
+    const rows = items.slice(0, 100).map((item: RawBulkItem) => toItemRow(item, auth.tgUserId));
     if (rows.some((row: ItemRow) => !row.type || !row.source || !row.title)) {
       return NextResponse.json({ error: "each item must include type, source, title" }, { status: 400 });
     }
@@ -77,11 +87,11 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await sb.from("items").insert(rows).select("*");
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
 
     return NextResponse.json({ ok: true, inserted: data?.length ?? 0 });
-  } catch (e: any) {
-    const msg = typeof e?.message === "string" ? e.message : "unknown error";
+  } catch (e) {
+    const msg = errorMessage(e, "unknown error");
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

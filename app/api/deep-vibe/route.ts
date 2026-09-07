@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/text";
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -58,8 +59,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ access: "none", usesLeft: 0 });
 
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+  } catch (e) {
+    return NextResponse.json({ error: errorMessage(e) }, { status: 500 });
   }
 }
 
@@ -95,7 +96,7 @@ async function writeDeepVibe(apiKey: string, items: Array<{ type: string; title:
   const client = new OpenAI({ apiKey });
   const model = process.env.OPENAI_MODEL ?? "gpt-4o";
 
-  const lines = items.slice(0, 100).map((it: any) => {
+  const lines = items.slice(0, 100).map((it) => {
     const creator = it.creator ? ` — ${it.creator}` : "";
     return `[${it.type}] ${it.title}${creator}`;
   }).join("\n");
@@ -152,7 +153,7 @@ export async function POST(req: NextRequest) {
       .or(buildOwnerReadFilter(scope))
       .order("created_at", { ascending: false });
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
     if (!items || items.length === 0) {
       return NextResponse.json({ result: "Добавь хоть что-нибудь сначала." });
     }
@@ -163,8 +164,8 @@ export async function POST(req: NextRequest) {
     const result = await writeDeepVibe(apiKey, items);
     return NextResponse.json({ result });
 
-  } catch (e: any) {
-    const msg = typeof e?.message === "string" ? e.message : "unknown error";
+  } catch (e) {
+    const msg = errorMessage(e, "unknown error");
     const status = msg.includes("tg auth") ? 401 : 500;
     return NextResponse.json({ error: msg }, { status });
   }

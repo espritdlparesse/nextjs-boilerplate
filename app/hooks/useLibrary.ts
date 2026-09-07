@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/text";
 import type { Tab, VibeDuel, VibeDuelVariant, ItemType, ItemSource, ImportedItem, DbItem, ImportPlatform, ImportService } from "@/app/types";
 import { apiFetch, getTgInitData, safeJson } from "@/app/apiFetch";
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
@@ -170,8 +171,8 @@ export function useLibrary(deps: {
       setMoveOriginDayKey(null);
       setSelectedDayKey(pendingMoveTarget.key);
       setDayModalOpen(true);
-    } catch (e: any) {
-      setLibraryError(e?.message ?? "не удалось перенести дату");
+    } catch (e) {
+      setLibraryError(errorMessage(e, "не удалось перенести дату"));
     } finally {
       setLibraryLoading(false);
     }

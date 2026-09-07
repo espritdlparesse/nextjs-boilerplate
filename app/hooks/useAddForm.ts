@@ -1,9 +1,10 @@
+import { errorMessage } from "@/lib/text";
 import { useState } from "react";
 import type { DbItem, ItemType } from "@/app/types";
 import { apiFetch, getTgInitData, safeJson } from "@/app/apiFetch";
 import { useAnimatedPlaceholder } from "@/app/hooks/useAnimatedPlaceholder";
 
-type CustomCategory = { id: string; name: string; emoji: string };
+export type CustomCategory = { id: string; name: string; emoji: string };
 
 export function useAddForm(deps: { items: DbItem[]; loadLibrary: () => void }) {
   const { items, loadLibrary } = deps;
@@ -32,7 +33,7 @@ export function useAddForm(deps: { items: DbItem[]; loadLibrary: () => void }) {
       setSelectedCatId(json?.category?.id ?? null);
       setNewCatName(""); setNewCatEmoji("📌");
       setShowCreateCategory(false);
-    } catch (e: any) { setCatError(e?.message); }
+    } catch (e) { setCatError(errorMessage(e)); }
     finally { setCatSaving(false); }
   }
 
@@ -70,8 +71,8 @@ export function useAddForm(deps: { items: DbItem[]; loadLibrary: () => void }) {
       setManualTitle(""); setManualCreator(""); setManualSuccess(true);
       await loadLibrary();
       setTimeout(() => setManualSuccess(false), 2000);
-    } catch (e: any) {
-      setManualError(e?.message ?? "Ошибка");
+    } catch (e) {
+      setManualError(errorMessage(e, "Ошибка"));
     } finally {
       setManualSaving(false);
     }

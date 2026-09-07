@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
       .select("tg_user_id");
 
     const uniqueUsers = users
-      ? new Set(users.map((u: any) => u.tg_user_id)).size
+      ? new Set(users.map((row) => row.tg_user_id)).size
       : 0;
 
     return NextResponse.json({ ...stats, total_users: uniqueUsers });

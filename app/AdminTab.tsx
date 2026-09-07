@@ -1,10 +1,11 @@
+import { errorMessage } from "@/lib/text";
 import { useEffect, useState } from "react";
 import { getTgInitData } from "@/app/apiFetch";
 
 const MAX_LABEL_BATCHES = 50;
 
 function adminHeaders() {
-  return { "x-telegram-init-data": (window as any).Telegram?.WebApp?.initData || "" };
+  return { "x-telegram-init-data": getTgInitData() };
 }
 
 async function labelBatch() {
@@ -44,8 +45,8 @@ function FormLabelingPanel() {
         if (!result.labeled || !result.remaining) return;
       }
       setStatus(`размечено ${labeled}, лимит за один заход исчерпан`);
-    } catch (error: any) {
-      setStatus(error?.message ?? "не удалось разметить");
+    } catch (error) {
+      setStatus(errorMessage(error, "не удалось разметить"));
     } finally {
       setRunning(false);
     }
@@ -70,10 +71,21 @@ function FormLabelingPanel() {
   );
 }
 
+type AdminStats = {
+  total_users: number;
+  total_items: number;
+  music: number;
+  books: number;
+  movies: number;
+  today: number;
+};
+
+type TopUser = { tg_user_id: string | number; count: number };
+
 export function AdminTab() {
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [topUsers, setTopUsers] = useState<any[]>([]);
+  const [topUsers, setTopUsers] = useState<TopUser[]>([]);
   useEffect(() => {
     async function load() {
       const headers = adminHeaders();
@@ -120,7 +132,7 @@ export function AdminTab() {
         <>
           <div style={{fontWeight:600,fontSize:13,color:"#888",marginBottom:12,textTransform:"uppercase",letterSpacing:"0.08em"}}>топ пользователей</div>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {topUsers.map((u: any, i: number) => (
+            {topUsers.map((u, i) => (
               <div key={u.tg_user_id} style={{background:"#fff",borderRadius:10,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>
                 <span style={{color:"#888",fontSize:13}}>#{i+1} &nbsp;<span style={{color:"#1a1a1a",fontWeight:500}}>{u.tg_user_id}</span></span>
                 <span style={{fontFamily:"'Unbounded',sans-serif",fontWeight:700}}>{u.count} айт.</span>

@@ -1,3 +1,4 @@
+export type LibraryView = "tiles" | "calendar";
 export type Tab = "home" | "add" | "library" | "vibe" | "profile" | "admin";
 
 export type VibeDuelVariant = {

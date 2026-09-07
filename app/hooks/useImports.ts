@@ -1,24 +1,43 @@
+import { errorMessage } from "@/lib/text";
 import type { Tab, VibeDuel, VibeDuelVariant, ItemType, ItemSource, ImportedItem, DbItem, ImportPlatform, ImportService } from "@/app/types";
 import { apiFetch, getTgInitData, safeJson } from "@/app/apiFetch";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { parseImportedFile } from "@/apps/mobile/lib/fileImports";
+import { parseImportedFile } from "@/lib/fileImports";
+import { telegramWebApp } from "@/lib/telegramWebApp";
+import { isItemType } from "@/lib/mediaTypes";
+
+type RawServerItem = {
+  type?: ImportedItem["type"];
+  source?: ImportedItem["source"];
+  title?: string;
+  authorOrArtist?: string;
+  consumedAt?: unknown;
+  timeOrigin?: ImportedItem["timeOrigin"];
+};
 
 function toImportedItems(raw: unknown, fallbackSource: string): ImportedItem[] {
   if (!Array.isArray(raw)) return [];
-  return raw.map((item: any) => ({
-    type: item.type,
-    source: item.source ?? fallbackSource,
-    title: item.title,
-    creator: item.authorOrArtist ?? "",
-    consumedAt: typeof item.consumedAt === "number" ? item.consumedAt : undefined,
-    timeOrigin: item.timeOrigin ?? undefined,
-  }));
+  const items: ImportedItem[] = [];
+  for (const item of raw as RawServerItem[]) {
+    // Сервер мог вернуть строку без типа или без названия: раньше она молча
+    // доезжала до библиотеки, потому что вход был any.
+    if (!isItemType(item.type) || !item.title) continue;
+    items.push({
+      type: item.type,
+      source: (item.source ?? fallbackSource) as ImportedItem["source"],
+      title: item.title,
+      creator: item.authorOrArtist ?? "",
+      consumedAt: typeof item.consumedAt === "number" ? item.consumedAt : undefined,
+      timeOrigin: item.timeOrigin ?? undefined,
+    });
+  }
+  return items;
 }
 
 function toYandexTracks(raw: unknown): ImportedItem[] {
   if (!Array.isArray(raw)) return [];
   return raw
-    .map((item: any) => ({
+    .map((item: { title?: unknown; authorOrArtist?: unknown }) => ({
       type: "music" as const,
       source: "import_yandex_music" as const,
       title: String(item.title ?? ""),
@@ -91,8 +110,8 @@ export function useImports(deps: { items: DbItem[]; loadLibrary: () => void; set
       setImported(result);
       setSelectedIdx(new Set(result.map((_, i) => i)));
       setSelectedImportService(null);
-    } catch (e: any) {
-      setImportError(e?.message ?? "ошибка при чтении файла");
+    } catch (e) {
+      setImportError(errorMessage(e, "ошибка при чтении файла"));
     } finally {
       setImportLoading(false);
     }
@@ -121,8 +140,8 @@ export function useImports(deps: { items: DbItem[]; loadLibrary: () => void; set
       setSelectedIdx(new Set(result.map((_, index) => index)));
       setYandexMusicUrl("");
       setImportStatus(`нашли ${result.length} трек(ов) — выбери, что добавить`);
-    } catch (error: any) {
-      setImportError(error?.message ?? "не удалось импортировать плейлист Яндекс.Музыки");
+    } catch (error) {
+      setImportError(errorMessage(error, "не удалось импортировать плейлист Яндекс.Музыки"));
     } finally {
       setImportLoading(false);
     }
@@ -168,8 +187,8 @@ export function useImports(deps: { items: DbItem[]; loadLibrary: () => void; set
       if (failedCount > 0) {
         setImportError(`не всё удалось разобрать: ${failedCount} изображ. попробуй еще раз или загрузи более четкие фото/скриншоты.`);
       }
-    } catch (e: any) {
-      setImportError(e?.message ?? "Network error");
+    } catch (e) {
+      setImportError(errorMessage(e, "Network error"));
     } finally {
       setImportLoading(false);
     }
@@ -192,8 +211,8 @@ export function useImports(deps: { items: DbItem[]; loadLibrary: () => void; set
       setImported([]); setSelectedIdx(new Set());
       await loadLibrary();
       setTab("library");
-    } catch (e: any) {
-      setImportError(e?.message ?? "Ошибка сохранения");
+    } catch (e) {
+      setImportError(errorMessage(e, "Ошибка сохранения"));
     } finally {
       setSavingImported(false);
     }
@@ -247,8 +266,8 @@ export function useImports(deps: { items: DbItem[]; loadLibrary: () => void; set
         [platform]: { profile, lastSyncedAt: new Date().toISOString() },
       }));
       setImportStatus(result.length > 0 ? config.found(result.length) : "ничего не нашли в этом профиле");
-    } catch (e: any) {
-      setImportError(e?.message ?? config.failed);
+    } catch (e) {
+      setImportError(errorMessage(e, config.failed));
     } finally {
       setImportLoading(false);
     }
@@ -287,8 +306,8 @@ export function useImports(deps: { items: DbItem[]; loadLibrary: () => void; set
           ? `готово: spotify отвязали и убрали ${json?.deletedItems ?? 0} айтем(ов)`
           : "готово: spotify больше не подключен"
       );
-    } catch (e: any) {
-      setImportError(e?.message ?? "не удалось отвязать spotify");
+    } catch (e) {
+      setImportError(errorMessage(e, "не удалось отвязать spotify"));
     } finally {
       setSpotifySyncing(false);
     }
@@ -297,7 +316,7 @@ export function useImports(deps: { items: DbItem[]; loadLibrary: () => void; set
   async function connectSpotify() {
     const initData = getTgInitData();
     const url = `/api/spotify/auth?initData=${encodeURIComponent(initData)}`;
-    const tg = (window as any).Telegram?.WebApp;
+    const tg = telegramWebApp();
     tg?.openLink ? tg.openLink(url) : window.open(url, "_blank");
     // Проверяем подключение через 5 секунд
     setTimeout(() => checkSpotify(), 5000);
@@ -334,8 +353,8 @@ export function useImports(deps: { items: DbItem[]; loadLibrary: () => void; set
           ? `готово: отвязали ${platform} и убрали ${json?.deletedItems ?? 0} айтем(ов)`
           : `готово: ${platform} больше не подключен`
       );
-    } catch (e: any) {
-      setImportError(e?.message ?? "не удалось отвязать источник");
+    } catch (e) {
+      setImportError(errorMessage(e, "не удалось отвязать источник"));
     } finally {
       setImportLoading(false);
     }

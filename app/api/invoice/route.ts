@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/text";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyTelegramInitData } from "@/lib/telegram";
 
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ url: data.result });
 
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+  } catch (e) {
+    return NextResponse.json({ error: errorMessage(e) }, { status: 500 });
   }
 }

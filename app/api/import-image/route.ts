@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/text";
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { verifyTelegramInitData } from "@/lib/telegram";
@@ -37,7 +38,16 @@ type ImportedItem = {
   creator: string | null;
 };
 
-function clampItems(items: any[]): ImportedItem[] {
+type RawModelItem = {
+  type?: unknown;
+  source?: unknown;
+  title?: unknown;
+  creator?: unknown;
+  author?: unknown;
+  artist?: unknown;
+};
+
+function clampItems(items: RawModelItem[]): ImportedItem[] {
   if (!Array.isArray(items)) return [];
   const out: ImportedItem[] = [];
 
@@ -186,7 +196,7 @@ function shapeImportResponse(outputText: string) {
     detectedSource: pickOne(parsed.detectedSource, KNOWN_SOURCES, "manual"),
     confidence: Number.isFinite(confidence) ? confidence : 0,
     items: clampItems(parsed.items ?? []),
-    warnings: Array.isArray(parsed.warnings) ? parsed.warnings.map((value: any) => String(value)) : [],
+    warnings: Array.isArray(parsed.warnings) ? parsed.warnings.map((value: unknown) => String(value)) : [],
   });
 }
 
@@ -212,8 +222,8 @@ export async function POST(req: NextRequest) {
   let outputText: string;
   try {
     outputText = await readImage(new OpenAI({ apiKey }), visionModel(), dataUrl);
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "openai error" }, { status: 500 });
+  } catch (e) {
+    return NextResponse.json({ error: errorMessage(e, "openai error") }, { status: 500 });
   }
 
   return shapeImportResponse(outputText);

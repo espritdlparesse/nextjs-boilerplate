@@ -22,12 +22,17 @@ async function resolveTelegramOwner(req: NextRequest) {
   return { ok: true as const, owner: scope.primaryOwner, scope, tgUsername };
 }
 
+type ItemRow = Record<string, unknown> & {
+  id?: string;
+  custom_categories?: { name?: string | null; emoji?: string | null } | null;
+};
+
 async function selectItemsForOwner(
   sb: ReturnType<typeof supabaseAdmin>,
   scope: OwnerScope
 ) {
   const pageSize = 1000;
-  const rows: any[] = [];
+  const rows: ItemRow[] = [];
   const seenIds = new Set<string>();
   let from = 0;
 
@@ -66,7 +71,7 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Разворачиваем join
-  const items = (data ?? []).map((it: any) => ({
+  const items = (data ?? []).map((it: ItemRow) => ({
     ...it,
     custom_category_name: it.custom_categories?.name ?? null,
     custom_category_emoji: it.custom_categories?.emoji ?? null,

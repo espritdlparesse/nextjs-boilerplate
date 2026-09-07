@@ -1,6 +1,9 @@
+import { errorMessage } from "@/lib/text";
 import { useMemo, useState } from "react";
 import type { DbItem } from "@/app/types";
 import { apiFetch } from "@/app/apiFetch";
+
+export type LibraryCounts = { total: number; music: number; books: number; movies: number };
 
 export function useItems() {
   const [items, setItems] = useState<DbItem[]>([]);
@@ -18,8 +21,8 @@ export function useItems() {
         return;
       }
       setItems(Array.isArray(json?.items) ? json.items : []);
-    } catch (e: any) {
-      setLibraryError(e?.message ?? "Network error");
+    } catch (e) {
+      setLibraryError(errorMessage(e, "Network error"));
     } finally {
       setLibraryLoading(false);
     }

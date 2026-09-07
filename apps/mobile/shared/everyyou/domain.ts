@@ -1,3 +1,4 @@
+import { clampText } from "../../../../lib/text";
 import { clampTimelineTimestampMs } from "../../../../lib/timeline";
 export type TgUser = {
   id?: number;
@@ -105,9 +106,7 @@ export function uid() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-export function clampText(s: string) {
-  return s.trim().replace(/\s+/g, " ");
-}
+export { clampText };
 
 export const sanitizeTimelineTimestamp = clampTimelineTimestampMs;
 

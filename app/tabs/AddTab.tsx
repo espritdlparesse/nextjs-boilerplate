@@ -1,3 +1,4 @@
+import type { ImportService } from "@/app/types";
 import type { Tab, ItemType } from "@/app/types";
 import { Dispatch, SetStateAction } from "react";
 import { useImports } from "@/app/hooks/useImports";
@@ -7,7 +8,7 @@ import { TYPE_LABELS, TYPE_ICONS } from "@/app/tabs/typeMeta";
 
 export function AddTab({ tab, importServices, imports, deepVibe, addForm }: {
   tab: Tab;
-  importServices: any[];
+  importServices: ImportService[];
   imports: ReturnType<typeof useImports>;
   deepVibe: ReturnType<typeof useDeepVibe>;
   addForm: ReturnType<typeof useAddForm>;

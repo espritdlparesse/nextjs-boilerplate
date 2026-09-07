@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/text";
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -6,7 +7,9 @@ import { buildOwnerReadFilter, getOwnerScope } from "@/lib/ownerLinks";
 
 export const runtime = "nodejs";
 
-function buildRoastPrompt(items: Array<any>) {
+type SummaryItem = { type?: string; title?: string; creator?: string | null; source?: string | null };
+
+function buildRoastPrompt(items: SummaryItem[]) {
   const lines = items.slice(0, 120).map((it) => {
     const creator = it.creator ? ` — ${it.creator}` : "";
     const src = it.source ? ` (${it.source})` : "";
@@ -50,7 +53,7 @@ export async function POST(req: NextRequest) {
 
     const { data: items, error } = await query.order("created_at", { ascending: false });
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
 
     if (!items || items.length === 0) {
       return NextResponse.json(
@@ -86,8 +89,8 @@ export async function POST(req: NextRequest) {
     const summary = response.choices[0]?.message?.content ?? "";
 
     return NextResponse.json({ summary });
-  } catch (e: any) {
-    const msg = typeof e?.message === "string" ? e.message : "unknown error";
+  } catch (e) {
+    const msg = errorMessage(e, "unknown error");
     const status =
       msg.startsWith("tg auth failed") || msg.includes("tg user") ? 401 : 500;
     return NextResponse.json({ error: msg }, { status });

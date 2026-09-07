@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/text";
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { verifyTelegramInitData } from "@/lib/telegram";
@@ -13,7 +14,7 @@ function getTgUserOrThrow(req: NextRequest) {
   return Number(verified.user.id);
 }
 
-async function getValidAccessToken(tgUserId: number, sb: any): Promise<string | null> {
+async function getValidAccessToken(tgUserId: number, sb: ReturnType<typeof supabaseAdmin>): Promise<string | null> {
   const { data: tokenRow } = await sb
     .from("spotify_tokens")
     .select("*")
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
     for (const item of tracks) {
       const track = item.track;
       const title = track.name;
-      const creator = track.artists?.map((a: any) => a.name).join(", ") ?? null;
+      const creator = track.artists?.map((artist: { name?: string }) => artist.name).join(", ") ?? null;
       const playedAt = item.played_at;
 
       // Ищем существующий трек
@@ -126,8 +127,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, synced: tracks.length, added });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+  } catch (e) {
+    return NextResponse.json({ error: errorMessage(e) }, { status: 500 });
   }
 }
 
@@ -157,13 +158,13 @@ export async function DELETE(req: NextRequest) {
         .select("id");
 
       if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
       }
       deletedItems = data?.length ?? 0;
     }
 
     return NextResponse.json({ ok: true, disconnected: true, deletedItems });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "disconnect failed" }, { status: 500 });
+  } catch (e) {
+    return NextResponse.json({ error: errorMessage(e, "disconnect failed") }, { status: 500 });
   }
 }

@@ -1,3 +1,5 @@
+import type { LibraryView } from "@/app/types";
+import type { CustomCategory } from "@/app/hooks/useAddForm";
 import type { Tab, DbItem, ItemType } from "@/app/types";
 import { itemsWord } from "@/lib/plural";
 import { Dispatch, SetStateAction } from "react";
@@ -10,10 +12,10 @@ export function LibraryTab({ tab, items, libraryLoading, libraryError, libraryVi
   items: DbItem[];
   libraryLoading: boolean;
   libraryError: string;
-  libraryView: string;
-  setLibraryView: Dispatch<SetStateAction<any>>;
+  libraryView: LibraryView;
+  setLibraryView: Dispatch<SetStateAction<LibraryView>>;
   setTab: Dispatch<SetStateAction<Tab>>;
-  customCategories: any[];
+  customCategories: CustomCategory[];
   deletingId: string | number | null;
   deleteItem: (id: string | number) => void;
   library: ReturnType<typeof useLibrary>;

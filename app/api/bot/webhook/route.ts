@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/text";
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -69,15 +70,15 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    console.error("webhook error:", e?.message);
+  } catch (e) {
+    console.error("webhook error:", errorMessage(e));
     return NextResponse.json({ ok: true }); // всегда 200 для Telegram
   }
 }
 
 async function answerPreCheckoutQuery(id: string, ok: boolean, errorMessage?: string) {
   const token = process.env.TELEGRAM_BOT_TOKEN!;
-  const body: any = { pre_checkout_query_id: id, ok };
+  const body: Record<string, unknown> = { pre_checkout_query_id: id, ok };
   if (!ok && errorMessage) body.error_message = errorMessage;
   await fetch(`https://api.telegram.org/bot${token}/answerPreCheckoutQuery`, {
     method: "POST",
