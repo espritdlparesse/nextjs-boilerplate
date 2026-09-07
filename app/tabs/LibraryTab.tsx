@@ -1,4 +1,5 @@
 import type { Tab, DbItem, ItemType } from "@/app/types";
+import { itemsWord } from "@/lib/plural";
 import { Dispatch, SetStateAction } from "react";
 import { useLibrary } from "@/app/hooks/useLibrary";
 import { formatShortDate, dayKey, addDays, startOfMonth, getItemDateValue } from "@/lib/dates";
@@ -100,7 +101,7 @@ export function LibraryTab({ tab, items, libraryLoading, libraryError, libraryVi
                     <div className="calendar-move-banner">
                       <div className="calendar-move-copy">
                         <div className="section-label" style={{ marginBottom: 4 }}>перенос даты</div>
-                        <div>выбери новый день для {library.selectedDayItems.length} {library.selectedDayItems.length === 1 ? "айтема" : library.selectedDayItems.length < 5 ? "айтемов" : "айтемов"}.</div>
+                        <div>выбери новый день для {library.selectedDayItems.length} {itemsWord(library.selectedDayItems.length)}.</div>
                       </div>
                       <button type="button" className="btn btn-outline btn-sm" onClick={library.cancelMoveSelectedDayItems}>отмена</button>
                     </div>
@@ -271,7 +272,7 @@ export function LibraryTab({ tab, items, libraryLoading, libraryError, libraryVi
                     <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
                       <div className="card-title" style={{ marginBottom: 10 }}>перенести на другой день?</div>
                       <div className="vibe-helper" style={{ marginBottom: 14 }}>
-                        перенесем {library.selectedDayItems.length} {library.selectedDayItems.length === 1 ? "айтем" : library.selectedDayItems.length < 5 ? "айтема" : "айтемов"} на{" "}
+                        перенесем {library.selectedDayItems.length} {itemsWord(library.selectedDayItems.length)} на{" "}
                         {library.pendingMoveTarget.date.toLocaleString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}.
                       </div>
                       <div className="day-action-row">

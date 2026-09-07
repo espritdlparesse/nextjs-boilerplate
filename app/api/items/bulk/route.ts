@@ -38,6 +38,20 @@ function authTg(req: NextRequest) {
  * Можно дернуть в браузере (не в Telegram) и увидеть, что роут живой.
  * В Telegram всё равно будет POST с auth.
  */
+type ItemRow = ReturnType<typeof toItemRow>;
+
+function toItemRow(item: any, tgUserId: number) {
+  return {
+    tg_user_id: tgUserId,
+    type: item?.type,
+    source: normalizeLegacySource(item?.source),
+    title: item?.title,
+    creator: item?.creator ?? null,
+    consumed_at: safeTimelineIsoFromMs(item?.consumedAt),
+    time_origin: typeof item?.timeOrigin === "string" ? item.timeOrigin : null,
+  };
+}
+
 export async function GET() {
   return NextResponse.json({ ok: true, route: "/api/items/bulk" });
 }
@@ -54,28 +68,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "items[] is required" }, { status: 400 });
     }
 
-    // режем пачку (на всякий)
-    const slice = items.slice(0, 100);
-
-    // ВАЖНО: здесь используем те же поля, что твой /api/items
-    // (type, source, title, creator)
-    const rows = slice.map((it: any) => ({
-      tg_user_id: auth.tgUserId,
-      type: it?.type,
-      source: normalizeLegacySource(it?.source),
-      title: it?.title,
-      creator: it?.creator ?? null,
-      consumed_at: safeTimelineIsoFromMs(it?.consumedAt),
-      time_origin: typeof it?.timeOrigin === "string" ? it.timeOrigin : null,
-    }));
-
-    for (const r of rows) {
-      if (!r.type || !r.source || !r.title) {
-        return NextResponse.json(
-          { error: "each item must include type, source, title" },
-          { status: 400 }
-        );
-      }
+    const rows = items.slice(0, 100).map((item: any) => toItemRow(item, auth.tgUserId));
+    if (rows.some((row: ItemRow) => !row.type || !row.source || !row.title)) {
+      return NextResponse.json({ error: "each item must include type, source, title" }, { status: 400 });
     }
 
     const sb = supabaseAdmin();
@@ -86,8 +81,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, inserted: data?.length ?? 0 });
   } catch (e: any) {
-    // Если вдруг iOS роняет соединение из-за крэша в функции,
-    // мы хотя бы гарантированно вернём JSON при любых ошибках.
     const msg = typeof e?.message === "string" ? e.message : "unknown error";
     return NextResponse.json({ error: msg }, { status: 500 });
   }

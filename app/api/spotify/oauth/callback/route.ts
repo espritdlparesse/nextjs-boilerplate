@@ -37,6 +37,27 @@ function html(message: string) {
   );
 }
 
+type SpotifyTokens = { access_token: string; refresh_token: string; expires_in: number; scope?: string };
+
+async function exchangeAuthCode(code: string): Promise<SpotifyTokens | null> {
+  const redirectUri = required("SPOTIFY_REDIRECT_URI");
+  const clientId = required("SPOTIFY_CLIENT_ID");
+  const clientSecret = required("SPOTIFY_CLIENT_SECRET");
+
+  const response = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: redirectUri }).toString(),
+  });
+
+  const json = (await response.json().catch(() => null)) as Partial<SpotifyTokens> | null;
+  if (!response.ok || !json?.access_token || !json?.refresh_token || !json?.expires_in) return null;
+  return json as SpotifyTokens;
+}
+
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const state = req.nextUrl.searchParams.get("state");
@@ -47,35 +68,8 @@ export async function GET(req: NextRequest) {
 
   try {
     const verified = verifySpotifyOAuthState(state);
-    const redirectUri = required("SPOTIFY_REDIRECT_URI");
-    const clientId = required("SPOTIFY_CLIENT_ID");
-    const clientSecret = required("SPOTIFY_CLIENT_SECRET");
-
-    const response = await fetch("https://accounts.spotify.com/api/token", {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        code,
-        redirect_uri: redirectUri,
-      }).toString(),
-    });
-
-    const json = (await response.json().catch(() => null)) as
-      | {
-          access_token?: string;
-          refresh_token?: string;
-          expires_in?: number;
-          scope?: string;
-        }
-      | null;
-
-    if (!response.ok || !json?.access_token || !json?.refresh_token || !json?.expires_in) {
-      return html("Failed to exchange Spotify auth code");
-    }
+    const json = await exchangeAuthCode(code);
+    if (!json) return html("Failed to exchange Spotify auth code");
 
     const profile = await fetchSpotifyProfile(json.access_token);
     const sb = supabaseAdmin();

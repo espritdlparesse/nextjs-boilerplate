@@ -4,6 +4,36 @@ import { isAdminRequest } from "@/lib/admins";
 
 export const runtime = "nodejs";
 
+type Identity = { username: string | null; firstName: string | null; lastName: string | null; lastSeen: string | null };
+
+function countByOwner(rows: Array<{ owner_key: string | null; tg_user_id: number | string | null }>) {
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    const id = row.owner_key || `tg:${String(row.tg_user_id)}`;
+    counts[id] = (counts[id] || 0) + 1;
+  }
+  return counts;
+}
+
+function readString(props: Record<string, unknown>, key: string) {
+  return typeof props[key] === "string" ? (props[key] as string) : null;
+}
+
+function latestIdentities(rows: Array<{ owner_key: string | null; created_at: string | null; properties: unknown }>) {
+  const byOwner = new Map<string, Identity>();
+  for (const row of rows) {
+    if (!row.owner_key || byOwner.has(row.owner_key)) continue;
+    const props = (row.properties ?? {}) as Record<string, unknown>;
+    byOwner.set(row.owner_key, {
+      username: readString(props, "tgUsername"),
+      firstName: readString(props, "tgFirstName"),
+      lastName: readString(props, "tgLastName"),
+      lastSeen: row.created_at ?? null,
+    });
+  }
+  return byOwner;
+}
+
 export async function GET(req: NextRequest) {
   if (!isAdminRequest(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
@@ -14,39 +44,18 @@ export async function GET(req: NextRequest) {
 
   if (error || !data) return NextResponse.json([], { status: 200 });
 
-  // Считаем айтемы по пользователям
-  const counts: Record<string, number> = {};
-  for (const row of data) {
-    const id = row.owner_key || `tg:${String(row.tg_user_id)}`;
-    counts[id] = (counts[id] || 0) + 1;
-  }
-
+  const counts = countByOwner(data);
   const { data: events } = await sb
     .from("app_events")
     .select("owner_key,created_at,properties")
     .eq("owner_kind", "telegram")
     .order("created_at", { ascending: false })
     .limit(5000);
-
-  const latestIdentityByOwner = new Map<
-    string,
-    { username: string | null; firstName: string | null; lastName: string | null; lastSeen: string | null }
-  >();
-
-  for (const row of events ?? []) {
-    if (!row.owner_key || latestIdentityByOwner.has(row.owner_key)) continue;
-    const props = (row.properties ?? {}) as Record<string, unknown>;
-    latestIdentityByOwner.set(row.owner_key, {
-      username: typeof props.tgUsername === "string" ? props.tgUsername : null,
-      firstName: typeof props.tgFirstName === "string" ? props.tgFirstName : null,
-      lastName: typeof props.tgLastName === "string" ? props.tgLastName : null,
-      lastSeen: row.created_at ?? null,
-    });
-  }
+  const identities = latestIdentities(events ?? []);
 
   const top = Object.entries(counts)
     .map(([owner_key, count]) => {
-      const identity = latestIdentityByOwner.get(owner_key);
+      const identity = identities.get(owner_key);
       return {
         owner_key,
         tg_user_id: owner_key.startsWith("tg:") ? owner_key.slice(3) : owner_key,

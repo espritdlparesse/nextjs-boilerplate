@@ -1,16 +1,28 @@
 import type { Tab, VibeDuel, VibeDuelVariant, ItemType, ItemSource, ImportedItem, DbItem, ImportPlatform, ImportService } from "@/app/types";
 import { apiFetch, getTgInitData, safeJson } from "@/app/apiFetch";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { generateMonthlySummary } from "@/lib/monthlySummaryEngine";
 import { dayKey, addDays, startOfMonth, getItemDateValue, calendarGrid } from "@/lib/dates";
 
 export function useLibrary(deps: {
   items: DbItem[];
+  setItems: Dispatch<SetStateAction<DbItem[]>>;
   loadLibrary: () => void;
   setLibraryError: (message: string) => void;
   setLibraryLoading: (loading: boolean) => void;
 }) {
-  const { items, loadLibrary, setLibraryError, setLibraryLoading } = deps;
+  const { items, setItems, loadLibrary, setLibraryError, setLibraryLoading } = deps;
+  const [deletingId, setDeletingId] = useState<string | number | null>(null);
+
+  async function deleteItem(id: string | number) {
+    setDeletingId(id);
+    try {
+      const { res } = await apiFetch("/api/items", { method: "DELETE", body: JSON.stringify({ id }) });
+      if (res.ok) setItems((prev) => prev.filter((it) => it.id !== id));
+    } finally {
+      setDeletingId(null);
+    }
+  }
   const [libFilter, setLibFilter] = useState<ItemType | "all" | string>("all");
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
@@ -179,6 +191,7 @@ export function useLibrary(deps: {
   }
 
   return {
+    deletingId, deleteItem,
     libFilter, libraryStatus, calendarMonth, selectedDayKey, dayModalOpen,
     selectedDayTypeFilter, selectedDayItems, calendarMoveMode, pendingMoveTargetKey,
     moveOriginDayKey, returnDayKey, lastMovedTargetKey,

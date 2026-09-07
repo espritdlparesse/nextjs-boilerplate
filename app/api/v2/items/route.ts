@@ -169,6 +169,72 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ items: data ?? [] });
 }
 
+async function findSpotifyDuplicate(
+  sb: ReturnType<typeof supabaseAdmin>,
+  scope: Awaited<ReturnType<typeof getOwnerScope>>,
+  source: string,
+  title: string,
+  creator: string | null
+) {
+  if (source !== "import_spotify" && source !== "spotify") return null;
+  const { data } = await sb
+    .from("items")
+    .select("*")
+    .or(buildOwnerReadFilter(scope))
+    .eq("source", "import_spotify")
+    .eq("title", title)
+    .eq("creator", creator)
+    .limit(1)
+    .maybeSingle();
+  return data ?? null;
+}
+
+function buildItemPayload(
+  owner: { ownerKey: string; ownerKind: string; legacyTgUserId?: number | null },
+  body: ItemBody
+): Record<string, string | number | null> {
+  return {
+    owner_key: owner.ownerKey,
+    owner_kind: owner.ownerKind,
+    type: body.type!,
+    source: normalizeLegacySource(body.source!),
+    title: body.title!,
+    creator: body.creator ?? null,
+    consumed_at: safeTimelineIsoFromMs(body.consumedAt),
+    time_origin: body.timeOrigin ?? null,
+    tg_user_id:
+      owner.ownerKind === "telegram" && owner.legacyTgUserId
+        ? owner.legacyTgUserId
+        : legacyNativeTgUserId(owner.ownerKey),
+  };
+}
+
+function applyItemUpdate(
+  sb: ReturnType<typeof supabaseAdmin>,
+  scope: Awaited<ReturnType<typeof getOwnerScope>>,
+  body: ItemBody,
+  withTimeline: boolean
+) {
+  const patch: Record<string, unknown> = {
+    type: body.type,
+    source: normalizeLegacySource(body.source),
+    title: body.title,
+    creator: body.creator ?? null,
+  };
+  if (withTimeline) {
+    patch.consumed_at = safeTimelineIsoFromMs(body.consumedAt);
+    patch.time_origin = body.timeOrigin ?? null;
+  }
+
+  return sb
+    .from("items")
+    .update(patch)
+    .eq("id", body.id!)
+    .or(buildOwnerReadFilter(scope))
+    .select("*")
+    .single();
+}
+
 export async function POST(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
@@ -184,39 +250,10 @@ export async function POST(req: NextRequest) {
   }
 
   const sb = supabaseAdmin();
-  if (source === "import_spotify" || source === "spotify") {
-    const { data: existing } = await sb
-      .from("items")
-      .select("*")
-      .or(buildOwnerReadFilter(scope))
-      .eq("source", "import_spotify")
-      .eq("title", title)
-      .eq("creator", creator ?? null)
-      .limit(1)
-      .maybeSingle();
+  const duplicate = await findSpotifyDuplicate(sb, scope, source, title, creator ?? null);
+  if (duplicate) return NextResponse.json({ item: duplicate, deduped: true });
 
-    if (existing) {
-      return NextResponse.json({ item: existing, deduped: true });
-    }
-  }
-
-  const insertPayload: Record<string, string | number | null> = {
-    owner_key: owner.ownerKey,
-    owner_kind: owner.ownerKind,
-    type,
-    source: normalizeLegacySource(source),
-    title,
-    creator: creator ?? null,
-    consumed_at: safeTimelineIsoFromMs(body.consumedAt),
-    time_origin: body.timeOrigin ?? null,
-  };
-
-  if (owner.ownerKind === "telegram" && owner.legacyTgUserId) {
-    insertPayload.tg_user_id = owner.legacyTgUserId;
-  } else {
-    // Temporary compatibility shim for legacy schemas where tg_user_id is still NOT NULL.
-    insertPayload.tg_user_id = legacyNativeTgUserId(owner.ownerKey);
-  }
+  const insertPayload = buildItemPayload(owner, body);
 
   let { data, error } = await sb.from("items").insert(insertPayload).select("*").single();
 
@@ -252,35 +289,10 @@ export async function PATCH(req: NextRequest) {
 
   const sb = supabaseAdmin();
 
-  const { data, error } = await sb
-    .from("items")
-    .update({
-      type: body.type,
-      source: normalizeLegacySource(body.source),
-      title: body.title,
-      creator: body.creator ?? null,
-      consumed_at: safeTimelineIsoFromMs(body.consumedAt),
-      time_origin: body.timeOrigin ?? null,
-    })
-    .eq("id", body.id)
-    .or(buildOwnerReadFilter(scope))
-    .select("*")
-    .single();
+  const { data, error } = await applyItemUpdate(sb, scope, body, true);
 
   if (error && (isMissingConsumedAtColumn(error) || isMissingTimeOriginColumn(error))) {
-    const retry = await sb
-      .from("items")
-      .update({
-        type: body.type,
-        source: normalizeLegacySource(body.source),
-        title: body.title,
-        creator: body.creator ?? null,
-      })
-      .eq("id", body.id)
-      .or(buildOwnerReadFilter(scope))
-      .select("*")
-      .single();
-
+    const retry = await applyItemUpdate(sb, scope, body, false);
     if (!retry.error) return NextResponse.json({ item: retry.data });
     if (auth.authType === "telegram" && retry.error.code === "PGRST116") {
       return updateLegacyTelegramItem(req, body, "update");

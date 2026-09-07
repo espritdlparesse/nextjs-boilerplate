@@ -1,5 +1,7 @@
+import type { TimelineSpreadPreset } from "../hooks/timelineTypes";
+import type { FilePlatform, ProfilePlatform } from "../hooks/importTypes";
 import { useState } from "react";
-import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 import {
   getManualCreatorPlaceholder,
   getManualTitlePlaceholder,
@@ -9,7 +11,10 @@ import {
   type SourceType,
   type ThemeMode,
 } from "../shared/everyyou/domain";
-import { BrandLogo } from "../components/BrandLogo";
+import { BrandImportButton, DateInsightBlock, ImportStatusBlock, StatusChip } from "../components/importUi";
+import type { GuideKey } from "../components/importGuides";
+import { ImportGuideModal } from "../components/ImportGuideModal";
+import { ScreenshotImportCard } from "../components/ScreenshotImportCard";
 import { PillButton } from "../components/PillButton";
 import { appStyles } from "../styles/appStyles";
 import { getTheme } from "../styles/theme";
@@ -19,8 +24,6 @@ type SpotifyPlaylist = {
   name: string;
   trackCount: number;
 };
-
-type GuideKey = "spotify" | "livelib" | "goodreads" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi" | null;
 
 type AddScreenProps = {
   themeMode: ThemeMode;
@@ -83,11 +86,7 @@ type AddScreenProps = {
       consumedAt?: number;
     }>
   ) => void;
-  onAssignPendingImageItemThisMonth: (id: string) => void;
-  onAssignPendingImageItemLastMonth: (id: string) => void;
-  onAssignPendingImageItemLast6Months: (id: string) => void;
-  onAssignPendingImageItemThisYear: (id: string) => void;
-  onAssignPendingImageItemVeryOld: (id: string) => void;
+  onAssignPendingImageItem: (id: string, preset: TimelineSpreadPreset) => void;
   onSpotifyUrlChange: (value: string) => void;
   onSpotifyImportPress: () => void;
   onSpotifyConnectPress: () => void;
@@ -100,15 +99,9 @@ type AddScreenProps = {
   onLetterboxdProfileChange: (value: string) => void;
   onLastfmProfileImportPress: () => void;
   onLetterboxdProfileImportPress: () => void;
-  onDisconnectLastfmPress: (deleteContent?: boolean) => void;
-  onDisconnectLetterboxdPress: (deleteContent?: boolean) => void;
+  onDisconnectProfilePress: (platform: ProfilePlatform, deleteContent?: boolean) => void;
   onDisconnectSpotifyPress: (deleteContent?: boolean) => void;
-  onLivelibImportPress: () => void;
-  onGoodreadsImportPress: () => void;
-  onLetterboxdImportPress: () => void;
-  onLastfmImportPress: () => void;
-  onKinopoiskImportPress: () => void;
-  onMubiImportPress: () => void;
+  onPlatformFileImportPress: (platform: FilePlatform) => void;
   onTypeChange: (value: ContentType) => void;
   onSourceChange: (value: SourceType) => void;
   onTitleChange: (value: string) => void;
@@ -117,152 +110,6 @@ type AddScreenProps = {
   onCancelPress: () => void;
   onDone: () => void;
 };
-
-const guides: Record<
-  Exclude<GuideKey, null>,
-  { logo: string; title?: string; steps: string[]; actionLabel: string }
-> = {
-  spotify: {
-    logo: "spotify",
-    steps: [
-      "нажми подключить spotify и пройди логин в браузере",
-      "вернись сюда и нажми обновить spotify",
-      "после этого можно тянуть любимые треки, недавние прослушивания и свои плейлисты",
-    ],
-    actionLabel: "подключить / обновить spotify",
-  },
-  livelib: {
-    logo: "livelib",
-    title: "нужен csv",
-    steps: [
-      "у livelib нет одного понятного официального экспорта для нас, поэтому сейчас нужен уже готовый csv",
-      "подойдет выгрузка через livelib-backup или любой csv, где есть название и автор",
-      "потом просто выбери этот файл из «файлов»",
-    ],
-    actionLabel: "выбрать файл",
-  },
-  goodreads: {
-    logo: "goodreads",
-    title: "нужен csv",
-    steps: [
-      "в goodreads открой my books и найди import and export",
-      "сделай export library, goodreads скачает csv",
-      "потом просто выбери этот csv из файлов",
-    ],
-    actionLabel: "выбрать файл",
-  },
-  letterboxd: {
-    logo: "letterboxd",
-    title: "можно без csv",
-    steps: [
-      "вставь username или ссылку на публичный profile letterboxd",
-      "мы попробуем забрать recent diary / watched через public rss",
-      "если профиль закрыт или rss не поможет — всегда можно вернуться к watched.csv",
-    ],
-    actionLabel: "импортировать профиль",
-  },
-  lastfm: {
-    logo: "last.fm",
-    title: "recent tracks beta",
-    steps: [
-      "введи username last.fm и мы попробуем забрать recent tracks через api",
-      "если у треков есть scrobble time, они сразу лягут в календарь по дням",
-      "если этот способ не сработает, всегда можно загрузить csv",
-    ],
-    actionLabel: "импортировать профиль",
-  },
-  kinopoisk: {
-    logo: "кинопоиск",
-    title: "нужен csv",
-    steps: [
-      "если у тебя уже есть csv с просмотрами или оценками из кинопоиска, можно загрузить его сюда",
-      "если в файле есть watched / isWatched / watched date, мы возьмем только просмотренное",
-      "дальше просто выбери файл из «файлов»",
-    ],
-    actionLabel: "выбрать файл",
-  },
-  mubi: {
-    logo: "mubi",
-    title: "нужен csv",
-    steps: [
-      "если у тебя уже есть csv с просмотренными фильмами из mubi, можно загрузить его сюда",
-      "лучше всего подходят колонки title или name, а еще year, director и дата просмотра, если она есть",
-      "дальше просто выбери файл из «файлов»",
-    ],
-    actionLabel: "выбрать файл",
-  },
-};
-
-function BrandImportButton({
-  brand,
-  hint,
-  onPress,
-  onHelpPress,
-  themeMode,
-}: {
-  brand: Exclude<GuideKey, null>;
-  hint: string;
-  onPress: () => void;
-  onHelpPress: () => void;
-  themeMode: ThemeMode;
-}) {
-  const theme = getTheme(themeMode);
-  return (
-    <View style={[appStyles.brandButton, { backgroundColor: theme.brandButtonBg, borderColor: theme.brandButtonBorder }]}>
-      <Pressable style={appStyles.brandHelpButton} onPress={onHelpPress}>
-        <Text style={[appStyles.brandHelpButtonText, { color: theme.brandHintText }]}>?</Text>
-      </Pressable>
-      <Pressable style={appStyles.brandButtonMain} onPress={onPress}>
-        <BrandLogo brand={brand} />
-        <Text style={[appStyles.brandHint, { color: theme.brandHintText }]}>{hint}</Text>
-      </Pressable>
-    </View>
-  );
-}
-
-function StatusChip({ text }: { text: string }) {
-  return (
-    <View style={appStyles.statusChip}>
-      <Text style={appStyles.statusChipText}>{text}</Text>
-    </View>
-  );
-}
-
-function DateInsightBlock({ insight }: { insight: { title: string; body: string; meta?: string } }) {
-  return (
-    <View style={appStyles.dateInsightCard}>
-      <Text style={appStyles.dateInsightTitle}>{insight.title}</Text>
-      <Text style={appStyles.dateInsightBody}>{insight.body}</Text>
-      {insight.meta ? <Text style={appStyles.metaText}>{insight.meta}</Text> : null}
-    </View>
-  );
-}
-
-function ImportStatusBlock({
-  title,
-  body,
-  themeMode,
-}: {
-  title: string;
-  body: string;
-  themeMode: ThemeMode;
-}) {
-  const theme = getTheme(themeMode);
-  return (
-    <View
-      style={[
-        appStyles.importStatusCard,
-        {
-          backgroundColor: themeMode === "dark" ? theme.surfaceMuted : "#FFFFFF",
-          borderColor: theme.border,
-        },
-      ]}
-    >
-      <Text style={[appStyles.importStatusTitle, { color: theme.text }]}>{title}</Text>
-      <Text style={[appStyles.importStatusBody, { color: theme.mutedText }]}>{body}</Text>
-    </View>
-  );
-}
 
 export function AddScreen({
   themeMode,
@@ -298,11 +145,7 @@ export function AddScreen({
   onRemovePendingImageItem,
   onSelectPendingImageItem,
   onUpdatePendingImageItem,
-  onAssignPendingImageItemThisMonth,
-  onAssignPendingImageItemLastMonth,
-  onAssignPendingImageItemLast6Months,
-  onAssignPendingImageItemThisYear,
-  onAssignPendingImageItemVeryOld,
+  onAssignPendingImageItem,
   onSpotifyUrlChange,
   onSpotifyImportPress,
   onSpotifyConnectPress,
@@ -315,15 +158,9 @@ export function AddScreen({
   onLetterboxdProfileChange,
   onLastfmProfileImportPress,
   onLetterboxdProfileImportPress,
-  onDisconnectLastfmPress,
-  onDisconnectLetterboxdPress,
+  onDisconnectProfilePress,
   onDisconnectSpotifyPress,
-  onLivelibImportPress,
-  onLetterboxdImportPress,
-  onGoodreadsImportPress,
-  onLastfmImportPress,
-  onKinopoiskImportPress,
-  onMubiImportPress,
+  onPlatformFileImportPress,
   onTypeChange,
   onSourceChange,
   onTitleChange,
@@ -333,7 +170,7 @@ export function AddScreen({
   onDone,
 }: AddScreenProps) {
   const theme = getTheme(themeMode);
-  const [guide, setGuide] = useState<GuideKey>(null);
+  const [guide, setGuide] = useState<GuideKey | null>(null);
   const [showSpotifyPlaylists, setShowSpotifyPlaylists] = useState(false);
   const activeType = (type || "music") as ContentType;
   const currentPh = PLACEHOLDERS[activeType][placeholderIndex % PLACEHOLDERS[activeType].length];
@@ -343,7 +180,7 @@ export function AddScreen({
     ? getManualCreatorPlaceholder(activeType)
     : `например: ${currentPh.authorOrArtist}`;
 
-  function runGuideAction(currentGuide: Exclude<GuideKey, null>) {
+  function runGuideAction(currentGuide: GuideKey) {
     if (currentGuide === "spotify") {
       if (spotifyConnected) {
         onSpotifyRefreshPress();
@@ -352,12 +189,7 @@ export function AddScreen({
       }
       return;
     }
-    if (currentGuide === "livelib") return onLivelibImportPress();
-    if (currentGuide === "goodreads") return onGoodreadsImportPress();
-    if (currentGuide === "letterboxd") return onLetterboxdImportPress();
-    if (currentGuide === "lastfm") return onLastfmImportPress();
-    if (currentGuide === "kinopoisk") return onKinopoiskImportPress();
-    if (currentGuide === "mubi") return onMubiImportPress();
+    onPlatformFileImportPress(currentGuide);
   }
 
   function confirmGuideAction() {
@@ -383,137 +215,23 @@ export function AddScreen({
   return (
     <View style={appStyles.screen}>
       {editingId ? null : (
-      <View style={[appStyles.card, themeMode === "dark" ? { backgroundColor: theme.accentPink, borderColor: theme.border } : appStyles.cardAccentPink]}>
-        <Text style={appStyles.sectionTitle}>{editingId ? "редактировать" : "добавить"}</Text>
-        <Text style={[appStyles.helper, { color: theme.accentText }]}>
-          {pendingImageItems.length > 0
-            ? "ткни на карточку, если хочешь поправить ее до сохранения."
-            : "кидай скриншоты откуда угодно, фото книжной полки, обложки в магазине или добавляй вручную. мы попробуем собрать это в один культурный таймлайн."}
-        </Text>
-        <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
-          подойдут и скриншоты сервисов, и фото твоей книжной полки, и просто обложки книг, альбомов или постеров.
-        </Text>
-
-        <PillButton
-          label={isScreenshotImporting ? "анализируем изображения..." : "загрузить изображения"}
-          onPress={onScreenshotImportPress}
+        <ScreenshotImportCard
           themeMode={themeMode}
-          disabled={isScreenshotImporting}
+          isScreenshotImporting={isScreenshotImporting}
+          importedCount={importedCount}
+          screenshotStatus={screenshotStatus}
+          screenshotDateInsight={screenshotDateInsight}
+          pendingImageItems={pendingImageItems}
+          selectedPendingImageItem={selectedPendingImageItem}
+          confirmingPendingImageImport={confirmingPendingImageImport}
+          onScreenshotImportPress={onScreenshotImportPress}
+          onConfirmPendingImageImport={onConfirmPendingImageImport}
+          onCancelPendingImageImport={onCancelPendingImageImport}
+          onRemovePendingImageItem={onRemovePendingImageItem}
+          onSelectPendingImageItem={onSelectPendingImageItem}
+          onUpdatePendingImageItem={onUpdatePendingImageItem}
+          onAssignPendingImageItem={onAssignPendingImageItem}
         />
-
-        {screenshotStatus ? (
-          <ImportStatusBlock title="что сейчас происходит" body={screenshotStatus} themeMode={themeMode} />
-        ) : null}
-
-        <View style={appStyles.chipRow}>
-          <StatusChip text={`импортировано: ${importedCount} треков`} />
-        </View>
-        {screenshotDateInsight ? <DateInsightBlock insight={screenshotDateInsight} /> : null}
-
-        {pendingImageItems.length > 0 ? (
-          <View style={appStyles.stack}>
-            <View style={appStyles.row}>
-              <PillButton
-                label={confirmingPendingImageImport ? "сохраняем..." : `сохранить ${pendingImageItems.length}`}
-                variant="primary"
-                themeMode={themeMode}
-                disabled={confirmingPendingImageImport}
-                onPress={onConfirmPendingImageImport}
-              />
-              <PillButton
-                label="отмена"
-                themeMode={themeMode}
-                disabled={confirmingPendingImageImport}
-                onPress={onCancelPendingImageImport}
-              />
-            </View>
-            <View style={appStyles.previewGrid}>
-              {pendingImageItems.map((item) => (
-                <Pressable
-                  key={item.id}
-                  style={[
-                    appStyles.tile,
-                    appStyles.previewTile,
-                    appStyles.tileYellow,
-                    selectedPendingImageItem?.id === item.id && appStyles.previewTileActive,
-                  ]}
-                  onPress={() => onSelectPendingImageItem(item.id)}
-                >
-                  <Text style={appStyles.previewType}>{TYPE_LABEL[item.type]}</Text>
-                  <Text style={appStyles.previewTitle}>{item.title}</Text>
-                  <Text style={appStyles.previewMeta}>{item.authorOrArtist}</Text>
-                  <Pressable style={appStyles.previewRemoveChip} onPress={() => onRemovePendingImageItem(item.id)}>
-                    <Text style={appStyles.previewRemoveChipText}>убрать</Text>
-                  </Pressable>
-                </Pressable>
-              ))}
-            </View>
-            {selectedPendingImageItem ? (
-              <View style={[appStyles.instructionCard, appStyles.compactEditorCard, themeMode === "dark" && { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <Text style={appStyles.editorTitle}>поправить карточку</Text>
-                <View style={appStyles.row}>
-                  {(["music", "book", "movie"] as ContentType[]).map((value) => (
-                    <PillButton
-                      key={value}
-                      label={TYPE_LABEL[value]}
-                      active={selectedPendingImageItem.type === value}
-                      themeMode={themeMode}
-                      onPress={() =>
-                        onUpdatePendingImageItem(selectedPendingImageItem.id, { type: value })
-                      }
-                    />
-                  ))}
-                </View>
-                <TextInput
-                  style={[appStyles.input, appStyles.compactInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
-                  placeholder="название"
-                  placeholderTextColor={theme.inputPlaceholder}
-                  value={selectedPendingImageItem.title}
-                  onChangeText={(value) =>
-                    onUpdatePendingImageItem(selectedPendingImageItem.id, { title: value })
-                  }
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                <TextInput
-                  style={[appStyles.input, appStyles.compactInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
-                  placeholder="автор, артист или режиссер"
-                  placeholderTextColor={theme.inputPlaceholder}
-                  value={selectedPendingImageItem.authorOrArtist}
-                  onChangeText={(value) =>
-                    onUpdatePendingImageItem(selectedPendingImageItem.id, { authorOrArtist: value })
-                  }
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                <Text style={[appStyles.metaText, { color: theme.mutedText }]}>когда это было примерно?</Text>
-                <View style={appStyles.row}>
-                  <PillButton themeMode={themeMode} label="недавно" onPress={() => onAssignPendingImageItemThisMonth(selectedPendingImageItem.id)} />
-                  <PillButton themeMode={themeMode} label="прошлый месяц" onPress={() => onAssignPendingImageItemLastMonth(selectedPendingImageItem.id)} />
-                  <PillButton themeMode={themeMode} label="полгода" onPress={() => onAssignPendingImageItemLast6Months(selectedPendingImageItem.id)} />
-                  <PillButton themeMode={themeMode} label="этот год" onPress={() => onAssignPendingImageItemThisYear(selectedPendingImageItem.id)} />
-                  <PillButton themeMode={themeMode} label="очень давно" onPress={() => onAssignPendingImageItemVeryOld(selectedPendingImageItem.id)} />
-                </View>
-              </View>
-            ) : null}
-            <View style={appStyles.row}>
-              <PillButton
-                label={confirmingPendingImageImport ? "сохраняем..." : `сохранить ${pendingImageItems.length}`}
-                variant="primary"
-                themeMode={themeMode}
-                disabled={confirmingPendingImageImport}
-                onPress={onConfirmPendingImageImport}
-              />
-              <PillButton
-                label="отмена"
-                themeMode={themeMode}
-                disabled={confirmingPendingImageImport}
-                onPress={onCancelPendingImageImport}
-              />
-            </View>
-          </View>
-        ) : null}
-      </View>
       )}
 
       {editingId ? null : (
@@ -558,12 +276,12 @@ export function AddScreen({
                 <Text style={[appStyles.metaText, { color: theme.mutedText }]}>если нужно, можно отвязать профили и убрать их импорт из библиотеки</Text>
                 <View style={appStyles.spotifyDangerRow}>
                   {connectedSources.lastfm || lastfmUsername.trim() ? (
-                    <PillButton themeMode={themeMode} label="отвязать last.fm" onPress={() => onDisconnectLastfmPress(false)} />
+                    <PillButton themeMode={themeMode} label="отвязать last.fm" onPress={() => onDisconnectProfilePress("lastfm")} />
                   ) : null}
                   {connectedSources.letterboxd || letterboxdProfile.trim() ? (
                     <>
-                      <PillButton themeMode={themeMode} label="отвязать letterboxd" onPress={() => onDisconnectLetterboxdPress(false)} />
-                      <PillButton themeMode={themeMode} label="убрать импорт letterboxd" onPress={() => onDisconnectLetterboxdPress(true)} />
+                      <PillButton themeMode={themeMode} label="отвязать letterboxd" onPress={() => onDisconnectProfilePress("letterboxd")} />
+                      <PillButton themeMode={themeMode} label="убрать импорт letterboxd" onPress={() => onDisconnectProfilePress("letterboxd", true)} />
                     </>
                   ) : null}
                 </View>
@@ -743,92 +461,18 @@ export function AddScreen({
         ) : null}
       </View>
 
-      <Modal visible={Boolean(guide)} transparent animationType="fade" onRequestClose={() => setGuide(null)}>
-        <View style={[appStyles.dayModalBackdrop, { backgroundColor: theme.overlay }]}>
-          <View style={[appStyles.guideModalSheet, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            {guide ? (
-              <>
-                <View style={appStyles.dayModalTopRow}>
-                  <View style={appStyles.dayModalHeading}>
-                    <BrandLogo brand={guide} />
-                    {guides[guide].title ? (
-                      <Text style={[appStyles.metaText, { color: theme.mutedText }]}>{guides[guide].title}</Text>
-                    ) : null}
-                  </View>
-                  <Pressable
-                    style={[appStyles.dayModalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
-                    onPress={() => setGuide(null)}
-                  >
-                    <Text style={[appStyles.dayModalCloseText, { color: theme.text }]}>закрыть</Text>
-                  </Pressable>
-                </View>
-
-                <ScrollView style={appStyles.dayModalScroll} contentContainerStyle={appStyles.dayModalContent} showsVerticalScrollIndicator={false}>
-                  <View style={[appStyles.instructionCard, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-                    {guides[guide].steps.map((step) => (
-                      <Text key={step} style={[appStyles.metaText, { color: theme.text }]}>
-                        • {step}
-                      </Text>
-                    ))}
-                    {guide === "lastfm" ? (
-                      <>
-                        <TextInput
-                          style={[appStyles.input, appStyles.compactInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
-                          placeholder="username last.fm"
-                          placeholderTextColor={theme.inputPlaceholder}
-                          value={lastfmUsername}
-                          onChangeText={onLastfmUsernameChange}
-                          autoCapitalize="none"
-                          autoCorrect={false}
-                        />
-                        <Text style={[appStyles.metaText, { color: theme.text }]}>
-                          импортируем recent tracks из публичного last.fm профиля
-                        </Text>
-                        <PillButton
-                          label={lastfmUsername.trim() ? "обновить last.fm" : "импортировать профиль"}
-                          themeMode={themeMode}
-                          onPress={() => confirmProfileImport("lastfm")}
-                        />
-                        <PillButton label="или выбрать csv" themeMode={themeMode} onPress={confirmGuideAction} />
-                      </>
-                    ) : null}
-                    {guide === "letterboxd" ? (
-                      <>
-                        <TextInput
-                          style={[appStyles.input, appStyles.compactInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
-                          placeholder="username или ссылка на profile"
-                          placeholderTextColor={theme.inputPlaceholder}
-                          value={letterboxdProfile}
-                          onChangeText={onLetterboxdProfileChange}
-                          autoCapitalize="none"
-                          autoCorrect={false}
-                        />
-                        <Text style={[appStyles.metaText, { color: theme.text }]}>
-                          public profile beta: лучше всего работает с открытым профилем
-                        </Text>
-                        <PillButton
-                          label={letterboxdProfile.trim() ? "обновить letterboxd" : "импортировать профиль"}
-                          themeMode={themeMode}
-                          onPress={() => confirmProfileImport("letterboxd")}
-                        />
-                        <PillButton label="или выбрать csv" themeMode={themeMode} onPress={confirmGuideAction} />
-                      </>
-                    ) : null}
-                    {guide !== "lastfm" && guide !== "letterboxd" ? (
-                    <PillButton
-                      label={guides[guide].actionLabel}
-                      themeMode={themeMode}
-                      onPress={confirmGuideAction}
-                      disabled={guide === "spotify" && spotifyOAuthLoading}
-                    />
-                    ) : null}
-                  </View>
-                </ScrollView>
-              </>
-            ) : null}
-          </View>
-        </View>
-      </Modal>
+      <ImportGuideModal
+        guide={guide}
+        onClose={() => setGuide(null)}
+        themeMode={themeMode}
+        lastfmUsername={lastfmUsername}
+        onLastfmUsernameChange={onLastfmUsernameChange}
+        letterboxdProfile={letterboxdProfile}
+        onLetterboxdProfileChange={onLetterboxdProfileChange}
+        onProfileImport={confirmProfileImport}
+        onConfirm={confirmGuideAction}
+        spotifyOAuthLoading={spotifyOAuthLoading}
+      />
     </View>
   );
 }

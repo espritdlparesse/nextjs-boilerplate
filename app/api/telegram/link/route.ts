@@ -12,6 +12,30 @@ function getInitData(req: NextRequest) {
   return req.headers.get("x-telegram-init-data") ?? "";
 }
 
+async function moveOwnedRows(
+  sb: ReturnType<typeof supabaseAdmin>,
+  fromOwnerKey: string,
+  telegramOwnerKey: string,
+  tgUserId: number
+) {
+  const owner = { owner_key: telegramOwnerKey, owner_kind: "telegram" };
+  const migrations = await Promise.allSettled([
+    sb.from("items").update({ ...owner, tg_user_id: tgUserId }).eq("owner_key", fromOwnerKey),
+    sb.from("app_events").update(owner).eq("owner_key", fromOwnerKey),
+    sb.from("analysis_usage_v2").update(owner).eq("owner_key", fromOwnerKey),
+    sb.from("spotify_connections").update(owner).eq("owner_key", fromOwnerKey),
+  ]);
+
+  for (const result of migrations) {
+    if (result.status !== "fulfilled" || !result.value.error) continue;
+    const message = result.value.error.message.toLowerCase();
+    if (!message.includes("relation") && !message.includes("does not exist")) {
+      return result.value.error.message;
+    }
+  }
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!botToken) return NextResponse.json({ error: "TELEGRAM_BOT_TOKEN missing" }, { status: 500 });
@@ -50,21 +74,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: existingTelegramLinkError.message }, { status: 500 });
   }
 
-  const migrations = await Promise.allSettled([
-    sb.from("items").update({ owner_key: telegramOwnerKey, owner_kind: "telegram", tg_user_id: tgUserId }).eq("owner_key", linkRow.app_owner_key),
-    sb.from("app_events").update({ owner_key: telegramOwnerKey, owner_kind: "telegram" }).eq("owner_key", linkRow.app_owner_key),
-    sb.from("analysis_usage_v2").update({ owner_key: telegramOwnerKey, owner_kind: "telegram" }).eq("owner_key", linkRow.app_owner_key),
-    sb.from("spotify_connections").update({ owner_key: telegramOwnerKey, owner_kind: "telegram" }).eq("owner_key", linkRow.app_owner_key),
-  ]);
-
-  for (const result of migrations) {
-    if (result.status === "fulfilled" && result.value.error) {
-      const message = result.value.error.message.toLowerCase();
-      if (!message.includes("relation") && !message.includes("does not exist")) {
-        return NextResponse.json({ error: result.value.error.message }, { status: 500 });
-      }
-    }
-  }
+  const migrationError = await moveOwnedRows(sb, linkRow.app_owner_key, telegramOwnerKey, tgUserId);
+  if (migrationError) return NextResponse.json({ error: migrationError }, { status: 500 });
 
   if (existingTelegramLink?.app_owner_key) {
     const { error: deleteConflictingLinkError } = await sb

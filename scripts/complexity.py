@@ -23,6 +23,41 @@ NOT_A_CALL = {'if', 'for', 'while', 'switch', 'catch', 'return', 'sizeof', 'decl
 BACKSLASH = chr(92)
 
 
+def skip_line_comment(text, index, length):
+    newline = text.find('\n', index)
+    return None, length if newline < 0 else newline
+
+
+def skip_block_comment(text, index, length):
+    closing = text.find('*/', index + 2)
+    return ' ', length if closing < 0 else closing + 2
+
+
+def skip_raw_string(text, index, length, raw):
+    terminator = ')' + raw.group(1) + '"'
+    closing = text.find(terminator, index + len(raw.group(0)))
+    return '""', length if closing < 0 else closing + len(terminator)
+
+
+def skip_quoted(text, index, length):
+    quote, index = text[index], index + 1
+    while index < length and text[index] != quote:
+        index += 2 if text[index] == BACKSLASH else 1
+    return '""', index + 1
+
+
+def skip_directive(text, index, length):
+    while index < length:
+        newline = text.find('\n', index)
+        if newline < 0:
+            return None, length
+        index = newline
+        if text[max(newline - 1, 0)] != BACKSLASH:
+            return None, index
+        index += 1
+    return None, index
+
+
 def without_noise(text):
     kept, index, length = [], 0, len(text)
     while index < length:
@@ -30,36 +65,19 @@ def without_noise(text):
         pair = text[index:index + 2]
         raw = re.match(r'R"([^("]{0,16})\(', text[index:])
         if pair == '//':
-            newline = text.find('\n', index)
-            index = length if newline < 0 else newline
+            piece, index = skip_line_comment(text, index, length)
         elif pair == '/*':
-            closing = text.find('*/', index + 2)
-            kept.append(' ')
-            index = length if closing < 0 else closing + 2
+            piece, index = skip_block_comment(text, index, length)
         elif character == 'R' and raw:
-            terminator = ')' + raw.group(1) + '"'
-            closing = text.find(terminator, index + len(raw.group(0)))
-            kept.append('""')
-            index = length if closing < 0 else closing + len(terminator)
+            piece, index = skip_raw_string(text, index, length, raw)
         elif character == '"' or character == "'":
-            quote, index = character, index + 1
-            while index < length and text[index] != quote:
-                index += 2 if text[index] == BACKSLASH else 1
-            index += 1
-            kept.append('""')
+            piece, index = skip_quoted(text, index, length)
         elif character == '#' and (not kept or kept[-1] == '\n'):
-            while index < length:
-                newline = text.find('\n', index)
-                if newline < 0:
-                    index = length
-                    break
-                index = newline
-                if text[max(newline - 1, 0)] != BACKSLASH:
-                    break
-                index += 1
+            piece, index = skip_directive(text, index, length)
         else:
-            kept.append(character)
-            index += 1
+            piece, index = character, index + 1
+        if piece is not None:
+            kept.append(piece)
     return ''.join(kept)
 
 

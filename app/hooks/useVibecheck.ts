@@ -63,6 +63,47 @@ export function useDeepVibe() {
   };
 }
 
+type VibeOutcome =
+  | { kind: "error"; message: string }
+  | { kind: "duel"; duel: VibeDuel }
+  | { kind: "summary"; summary: string; runId: string | null };
+
+async function requestVibeCheck(): Promise<VibeOutcome> {
+  try {
+    const { res, json } = await apiFetch("/api/v2/analysis", { method: "POST" });
+    if (!res.ok) return { kind: "error", message: json?.error ?? vibeErrorForStatus(res.status) };
+    const duel = json?.duel as VibeDuel | undefined;
+    if (isDuelResponse(duel)) return { kind: "duel", duel };
+    return {
+      kind: "summary",
+      summary: json?.summary ?? "",
+      runId: typeof json?.runId === "string" ? json.runId : null,
+    };
+  } catch (e: any) {
+    return { kind: "error", message: e?.message ?? "Network error" };
+  }
+}
+
+function useMentalAge() {
+  const [mentalAge, setMentalAge] = useState("");
+  const [mentalAgeLoading, setMentalAgeLoading] = useState(false);
+
+  async function runMentalAge() {
+    setMentalAgeLoading(true);
+    setMentalAge("");
+    try {
+      const { json } = await apiFetch("/api/mental-age", { method: "POST" });
+      setMentalAge(json?.result ?? "");
+    } catch {
+      setMentalAge("не удалось посчитать");
+    } finally {
+      setMentalAgeLoading(false);
+    }
+  }
+
+  return { mentalAge, mentalAgeLoading, runMentalAge };
+}
+
 export function useVibecheck() {
   const [summary, setSummary] = useState("");
   const [vibeLoading, setVibeLoading] = useState(false);
@@ -72,8 +113,7 @@ export function useVibecheck() {
   const [vibeDuel, setVibeDuel] = useState<VibeDuel | null>(null);
   const [vibeShownAt, setVibeShownAt] = useState<number | null>(null);
   const [shareRunId, setShareRunId] = useState<string | null>(null);
-  const [mentalAge, setMentalAge] = useState("");
-  const [mentalAgeLoading, setMentalAgeLoading] = useState(false);
+  const { mentalAge, mentalAgeLoading, runMentalAge } = useMentalAge();
 
   async function runVibeCheck() {
     if (summary) {
@@ -84,26 +124,19 @@ export function useVibecheck() {
       });
     }
     setVibeLoading(true); setVibeError(""); setSummary(""); setVibeFeedback(null); setVibeRunId(null); setVibeDuel(null);
-    try {
-      const { res, json } = await apiFetch("/api/v2/analysis", { method: "POST", });
-      if (!res.ok) {
-        setVibeError(json?.error ?? vibeErrorForStatus(res.status));
-        return;
-      }
-      const duel = json?.duel as VibeDuel | undefined;
-      if (isDuelResponse(duel)) {
-        setVibeDuel(duel);
-        setVibeShownAt(Date.now());
-        return;
-      }
-      setSummary(json?.summary ?? "");
-      setVibeRunId(typeof json?.runId === "string" ? json.runId : null);
-      setVibeShownAt(Date.now());
-    } catch (e: any) {
-      setVibeError(e?.message ?? "Network error");
-    } finally {
-      setVibeLoading(false);
+    const outcome = await requestVibeCheck();
+    setVibeLoading(false);
+    if (outcome.kind === "error") {
+      setVibeError(outcome.message);
+      return;
     }
+    setVibeShownAt(Date.now());
+    if (outcome.kind === "duel") {
+      setVibeDuel(outcome.duel);
+      return;
+    }
+    setSummary(outcome.summary);
+    setVibeRunId(outcome.runId);
   }
 
   async function pickDuelWinner(variant: VibeDuelVariant) {
@@ -121,18 +154,6 @@ export function useVibecheck() {
     if (!summary || vibeFeedback) return;
     setVibeFeedback(rating);
     apiFetch("/api/v2/vibe-feedback", { method: "POST", body: JSON.stringify({ summary, rating, runId: vibeRunId }) }).catch(() => undefined);
-  }
-
-  async function runMentalAge() {
-    setMentalAgeLoading(true); setMentalAge("");
-    try {
-      const { res, json } = await apiFetch("/api/mental-age", { method: "POST" });
-      setMentalAge(json?.result ?? "");
-    } catch (e: any) {
-      setMentalAge("не удалось посчитать");
-    } finally {
-      setMentalAgeLoading(false);
-    }
   }
 
   return {

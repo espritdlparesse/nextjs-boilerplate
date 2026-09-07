@@ -14,3 +14,6 @@ export type ConnectedSourceState = {
   lastfm: { profile: string; lastSyncedAt: string | null } | null;
   letterboxd: { profile: string; lastSyncedAt: string | null } | null;
 };
+
+export type FilePlatform = "livelib" | "goodreads" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi";
+export type ProfilePlatform = "lastfm" | "letterboxd";

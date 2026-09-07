@@ -1,4 +1,4 @@
-import Svg, { Circle, Ellipse, Path, Rect, Text as SvgText } from "react-native-svg";
+import Svg, { Circle, Path, Rect, Text as SvgText } from "react-native-svg";
 
 type Brand = "spotify" | "livelib" | "goodreads" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi";
 

@@ -3,6 +3,8 @@ import OpenAI from "openai";
 import { resolveApiIdentity } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { buildOwnerReadFilter, getOwnerScope } from "@/lib/ownerLinks";
+import { loadTimelineItems, readRange } from "@/lib/vibeItems";
+import { trimList } from "@/lib/textLists";
 
 export const runtime = "nodejs";
 
@@ -19,6 +21,8 @@ type DeepAnalysisRequestBody = {
 };
 
 const FREE_DEEP_VIBE_USES = 2;
+const DEFAULT_BASIS = ["самые свежие айтемы периода", "повторы артистов и авторов"];
+const DEFAULT_HIGHLIGHTS = ["последние айтемы сильнее всего тянут в сторону одного эмоционального мотива"];
 
 function buildCreatorContext(
   items: Array<{ creator: string | null; title: string; type: string }>
@@ -101,110 +105,45 @@ export async function GET(req: NextRequest) {
   });
 }
 
-export async function POST(req: NextRequest) {
-  const auth = resolveApiIdentity(req);
-  if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
-  const scope = await getOwnerScope(auth);
-  const owner = scope.primaryOwner;
-  const body = (await req.json().catch(() => null)) as DeepAnalysisRequestBody | null;
-  const from = typeof body?.from === "number" && Number.isFinite(body.from) ? body.from : null;
-  const to = typeof body?.to === "number" && Number.isFinite(body.to) ? body.to : null;
-  const hasRange = from !== null && to !== null;
+type DeepItem = {
+  type: string;
+  title: string;
+  creator: string | null;
+  consumed_at: string | null;
+  created_at: string | null;
+  time_origin?: string | null;
+};
 
-  const sb = supabaseAdmin();
-  const { count: usageCount, error: usageError } = await sb
-    .from("analysis_usage_v2")
-    .select("id", { count: "exact", head: true })
-    .in("owner_key", scope.readOwnerKeys);
+const ITEM_COLUMNS = "type, title, creator, consumed_at, created_at, time_origin";
 
-  if (usageError) return NextResponse.json({ error: usageError.message }, { status: 500 });
-  const usesLeftBeforeRun = Math.max(0, FREE_DEEP_VIBE_USES - (usageCount ?? 0));
-  if (usesLeftBeforeRun <= 0) {
-    return NextResponse.json(
-      {
-        error: "paywall",
-        access: "paywall",
-        usesLeft: 0,
-        totalFreeUses: FREE_DEEP_VIBE_USES,
-      },
-      { status: 403 }
-    );
-  }
+function describeItem(item: DeepItem, withOrigin = false) {
+  const creator = item.creator ? ` — ${item.creator}` : "";
+  const origin = withOrigin && item.time_origin ? ` (${item.time_origin})` : "";
+  return `[${item.type}] ${item.title}${creator}${origin}`;
+}
 
-  let baseQuery = sb
-    .from("items")
-    .select("type, title, creator, consumed_at, created_at, time_origin")
-    .or(buildOwnerReadFilter(scope));
-  if (hasRange) {
-    baseQuery = baseQuery
-      .gte("consumed_at", new Date(from).toISOString())
-      .lte("consumed_at", new Date(to).toISOString());
-  }
-
-  let { data: items, error } = await baseQuery
-    .order("consumed_at", { ascending: false, nullsFirst: false })
-    .limit(hasRange ? 1000 : 300);
-
-  if (error?.message?.toLowerCase().includes("consumed_at")) {
-    let fallbackQuery = sb
-      .from("items")
-      .select("type, title, creator, consumed_at, created_at, time_origin")
-      .or(buildOwnerReadFilter(scope));
-    if (hasRange) {
-      fallbackQuery = fallbackQuery
-        .gte("created_at", new Date(from).toISOString())
-        .lte("created_at", new Date(to).toISOString());
-    }
-    const fallback = await fallbackQuery.order("created_at", { ascending: false }).limit(hasRange ? 1000 : 300);
-    items = fallback.data;
-    error = fallback.error;
-  }
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!items || items.length === 0) {
-    return NextResponse.json({
-      access: "free",
-      usesLeft: usesLeftBeforeRun,
-      totalFreeUses: FREE_DEEP_VIBE_USES,
-      itemCount: 0,
-      summary: "пока нечего анализировать. добавь хотя бы несколько треков, книг или фильмов.",
-      highlights: ["начни со spotify import", "или добавь что-то вручную"],
-      basis: [],
-      recommendations: [],
-    });
-  }
-
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY missing" }, { status: 500 });
-
-  const recentItems = items.slice(0, 40).map((item) => {
-    const creator = item.creator ? ` — ${item.creator}` : "";
-    return `[${item.type}] ${item.title}${creator}${item.time_origin ? ` (${item.time_origin})` : ""}`;
-  });
-
-  const olderItems = items.slice(40, 120).map((item) => {
-    const creator = item.creator ? ` — ${item.creator}` : "";
-    return `[${item.type}] ${item.title}${creator}`;
-  });
-
-  const monthBuckets = new Map<string, string[]>();
+function buildMonthlyContext(items: DeepItem[]) {
+  const buckets = new Map<string, string[]>();
   for (const item of items) {
-    const timestamp = item.consumed_at
-      ? new Date(item.consumed_at).getTime()
-      : item.created_at
-        ? new Date(item.created_at).getTime()
-        : null;
-    const key = timestamp
-      ? new Date(timestamp).toLocaleString("ru-RU", { month: "long", year: "numeric" }).toLowerCase()
+    const stamp = item.consumed_at ?? item.created_at;
+    const key = stamp
+      ? new Date(stamp).toLocaleString("ru-RU", { month: "long", year: "numeric" }).toLowerCase()
       : "без времени";
-    const bucket = monthBuckets.get(key) ?? [];
-    bucket.push(`[${item.type}] ${item.title}${item.creator ? ` — ${item.creator}` : ""}`);
-    monthBuckets.set(key, bucket);
+    const bucket = buckets.get(key) ?? [];
+    bucket.push(describeItem(item));
+    buckets.set(key, bucket);
   }
 
-  const monthlyContext = Array.from(monthBuckets.entries())
+  return Array.from(buckets.entries())
     .slice(0, 6)
     .map(([month, bucket]) => `${month}:\n${bucket.slice(0, 8).join("\n")}`)
     .join("\n\n");
+}
+
+async function generateDeepAnalysis(apiKey: string, items: DeepItem[]) {
+  const recentItems = items.slice(0, 40).map((item) => describeItem(item, true));
+  const olderItems = items.slice(40, 120).map((item) => describeItem(item));
+  const monthlyContext = buildMonthlyContext(items);
   const creatorContext = buildCreatorContext(items);
 
   const model = process.env.OPENAI_DEEP_MODEL ?? "gpt-4.1";
@@ -228,18 +167,59 @@ ${olderItems.join("\n")}
 ${monthlyContext}`,
   });
   const parsed = extractJson(raw);
-  const summary =
-    parsed?.summary?.trim() ||
-    "в последних айтемах явно есть повторяющийся эмоциональный контур, но ответ модели вернулся не в том формате.";
-  const highlights = Array.isArray(parsed?.highlights)
-    ? parsed.highlights.map((item) => item.trim()).filter(Boolean).slice(0, 6)
-    : [];
-  const basis = Array.isArray(parsed?.basis)
-    ? parsed.basis.map((item) => item.trim()).filter(Boolean).slice(0, 3)
-    : [];
-  const recommendations = Array.isArray(parsed?.recommendations)
-    ? parsed.recommendations.map((item) => item.trim()).filter(Boolean).slice(0, 5)
-    : [];
+  return {
+    summary:
+      parsed?.summary?.trim() ||
+      "в последних айтемах явно есть повторяющийся эмоциональный контур, но ответ модели вернулся не в том формате.",
+    highlights: trimList(parsed?.highlights, 6),
+    basis: trimList(parsed?.basis, 3),
+    recommendations: trimList(parsed?.recommendations, 5),
+  };
+}
+
+
+export async function POST(req: NextRequest) {
+  const auth = resolveApiIdentity(req);
+  if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
+  const scope = await getOwnerScope(auth);
+  const owner = scope.primaryOwner;
+  const body = (await req.json().catch(() => null)) as DeepAnalysisRequestBody | null;
+  const range = readRange(body);
+
+  const sb = supabaseAdmin();
+  const { count: usageCount, error: usageError } = await sb
+    .from("analysis_usage_v2")
+    .select("id", { count: "exact", head: true })
+    .in("owner_key", scope.readOwnerKeys);
+
+  if (usageError) return NextResponse.json({ error: usageError.message }, { status: 500 });
+  const usesLeftBeforeRun = Math.max(0, FREE_DEEP_VIBE_USES - (usageCount ?? 0));
+  if (usesLeftBeforeRun <= 0) {
+    return NextResponse.json(
+      { error: "paywall", access: "paywall", usesLeft: 0, totalFreeUses: FREE_DEEP_VIBE_USES },
+      { status: 403 }
+    );
+  }
+
+  const { data: items, error } = await loadTimelineItems<DeepItem>(sb, scope, range, ITEM_COLUMNS);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!items || items.length === 0) {
+    return NextResponse.json({
+      access: "free",
+      usesLeft: usesLeftBeforeRun,
+      totalFreeUses: FREE_DEEP_VIBE_USES,
+      itemCount: 0,
+      summary: "пока нечего анализировать. добавь хотя бы несколько треков, книг или фильмов.",
+      highlights: ["начни со spotify import", "или добавь что-то вручную"],
+      basis: [],
+      recommendations: [],
+    });
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY missing" }, { status: 500 });
+
+  const analysis = await generateDeepAnalysis(apiKey, items);
 
   const insertUsage = await sb.from("analysis_usage_v2").insert({
     owner_key: owner.ownerKey,
@@ -253,15 +233,9 @@ ${monthlyContext}`,
     usesLeft,
     totalFreeUses: FREE_DEEP_VIBE_USES,
     itemCount: items.length,
-    summary,
-    basis:
-      basis.length > 0
-        ? basis
-        : ["самые свежие айтемы периода", "повторы артистов и авторов"],
-    highlights:
-      highlights.length > 0
-        ? highlights
-        : ["последние айтемы сильнее всего тянут в сторону одного эмоционального мотива"],
-    recommendations,
+    summary: analysis.summary,
+    basis: analysis.basis.length > 0 ? analysis.basis : DEFAULT_BASIS,
+    highlights: analysis.highlights.length > 0 ? analysis.highlights : DEFAULT_HIGHLIGHTS,
+    recommendations: analysis.recommendations,
   });
 }

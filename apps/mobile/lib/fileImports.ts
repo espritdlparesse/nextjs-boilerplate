@@ -106,217 +106,153 @@ function findColumn(headers: string[], aliases: string[]) {
   return -1;
 }
 
-function parseLivelib(text: string) {
+type RowReader = {
+  raw: (column: string) => string | undefined;
+  text: (column: string) => string;
+  date: (column: string) => number | undefined;
+  has: (column: string) => boolean;
+};
+
+type ExportSpec = {
+  columns: Record<string, string[]>;
+  requireAll?: string[];
+  requireAny?: string[];
+  emptyFileError?: string;
+  formatError: string;
+  emptyError: string;
+  toDraft: (row: RowReader) => DraftItem | null;
+};
+
+function withYear(title: string, year: string) {
+  return year ? `${title} (${year})` : title;
+}
+
+function parseCsvExport(text: string, spec: ExportSpec) {
   const lines = text.split(/\r?\n/).filter(Boolean);
-  if (lines.length < 2) throw new Error("файл пустой или не распознан");
+  if (lines.length < 2) throw new Error(spec.emptyFileError ?? "файл пустой");
 
   const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase());
-  const titleCol = findColumn(headers, ["title", "название", "book title", "name"]);
-  const authorCol = findColumn(headers, ["author", "автор", "writer"]);
-  const dateCol = findColumn(headers, ["date", "дата", "finished", "finish date", "read date"]);
-
-  if (titleCol === -1) {
-    throw new Error("не нашли колонку с названием книги. попробуй формат из livelib-backup");
+  const columnIndex: Record<string, number> = {};
+  for (const [column, aliases] of Object.entries(spec.columns)) {
+    columnIndex[column] = findColumn(headers, aliases);
   }
 
+  const allPresent = (spec.requireAll ?? []).every((column) => columnIndex[column] !== -1);
+  const anyPresent = !spec.requireAny || spec.requireAny.some((column) => columnIndex[column] !== -1);
+  if (!allPresent || !anyPresent) throw new Error(spec.formatError);
+
   const items: DraftItem[] = [];
-  for (let i = 1; i < lines.length; i += 1) {
-    const row = parseCsvLine(lines[i]);
-    const item = rowToDraft(
-      "book",
-      row[titleCol] ?? "",
-      authorCol !== -1 ? row[authorCol] ?? "" : "",
-      dateCol !== -1 ? normalizeDateInput(row[dateCol] ?? "") : undefined
-    );
+  for (let index = 1; index < lines.length; index += 1) {
+    const cells = parseCsvLine(lines[index]);
+    const raw = (column: string) => cells[columnIndex[column]];
+    const reader: RowReader = {
+      raw,
+      text: (column) => raw(column) ?? "",
+      date: (column) => (columnIndex[column] === -1 ? undefined : normalizeDateInput(raw(column) ?? "")),
+      has: (column) => columnIndex[column] !== -1,
+    };
+    const item = spec.toDraft(reader);
     if (item) items.push(item);
   }
 
-  if (items.length === 0) throw new Error("книги не найдены в файле");
+  if (items.length === 0) throw new Error(spec.emptyError);
   return dedupeDrafts(items);
 }
 
-function parseGoodreads(text: string) {
-  const lines = text.split(/\r?\n/).filter(Boolean);
-  if (lines.length < 2) throw new Error("файл пустой или не распознан");
+const KINOPOISK_WATCHED = ["true", "1", "yes", "да"];
 
-  const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase());
-  const titleCol = findColumn(headers, ["title"]);
-  const authorCol = findColumn(headers, ["author", "author l-f", "additional authors"]);
-  const shelfCol = findColumn(headers, ["exclusive shelf"]);
-  const dateReadCol = findColumn(headers, ["date read"]);
-  const dateAddedCol = findColumn(headers, ["date added"]);
-
-  if (titleCol === -1) {
-    throw new Error("не распознан формат goodreads export");
-  }
-
-  const items: DraftItem[] = [];
-  for (let i = 1; i < lines.length; i += 1) {
-    const row = parseCsvLine(lines[i]);
-    const shelf = (row[shelfCol] ?? "").toLowerCase();
-    const dateRead = dateReadCol !== -1 ? normalizeDateInput(row[dateReadCol] ?? "") : undefined;
-    const dateAdded = dateAddedCol !== -1 ? normalizeDateInput(row[dateAddedCol] ?? "") : undefined;
-
-    const shouldInclude =
-      shelf === "read" ||
-      shelf === "currently-reading" ||
-      typeof dateRead === "number";
-
-    if (!shouldInclude) continue;
-
-    const item = rowToDraft(
-      "book",
-      row[titleCol] ?? "",
-      authorCol !== -1 ? row[authorCol] ?? "" : "",
-      dateRead ?? dateAdded
-    );
-    if (item) items.push(item);
-  }
-
-  if (items.length === 0) throw new Error("книги не найдены в файле Goodreads");
-  return dedupeDrafts(items);
-}
-
-function parseLetterboxd(text: string) {
-  const lines = text.split(/\r?\n/).filter(Boolean);
-  if (lines.length < 2) throw new Error("файл пустой");
-
-  const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase());
-  const nameCol = findColumn(headers, ["name", "title"]);
-  const yearCol = findColumn(headers, ["year"]);
-  const watchedCol = findColumn(headers, ["watched date", "watcheddate", "diary date", "date"]);
-
-  if (nameCol === -1) throw new Error("не распознан формат Letterboxd CSV");
-
-  const items: DraftItem[] = [];
-  for (let i = 1; i < lines.length; i += 1) {
-    const row = parseCsvLine(lines[i]);
-    const name = row[nameCol] ?? "";
-    const year = yearCol !== -1 ? row[yearCol] ?? "" : "";
-    const title = year ? `${name} (${year})` : name;
-    const item = rowToDraft(
-      "movie",
-      title,
-      "",
-      watchedCol !== -1 ? normalizeDateInput(row[watchedCol] ?? "") : undefined
-    );
-    if (item) items.push(item);
-  }
-
-  if (items.length === 0) throw new Error("фильмы не найдены в файле");
-  return dedupeDrafts(items);
-}
-
-function parseLastfm(text: string) {
-  const lines = text.split(/\r?\n/).filter(Boolean);
-  if (lines.length < 2) throw new Error("файл пустой");
-
-  const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase());
-  const trackCol = findColumn(headers, ["track", "track name", "name", "song"]);
-  const artistCol = findColumn(headers, ["artist", "artist name"]);
-  const dateCol = findColumn(headers, ["date", "timestamp", "time", "scrobbled at", "played at", "uts"]);
-
-  if (trackCol === -1 || artistCol === -1) {
-    throw new Error("не распознан формат Last.fm CSV");
-  }
-
-  const items: DraftItem[] = [];
-  for (let i = 1; i < lines.length; i += 1) {
-    const row = parseCsvLine(lines[i]);
-    const item = rowToDraft(
-      "music",
-      row[trackCol] ?? "",
-      row[artistCol] ?? "",
-      dateCol !== -1 ? normalizeDateInput(row[dateCol] ?? "") : undefined
-    );
-    if (item) items.push(item);
-  }
-
-  if (items.length === 0) throw new Error("треки не найдены в файле");
-  return dedupeDrafts(items);
-}
-
-function parseKinopoisk(text: string) {
-  const lines = text.split(/\r?\n/).filter(Boolean);
-  if (lines.length < 2) throw new Error("файл пустой");
-
-  const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase());
-  const nameCol = findColumn(headers, ["name", "название"]);
-  const originalNameCol = findColumn(headers, ["originalname", "original name", "english title"]);
-  const yearCol = findColumn(headers, ["year", "год"]);
-  const watchedCol = findColumn(headers, ["iswatched", "watched", "просмотрено"]);
-  const watchedDateCol = findColumn(headers, ["watched date", "watch date", "просмотрено дата", "дата просмотра", "date"]);
-
-  if (nameCol === -1 && originalNameCol === -1) {
-    throw new Error("не распознан формат Kinopoisk export");
-  }
-
-  const items: DraftItem[] = [];
-  for (let i = 1; i < lines.length; i += 1) {
-    const row = parseCsvLine(lines[i]);
-    const watchedValue = watchedCol !== -1 ? (row[watchedCol] ?? "").toLowerCase() : "true";
-    if (watchedCol !== -1 && !["true", "1", "yes", "да"].includes(watchedValue)) continue;
-
-    const baseTitle = row[nameCol] ?? row[originalNameCol] ?? "";
-    const year = yearCol !== -1 ? row[yearCol] ?? "" : "";
-    const title = year ? `${baseTitle} (${year})` : baseTitle;
-    const item = rowToDraft(
-      "movie",
-      title,
-      "",
-      watchedDateCol !== -1 ? normalizeDateInput(row[watchedDateCol] ?? "") : undefined
-    );
-    if (item) items.push(item);
-  }
-
-  if (items.length === 0) throw new Error("фильмы не найдены в файле Kinopoisk");
-  return dedupeDrafts(items);
-}
-
-function parseMubi(text: string) {
-  const lines = text.split(/\r?\n/).filter(Boolean);
-  if (lines.length < 2) throw new Error("файл пустой");
-
-  const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase());
-  const titleCol = findColumn(headers, ["title", "name", "film", "movie"]);
-  const yearCol = findColumn(headers, ["year"]);
-  const directorCol = findColumn(headers, ["director", "creator"]);
-  const watchedDateCol = findColumn(headers, ["watched date", "watch date", "date"]);
-
-  if (titleCol === -1) {
-    throw new Error("не распознан формат MUBI CSV");
-  }
-
-  const items: DraftItem[] = [];
-  for (let i = 1; i < lines.length; i += 1) {
-    const row = parseCsvLine(lines[i]);
-    const titleBase = row[titleCol] ?? "";
-    const year = yearCol !== -1 ? row[yearCol] ?? "" : "";
-    const director = directorCol !== -1 ? row[directorCol] ?? "" : "";
-    const title = year ? `${titleBase} (${year})` : titleBase;
-    const item = rowToDraft(
-      "movie",
-      title,
-      director,
-      watchedDateCol !== -1 ? normalizeDateInput(row[watchedDateCol] ?? "") : undefined
-    );
-    if (item) {
-      items.push({
-        ...item,
-        authorOrArtist: director ? item.authorOrArtist : "",
-      });
-    }
-  }
-
-  if (items.length === 0) throw new Error("фильмы не найдены в файле MUBI");
-  return dedupeDrafts(items);
-}
+const EXPORT_SPECS: Record<ImportPlatform, ExportSpec> = {
+  livelib: {
+    columns: {
+      title: ["title", "название", "book title", "name"],
+      author: ["author", "автор", "writer"],
+      date: ["date", "дата", "finished", "finish date", "read date"],
+    },
+    requireAll: ["title"],
+    emptyFileError: "файл пустой или не распознан",
+    formatError: "не нашли колонку с названием книги. попробуй формат из livelib-backup",
+    emptyError: "книги не найдены в файле",
+    toDraft: (row) => rowToDraft("book", row.text("title"), row.text("author"), row.date("date")),
+  },
+  goodreads: {
+    columns: {
+      title: ["title"],
+      author: ["author", "author l-f", "additional authors"],
+      shelf: ["exclusive shelf"],
+      dateRead: ["date read"],
+      dateAdded: ["date added"],
+    },
+    requireAll: ["title"],
+    emptyFileError: "файл пустой или не распознан",
+    formatError: "не распознан формат goodreads export",
+    emptyError: "книги не найдены в файле Goodreads",
+    toDraft: (row) => {
+      const shelf = row.text("shelf").toLowerCase();
+      const dateRead = row.date("dateRead");
+      const keep = shelf === "read" || shelf === "currently-reading" || typeof dateRead === "number";
+      if (!keep) return null;
+      return rowToDraft("book", row.text("title"), row.text("author"), dateRead ?? row.date("dateAdded"));
+    },
+  },
+  letterboxd: {
+    columns: {
+      name: ["name", "title"],
+      year: ["year"],
+      watched: ["watched date", "watcheddate", "diary date", "date"],
+    },
+    requireAll: ["name"],
+    formatError: "не распознан формат Letterboxd CSV",
+    emptyError: "фильмы не найдены в файле",
+    toDraft: (row) =>
+      rowToDraft("movie", withYear(row.text("name"), row.text("year")), "", row.date("watched")),
+  },
+  lastfm: {
+    columns: {
+      track: ["track", "track name", "name", "song"],
+      artist: ["artist", "artist name"],
+      date: ["date", "timestamp", "time", "scrobbled at", "played at", "uts"],
+    },
+    requireAll: ["track", "artist"],
+    formatError: "не распознан формат Last.fm CSV",
+    emptyError: "треки не найдены в файле",
+    toDraft: (row) => rowToDraft("music", row.text("track"), row.text("artist"), row.date("date")),
+  },
+  kinopoisk: {
+    columns: {
+      name: ["name", "название"],
+      originalName: ["originalname", "original name", "english title"],
+      year: ["year", "год"],
+      watched: ["iswatched", "watched", "просмотрено"],
+      watchedDate: ["watched date", "watch date", "просмотрено дата", "дата просмотра", "date"],
+    },
+    requireAny: ["name", "originalName"],
+    formatError: "не распознан формат Kinopoisk export",
+    emptyError: "фильмы не найдены в файле Kinopoisk",
+    toDraft: (row) => {
+      if (row.has("watched") && !KINOPOISK_WATCHED.includes(row.text("watched").toLowerCase())) return null;
+      const base = row.raw("name") ?? row.raw("originalName") ?? "";
+      return rowToDraft("movie", withYear(base, row.text("year")), "", row.date("watchedDate"));
+    },
+  },
+  mubi: {
+    columns: {
+      title: ["title", "name", "film", "movie"],
+      year: ["year"],
+      director: ["director", "creator"],
+      watchedDate: ["watched date", "watch date", "date"],
+    },
+    requireAll: ["title"],
+    formatError: "не распознан формат MUBI CSV",
+    emptyError: "фильмы не найдены в файле MUBI",
+    toDraft: (row) => {
+      const director = row.text("director");
+      const item = rowToDraft("movie", withYear(row.text("title"), row.text("year")), director, row.date("watchedDate"));
+      if (!item) return null;
+      return { ...item, authorOrArtist: director ? item.authorOrArtist : "" };
+    },
+  },
+};
 
 export function parseImportedFile(platform: ImportPlatform, text: string) {
-  if (platform === "livelib") return parseLivelib(text);
-  if (platform === "goodreads") return parseGoodreads(text);
-  if (platform === "letterboxd") return parseLetterboxd(text);
-  if (platform === "lastfm") return parseLastfm(text);
-  if (platform === "kinopoisk") return parseKinopoisk(text);
-  return parseMubi(text);
+  return parseCsvExport(text, EXPORT_SPECS[platform]);
 }

@@ -4,7 +4,7 @@ import { updateItem } from "../lib/api";
 import { Dispatch, SetStateAction } from "react";
 import type { DateInsight, TimelineSpreadPreset } from "./timelineTypes";
 
-type SyncStatus = "idle" | "syncing" | "online" | "offline";
+import type { SyncStatus } from "./appTypes";
 
 export function useTimeline(deps: {
   apiToken: string | null;

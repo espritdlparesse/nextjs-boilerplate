@@ -61,46 +61,53 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function DELETE(req: NextRequest) {
-  const auth = resolveApiIdentity(req);
-  if (!auth.ok) {
-    return NextResponse.json({ error: auth.message }, { status: auth.status });
-  }
-
+async function readDisconnectRequest(req: NextRequest) {
   const url = new URL(req.url);
   const queryPlatform = url.searchParams.get("platform");
   const queryDeleteContent = url.searchParams.get("deleteContent");
   const body = (await req.json().catch(() => null)) as
     | { platform?: ConnectedPlatform; deleteContent?: boolean }
     | null;
-  const platform = (body?.platform ?? queryPlatform ?? "").trim() as ConnectedPlatform;
-  const deleteContent = body?.deleteContent === true || queryDeleteContent === "1" || queryDeleteContent === "true";
+  return {
+    platform: (body?.platform ?? queryPlatform ?? "").trim() as ConnectedPlatform,
+    deleteContent: body?.deleteContent === true || queryDeleteContent === "1" || queryDeleteContent === "true",
+  };
+}
 
-  if (platform !== "lastfm" && platform !== "letterboxd") {
+async function deletePlatformItems(
+  scope: Awaited<ReturnType<typeof getOwnerScope>>,
+  platform: "lastfm" | "letterboxd"
+) {
+  const sourceValues = platform === "letterboxd" ? ["letterboxd", "import_letterboxd"] : ["lastfm", "import_lastfm"];
+  const { data, error } = await supabaseAdmin()
+    .from("items")
+    .delete()
+    .in("source", sourceValues)
+    .or(buildOwnerReadFilter(scope))
+    .select("id");
+
+  if (error) throw new Error(error.message);
+  return data?.length ?? 0;
+}
+
+export async function DELETE(req: NextRequest) {
+  const auth = resolveApiIdentity(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+
+  const request = await readDisconnectRequest(req);
+  if (request.platform !== "lastfm" && request.platform !== "letterboxd") {
     return NextResponse.json({ error: "valid platform is required" }, { status: 400 });
   }
+  const { platform, deleteContent } = request;
 
   try {
     const owner = await getEffectiveOwner(auth);
     const scope = await getOwnerScope(auth);
     await deleteConnectedSource(owner, platform);
 
-    let deletedItems = 0;
-    if (deleteContent) {
-      const sb = supabaseAdmin();
-      const sourceValues = platform === "letterboxd" ? ["letterboxd", "import_letterboxd"] : ["lastfm", "import_lastfm"];
-      const { data, error } = await sb
-        .from("items")
-        .delete()
-        .in("source", sourceValues)
-        .or(buildOwnerReadFilter(scope))
-        .select("id");
-
-      if (error) {
-        throw new Error(error.message);
-      }
-      deletedItems = data?.length ?? 0;
-    }
+    const deletedItems = deleteContent ? await deletePlatformItems(scope, platform) : 0;
 
     return NextResponse.json({ ok: true, disconnected: true, deletedItems });
   } catch (error) {

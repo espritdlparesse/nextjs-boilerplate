@@ -10,74 +10,71 @@ function normalizeText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-export async function importLastfmProfile(username: string, limit = 200) {
-  const apiKey = process.env.LASTFM_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error("LASTFM_API_KEY missing");
-  }
+type LastfmResponse = {
+  recenttracks?: { track?: LastfmRecentTrack[] | LastfmRecentTrack };
+  error?: number | string;
+  message?: string;
+} | null;
 
-  const normalizedUsername = username.trim();
-  if (!normalizedUsername) {
-    throw new Error("username is required");
-  }
-
+function recentTracksUrl(apiKey: string, username: string, limit: number) {
   const url = new URL("https://ws.audioscrobbler.com/2.0/");
   url.searchParams.set("method", "user.getrecenttracks");
-  url.searchParams.set("user", normalizedUsername);
+  url.searchParams.set("user", username);
   url.searchParams.set("api_key", apiKey);
   url.searchParams.set("format", "json");
   url.searchParams.set("limit", String(Math.min(Math.max(limit, 1), 200)));
   url.searchParams.set("extended", "0");
+  return url.toString();
+}
 
-  const response = await fetch(url.toString(), {
-    headers: {
-      "User-Agent": "everyyou/1.0",
-    },
+async function fetchRecentTracks(apiKey: string, username: string, limit: number) {
+  const response = await fetch(recentTracksUrl(apiKey, username, limit), {
+    headers: { "User-Agent": "everyyou/1.0" },
     cache: "no-store",
   });
-
-  const json = (await response.json().catch(() => null)) as
-    | {
-        recenttracks?: {
-          track?: LastfmRecentTrack[] | LastfmRecentTrack;
-          "@attr"?: { user?: string };
-        };
-        error?: number | string;
-        message?: string;
-      }
-    | null;
-
+  const json = (await response.json().catch(() => null)) as LastfmResponse;
   if (!response.ok || !json || json.error) {
     throw new Error(json?.message || "last.fm import failed");
   }
 
-  const tracks = Array.isArray(json.recenttracks?.track)
-    ? json.recenttracks?.track
-    : json.recenttracks?.track
-      ? [json.recenttracks.track]
-      : [];
+  const track = json.recenttracks?.track;
+  if (Array.isArray(track)) return track;
+  return track ? [track] : [];
+}
 
+function toMusicItem(track: LastfmRecentTrack) {
+  const title = normalizeText(track.name).toLowerCase();
+  const authorOrArtist = normalizeText(track.artist?.["#text"]).toLowerCase();
+  if (!title || !authorOrArtist) return null;
+  const uts = normalizeText(track.date?.uts);
+  const consumedAt = clampTimelineTimestampMs(/^\d+$/.test(uts) ? Number(uts) * 1000 : undefined);
+  return {
+    type: "music" as const,
+    source: "import_lastfm" as const,
+    title,
+    authorOrArtist,
+    consumedAt,
+    timeOrigin: consumedAt ? ("exact" as const) : undefined,
+  };
+}
+
+export async function importLastfmProfile(username: string, limit = 200) {
+  const apiKey = process.env.LASTFM_API_KEY?.trim();
+  if (!apiKey) throw new Error("LASTFM_API_KEY missing");
+
+  const normalizedUsername = username.trim();
+  if (!normalizedUsername) throw new Error("username is required");
+
+  const tracks = await fetchRecentTracks(apiKey, normalizedUsername, limit);
   const seen = new Set<string>();
-  const items = tracks
-    .map((track) => {
-      const title = normalizeText(track.name).toLowerCase();
-      const authorOrArtist = normalizeText(track.artist?.["#text"]).toLowerCase();
-      const uts = normalizeText(track.date?.uts);
-      const consumedAt = clampTimelineTimestampMs(/^\d+$/.test(uts) ? Number(uts) * 1000 : undefined);
-      if (!title || !authorOrArtist) return null;
-      const key = `${title}::${authorOrArtist}::${consumedAt ?? "undated"}`;
-      if (seen.has(key)) return null;
-      seen.add(key);
-      return {
-        type: "music" as const,
-        source: "import_lastfm" as const,
-        title,
-        authorOrArtist,
-        consumedAt,
-        timeOrigin: consumedAt ? ("exact" as const) : undefined,
-      };
-    })
-    .filter(Boolean);
-
+  const items = [];
+  for (const track of tracks) {
+    const item = toMusicItem(track);
+    if (!item) continue;
+    const key = `${item.title}::${item.authorOrArtist}::${item.consumedAt ?? "undated"}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    items.push(item);
+  }
   return items;
 }

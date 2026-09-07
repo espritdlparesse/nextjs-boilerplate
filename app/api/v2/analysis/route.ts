@@ -6,7 +6,12 @@ import { buildOwnerReadFilter, getEffectiveOwner, getOwnerScope } from "@/lib/ow
 import { generateFallbackVibecheck } from "@/lib/vibecheckFallback";
 import { countDeliveredRuns, recordVibeDuel, recordVibeRun, type VibeRunOutcome } from "@/lib/vibeRuns";
 import { countItemTypes, type ItemType } from "@/lib/mediaTypes";
-import { isUsableCard } from "@/lib/culturalCards";
+import { blockingGates, observedGates, normalizeRoastNames } from "@/lib/vibeGates";
+import { loadTimelineItems, readRange } from "@/lib/vibeItems";
+import { trimList } from "@/lib/textLists";
+import { buildContextIndex, buildVibeSample, describeItem, describePosition, getCulturalContext, type CulturalContextRow } from "@/lib/vibeContext";
+
+type VibeItem = { type: string; title: string; creator: string | null };
 
 export const runtime = "nodejs";
 // The vibecheck makes two editorial model calls in sequence, so the default function window is too short.
@@ -50,104 +55,9 @@ type AnalysisRequestBody = {
   to?: number | null;
 };
 
-type CulturalContextRow = {
-  lookup_key: string;
-  aliases: string[];
-  display_name: string;
-  kind: "artist" | "author" | "director" | "work";
-  context_note: string;
-  roast_angles: string[];
-  source_outlet: CulturalSourceOutlet;
-  source_url: string;
-};
-
-type CulturalSourceOutlet =
-  | "the_atlantic"
-  | "new_yorker"
-  | "nyt"
-  | "meduza"
-  | "the_bell"
-  | "kinopoisk"
-  | "wos"
-  | "afisha_archive"
-  | "x_ilya_krasilshchik"
-  | "facebook_ilya_krasilshchik"
-  | "wonderzine";
-
 // Пользовательские категории у каждого свои, поэтому прожарка на них не
 // строится: в выборку идут только общие типы.
 const VIBE_SAMPLE_TYPES: ItemType[] = ["music", "book", "movie"];
-
-function buildContextIndex(cards: CulturalContextRow[] | null) {
-  const index = new Map<string, CulturalContextRow>();
-  for (const card of cards ?? []) {
-    for (const alias of [card.lookup_key, ...(card.aliases ?? [])]) {
-      const key = normalizeContextKey(alias);
-      if (key) index.set(key, card);
-    }
-  }
-  return index;
-}
-
-function findCard(text: string, index: Map<string, CulturalContextRow>) {
-  const normalized = normalizeContextKey(text);
-  if (!normalized) return null;
-  const direct = index.get(normalized);
-  if (direct) return direct;
-  for (const [key, card] of index) {
-    if (key.length >= 4 && normalized.includes(key)) return card;
-  }
-  return null;
-}
-
-function describePosition(position: string, index: Map<string, CulturalContextRow>) {
-  const card = findCard(position, index);
-  if (!card) return `- ${position}`;
-  const angles = card.roast_angles.length > 0 ? ` Опоры: ${card.roast_angles.join("; ")}.` : "";
-  return `- ${position}\n    ${card.context_note}${angles}`;
-}
-
-function describeItem(
-  item: { type: string; title: string; creator: string | null },
-  index: Map<string, CulturalContextRow>
-) {
-  const line = `[${item.type}] ${item.title}${item.creator ? ` — ${item.creator}` : ""}`;
-  const card = findCard(`${item.creator ?? ""} ${item.title}`, index);
-  if (!card) return line;
-  const angles = card.roast_angles.length > 0 ? ` Опоры: ${card.roast_angles.join("; ")}.` : "";
-  return `${line}\n    ${card.context_note}${angles}`;
-}
-
-function buildVibeSample(items: Array<{ type: string; title: string; creator: string | null }>) {
-  const picked: Array<{ type: string; title: string; creator: string | null }> = [];
-  const usedCreators = new Set<string>();
-  const daySeed = new Date().toISOString().slice(0, 10);
-
-  function score(item: { type: string; title: string; creator: string | null }) {
-    const value = `${daySeed}:${item.type}:${item.title}:${item.creator ?? ""}`;
-    let hash = 0;
-    for (let index = 0; index < value.length; index += 1) {
-      hash = (hash * 31 + value.charCodeAt(index)) | 0;
-    }
-    return hash >>> 0;
-  }
-
-  for (const type of VIBE_SAMPLE_TYPES) {
-    const candidates = items
-      .filter((item) => item.type === type)
-      .sort((left, right) => score(left) - score(right));
-    for (const item of candidates) {
-      if (picked.length >= 32) continue;
-      const creator = item.creator?.trim().toLowerCase() ?? "";
-      if (creator && usedCreators.has(creator)) continue;
-      picked.push(item);
-      if (creator) usedCreators.add(creator);
-      if (picked.filter((candidate) => candidate.type === type).length >= 8) break;
-    }
-  }
-
-  return picked.length > 0 ? picked : items.slice(0, 48);
-}
 
 function extractJson<T = AnalysisPayload>(text: string) {
   const trimmed = text.trim();
@@ -164,199 +74,6 @@ function extractJson<T = AnalysisPayload>(text: string) {
       return null;
     }
   }
-}
-
-function looksTooCorporate(text: string) {
-  const normalized = text.toLowerCase();
-  const bannedPhrases = [
-    "контентный срез",
-    "демонстрирует",
-    "сочетает в себе",
-    "говорит о",
-    "свидетельствует",
-    "современный вкус",
-    "молодежного восприятия",
-    "молодежной аудитории",
-    "наводит на размышления",
-    "отражает тенденции",
-    "указывает на",
-    "варьируется",
-    "представленная треками",
-    "поиск глубины",
-    "популярной культуры",
-    "развлекательном контенте",
-    "смешивать развлечения",
-    "сложных философских размышлений",
-    "этапы на пути к самопознанию",
-    "присутствует",
-    "список контента",
-    "эклектичный вкус",
-    "популярность",
-  ];
-
-  return bannedPhrases.some((phrase) => normalized.includes(phrase));
-}
-
-function looksTooAbstract(text: string) {
-  const normalized = text.toLowerCase();
-  const abstractSignals = [
-    "культура",
-    "контент",
-    "аудитория",
-    "динамика",
-    "восприятие",
-    "тенденции",
-    "традиции",
-    "современность",
-    "самопознание",
-    "разнообразие",
-  ];
-  const hitCount = abstractSignals.filter((signal) => normalized.includes(signal)).length;
-  return hitCount >= 3;
-}
-
-function looksTooSoft(summary: string) {
-  const normalized = summary.toLowerCase();
-  const softSignals = [
-    "в целом",
-    "кажется",
-    "можно заметить",
-    "присутствует",
-    "сочетание",
-    "балансирует",
-    "вызывает ассоциации",
-    "начиная с",
-    "заканчивая",
-  ];
-  return softSignals.some((signal) => normalized.includes(signal));
-}
-
-function looksTooComplicated(text: string) {
-  const normalized = text.toLowerCase();
-  if (normalized.includes("как будто") || normalized.includes("несмотря на то")) return true;
-
-  return text
-    .split(/[.!?]+/)
-    .some((sentence) => sentence.trim().split(/\s+/).filter(Boolean).length > 22);
-}
-
-function looksTooGenericRoast(text: string) {
-  const normalized = text.toLowerCase();
-  const genericSignals = [
-    "уличный вайб",
-    "странная ностальгия",
-    "ностальгия в обручальной",
-    "свежие релизы",
-    "эклектич",
-    "атмосфера",
-    "разброс",
-    "разные вселенные",
-    "на одной волне",
-    "заряжаешься",
-    "раскачиваешься",
-    "старым советским шиком",
-    "уличный рэп",
-    "московских окраин",
-    "громко взорвать",
-    "тихо посидеть",
-    "бокалом на кухне",
-    "с бокалом на кухне",
-    "умеешь и",
-    "болеешь за",
-    "андерграундный шум",
-    "легкие поп-романсы",
-    "лёгкие поп-романсы",
-    "одновременно болеешь",
-    "одновременно любишь",
-    "умеешь слушать",
-    "громко гремит",
-    "шепчет о любви",
-    "гремит, и тех",
-    "громкий трэп",
-    "тихие стихи",
-    "тихие стихи про память",
-    "слушаешь громкий",
-    "читаешь тихие",
-    "трэп и читаешь",
-    "не отпускаешь мысль",
-    "говорит бас",
-    "говорит бас и",
-    "бьет бас",
-    "бьёт бас",
-    "проверяют, выдержишь ли",
-    "в одном ряду оказались",
-    "одна растаскивает",
-    "другая собирает себя",
-    "болезненная честность про",
-    "желание всё превратить в игру",
-  ];
-
-  return genericSignals.some((signal) => normalized.includes(signal));
-}
-
-function blockingGates(text: string) {
-  const hits: string[] = [];
-  if (looksTooComplicated(text)) hits.push("too_complicated");
-  if (looksTooGenericRoast(text)) hits.push("too_generic");
-  return hits;
-}
-
-// Наблюдающие гейты: попадают в gate_hits, но отказ не вызывают. Так копится
-// статистика по фразам, снятым с боевого пути 2026-08-31 в коммите 1d39166.
-function observedGates(text: string) {
-  const hits: string[] = [];
-  if (looksTooCorporate(text)) hits.push("observed_corporate");
-  if (looksTooAbstract(text)) hits.push("observed_abstract");
-  if (looksTooSoft(text)) hits.push("observed_soft");
-  return hits;
-}
-
-function normalizeRoastNames(text: string) {
-  return text
-    .replace(/big baby tape/gi, "биг бейби тейп")
-    .replace(/биг бейби тейп/gi, "биг бейби тейп")
-    .replace(/avraam russo/gi, "авраам руссо")
-    .replace(/авраам руссо/gi, "авраам руссо")
-    .replace(/justin timberlake/gi, "джастин тимберлейк")
-    .replace(/джастин тимберлейк/gi, "джастин тимберлейк")
-    .replace(/bladee/gi, "блейди")
-    .replace(/блейди/gi, "блейди");
-}
-
-function normalizeContextKey(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[«»"'`]/g, "")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim()
-    .replace(/\s+/g, " ");
-}
-
-async function getCulturalContext(
-  sb: ReturnType<typeof supabaseAdmin>,
-  items: Array<{ title: string; creator: string | null }>
-) {
-  const keys = new Set(
-    items.flatMap((item) => [item.title, item.creator ?? ""])
-      .map(normalizeContextKey)
-      .filter(Boolean)
-  );
-
-  if (keys.size === 0) return [] as CulturalContextRow[];
-
-  const { data, error } = await sb
-    .from("cultural_context")
-    .select("lookup_key, aliases, display_name, kind, context_note, roast_angles, source_outlet, source_url")
-    .limit(400);
-
-  // The migration may not have reached a project yet. A missing memory must not block a vibecheck.
-  if (error || !data) return null;
-
-  return (data as CulturalContextRow[]).filter((entry) => {
-    if (!isUsableCard(entry)) return false;
-    const aliases = [entry.lookup_key, ...(entry.aliases ?? [])].map(normalizeContextKey);
-    return aliases.some((alias) => keys.has(alias));
-  });
 }
 
 async function getRecentBadVibes(sb: ReturnType<typeof supabaseAdmin>, ownerKey: string) {
@@ -406,12 +123,8 @@ function readRoastFields(payload: AnalysisPayload | null, fallbackBasis: string[
     hook: payload?.hook?.trim() ?? "",
     body: payload?.body?.trim() ?? "",
     closer: payload?.closer?.trim() ?? "",
-    highlights: Array.isArray(payload?.highlights)
-      ? payload.highlights.map((line) => line.trim()).filter(Boolean).slice(0, 3)
-      : [],
-    basis: Array.isArray(payload?.basis)
-      ? payload.basis.map((line) => line.trim()).filter(Boolean).slice(0, 3)
-      : fallbackBasis,
+    highlights: trimList(payload?.highlights, 3),
+    basis: trimList(payload?.basis, 3, fallbackBasis),
   };
 }
 
@@ -505,39 +218,157 @@ async function composeRoastVariant(args: {
   };
 }
 
+const PLANNER_INSTRUCTIONS =
+  "Ты редактор, который сначала ищет материал для короткой прожарки. Не пиши сам вайбчек. Верни только JSON: {candidates:[{basis:string[],types:string[],observation:string}]}. Дай ровно 3 кандидата. В basis укажи две реальные позиции из списка дословно. В types укажи тип каждой позиции в том же порядке: music, book или movie. В каждом кандидате смешивай разные типы медиа, если они есть. Не выбирай одну и ту же пару или одного и того же артиста во всех вариантах. observation — одно простое, проверяемое наблюдение о столкновении именно этих двух позиций: культурная поза, переосмысление названия, видимая социальная или бытовая ситуация. Не пиши про звук, бас, громкость, жанры, атмосферу, ностальгию, абстрактные 'мысли' и внутренний мир пользователя. Не выдумывай факты. Твоя задача — дать автору конкретную опору, а не красивую фразу.";
+
+async function planRoastCandidates(apiKey: string, model: string, planningPrompt: string) {
+  const planRaw = await createRoastText({
+    apiKey,
+    model,
+    instructions: PLANNER_INSTRUCTIONS,
+    prompt: planningPrompt,
+  });
+  const planned = extractJson<RoastPlanPayload>(planRaw)?.candidates ?? [];
+  return planned.filter(
+    (candidate) =>
+      Array.isArray(candidate.basis) && candidate.basis.length >= 2 && Boolean(candidate.observation?.trim())
+  );
+}
+
+async function shouldRunDuel(
+  req: NextRequest,
+  sb: ReturnType<typeof supabaseAdmin>,
+  ownerKey: string,
+  planCount: number
+) {
+  const duelEvery = Number(process.env.VIBECHECK_DUEL_EVERY ?? "5");
+  const enabled =
+    req.headers.get("x-vibecheck-duel") === "1" && Number.isFinite(duelEvery) && duelEvery > 0 && planCount >= 2;
+  if (!enabled) return false;
+  return (await countDeliveredRuns(sb, ownerKey)) % duelEvery === 0;
+}
+
+type DeliveredVariant = {
+  runId: string | null;
+  persona: string;
+  summary: string;
+  basis: string[];
+  highlights: string[];
+};
+
+async function deliverVibecheck(
+  sb: ReturnType<typeof supabaseAdmin>,
+  owner: Awaited<ReturnType<typeof getEffectiveOwner>>,
+  itemCount: number,
+  delivered: DeliveredVariant[]
+) {
+  const ordered = delivered.length >= 2 && Math.random() < 0.5 ? [delivered[1], delivered[0]] : delivered;
+  const leading = ordered[0];
+  const duelId =
+    ordered.length >= 2 && ordered[0].runId && ordered[1].runId
+      ? await recordVibeDuel(sb, {
+          ownerKey: owner.ownerKey,
+          ownerKind: owner.ownerKind,
+          runIdA: ordered[0].runId,
+          runIdB: ordered[1].runId,
+          shownFirst: ordered[0].runId,
+        })
+      : null;
+
+  return NextResponse.json({
+    itemCount,
+    persona: leading.persona,
+    summary: leading.summary,
+    basis: leading.basis,
+    highlights: leading.highlights,
+    runId: leading.runId,
+    ...(duelId ? { duel: { id: duelId, variants: ordered } } : {}),
+  });
+}
+
+type RoastAttempt = {
+  plan: RoastPlan | null;
+  variant: Awaited<ReturnType<typeof composeRoastVariant>>;
+};
+
+function buildPlanningPrompt(
+  vibeSample: VibeItem[],
+  contextIndex: Map<string, CulturalContextRow>,
+  badFeedback: string[]
+) {
+  const libraryLines = vibeSample.map((item) => describeItem(item, contextIndex)).join("\n");
+  return `Вот выборка из библиотеки. Под позицией с отступом — проверенная фактура о ней: опирайся на неё, но не пересказывай и не называй источник.\n${libraryLines}\n\nПользователь уже забраковал эти формулировки. Не повторяй их приемы и не пересказывай их другими словами:\n${badFeedback.join("\n") || "пока нет"}`;
+}
+
+function createRunJournal(
+  sb: ReturnType<typeof supabaseAdmin>,
+  owner: Awaited<ReturnType<typeof getEffectiveOwner>>,
+  model: string,
+  items: VibeItem[]
+) {
+  let plansValidCount = 0;
+
+  function saveRun(fields: {
+    outcome: VibeRunOutcome;
+    summary?: string | null;
+    selectedBasis?: string[];
+    plannerObservation?: string | null;
+    mediaCounts?: Record<string, number>;
+    gateHits?: string[];
+    retryCount?: number;
+  }) {
+    return recordVibeRun(sb, {
+      ownerKey: owner.ownerKey,
+      ownerKind: owner.ownerKind,
+      promptVersion: PROMPT_VERSION,
+      model,
+      itemCount: items.length,
+      plansValidCount,
+      ...fields,
+    });
+  }
+
+  function saveAttempt(attempt: RoastAttempt, outcome: VibeRunOutcome) {
+    return saveRun({
+      outcome,
+      summary: attempt.variant.summary,
+      selectedBasis: attempt.variant.basis,
+      plannerObservation: attempt.plan?.observation?.trim() ?? null,
+      mediaCounts: countItemTypes(attempt.plan?.types ?? []),
+      gateHits: Array.from(new Set(attempt.variant.gateHits)),
+      retryCount: attempt.variant.retried ? 1 : 0,
+    });
+  }
+
+  async function deliverFallback(error: unknown) {
+    const fallback = generateFallbackVibecheck(items);
+    if (!fallback) return vibeGenerationErrorResponse(error);
+    const runId = await saveRun({
+      outcome: "fallback",
+      summary: fallback.summary,
+      selectedBasis: fallback.basis,
+    });
+    return NextResponse.json({ ...fallback, runId });
+  }
+
+  return {
+    setPlanCount: (count: number) => {
+      plansValidCount = count;
+    },
+    saveAttempt,
+    deliverFallback,
+  };
+}
+
 export async function POST(req: NextRequest) {
   const auth = resolveApiIdentity(req);
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
   const scope = await getOwnerScope(auth);
   const owner = await getEffectiveOwner(auth);
   const body = (await req.json().catch(() => null)) as AnalysisRequestBody | null;
-  const from = typeof body?.from === "number" && Number.isFinite(body.from) ? body.from : null;
-  const to = typeof body?.to === "number" && Number.isFinite(body.to) ? body.to : null;
-  const hasRange = from !== null && to !== null;
-
   const sb = supabaseAdmin();
-  let baseQuery = sb.from("items").select("type, title, creator").or(buildOwnerReadFilter(scope));
-  if (hasRange) {
-    baseQuery = baseQuery
-      .gte("consumed_at", new Date(from).toISOString())
-      .lte("consumed_at", new Date(to).toISOString());
-  }
+  const { data: items, error } = await loadTimelineItems<VibeItem>(sb, scope, readRange(body), "type, title, creator");
 
-  let { data: items, error } = await baseQuery
-    .order("consumed_at", { ascending: false, nullsFirst: false })
-    .limit(hasRange ? 1000 : 300);
-
-  if (error?.message?.toLowerCase().includes("consumed_at")) {
-    let fallbackQuery = sb.from("items").select("type, title, creator").or(buildOwnerReadFilter(scope));
-    if (hasRange) {
-      fallbackQuery = fallbackQuery
-        .gte("created_at", new Date(from).toISOString())
-        .lte("created_at", new Date(to).toISOString());
-    }
-    const fallback = await fallbackQuery.order("created_at", { ascending: false }).limit(hasRange ? 1000 : 300);
-    items = fallback.data;
-    error = fallback.error;
-  }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!items || items.length === 0) {
     return NextResponse.json({
@@ -558,62 +389,20 @@ export async function POST(req: NextRequest) {
   // A vibecheck is the product, not a background summary: use the stronger editor by default.
   const model = process.env.OPENAI_VIBECHECK_MODEL ?? "gpt-4.1";
 
-  let plansValidCount = 0;
+  const journal = createRunJournal(sb, owner, model, items);
 
-  const saveRun = (fields: {
-    outcome: VibeRunOutcome;
-    summary?: string | null;
-    selectedBasis?: string[];
-    plannerObservation?: string | null;
-    mediaCounts?: Record<string, number>;
-    gateHits?: string[];
-    retryCount?: number;
-  }) =>
-    recordVibeRun(sb, {
-      ownerKey: owner.ownerKey,
-      ownerKind: owner.ownerKind,
-      promptVersion: PROMPT_VERSION,
-      model,
-      itemCount: items.length,
-      plansValidCount,
-      ...fields,
-    });
-
-  const deliverFallback = async (error: unknown) => {
-    const fallback = generateFallbackVibecheck(items);
-    if (!fallback) return vibeGenerationErrorResponse(error);
-    const runId = await saveRun({
-      outcome: "fallback",
-      summary: fallback.summary,
-      selectedBasis: fallback.basis,
-    });
-    return NextResponse.json({ ...fallback, runId });
-  };
   const libraryLines = vibeSample.map((item) => describeItem(item, contextIndex)).join("\n");
   const planningPrompt = `Вот выборка из библиотеки. Под позицией с отступом — проверенная фактура о ней: опирайся на неё, но не пересказывай и не называй источник.\n${libraryLines}\n\nПользователь уже забраковал эти формулировки. Не повторяй их приемы и не пересказывай их другими словами:\n${badFeedback.join("\n") || "пока нет"}`;
-  let planRaw = "";
+  let plans: RoastPlan[];
   try {
-    planRaw = await createRoastText({
-      apiKey,
-      model,
-      instructions:
-        "Ты редактор, который сначала ищет материал для короткой прожарки. Не пиши сам вайбчек. Верни только JSON: {candidates:[{basis:string[],types:string[],observation:string}]}. Дай ровно 3 кандидата. В basis укажи две реальные позиции из списка дословно. В types укажи тип каждой позиции в том же порядке: music, book или movie. В каждом кандидате смешивай разные типы медиа, если они есть. Не выбирай одну и ту же пару или одного и того же артиста во всех вариантах. observation — одно простое, проверяемое наблюдение о столкновении именно этих двух позиций: культурная поза, переосмысление названия, видимая социальная или бытовая ситуация. Не пиши про звук, бас, громкость, жанры, атмосферу, ностальгию, абстрактные 'мысли' и внутренний мир пользователя. Не выдумывай факты. Твоя задача — дать автору конкретную опору, а не красивую фразу.",
-      prompt: planningPrompt,
-    });
+    plans = await planRoastCandidates(apiKey, model, planningPrompt);
   } catch (error) {
     console.error("vibecheck planning failed", error);
-    return deliverFallback(error);
+    return journal.deliverFallback(error);
   }
-  const planned = extractJson<RoastPlanPayload>(planRaw)?.candidates ?? [];
-  const plans = planned.filter((candidate) =>
-    Array.isArray(candidate.basis) && candidate.basis.length >= 2 && Boolean(candidate.observation?.trim())
-  );
-  plansValidCount = plans.length;
-  const duelEvery = Number(process.env.VIBECHECK_DUEL_EVERY ?? "5");
-  const clientSupportsDuel = req.headers.get("x-vibecheck-duel") === "1";
-  const duelEnabled = clientSupportsDuel && Number.isFinite(duelEvery) && duelEvery > 0 && plans.length >= 2;
-  const deliveredSoFar = duelEnabled ? await countDeliveredRuns(sb, owner.ownerKey) : 0;
-  const runDuel = duelEnabled && deliveredSoFar % duelEvery === 0;
+  journal.setPlanCount(plans.length);
+
+  const runDuel = await shouldRunDuel(req, sb, owner.ownerKey, plans.length);
 
   // Планировщик мог не вернуть ни одного пригодного кандидата. Редактор
   // выбирает пару сам, но прогон всё равно должен попасть в журнал.
@@ -626,22 +415,11 @@ export async function POST(req: NextRequest) {
   );
 
   const broken = attempts.find((attempt) => attempt.variant.error);
-  if (broken) return deliverFallback(broken.variant.error);
-
-  const saveAttempt = (attempt: (typeof attempts)[number], outcome: VibeRunOutcome) =>
-    saveRun({
-      outcome,
-      summary: attempt.variant.summary,
-      selectedBasis: attempt.variant.basis,
-      plannerObservation: attempt.plan?.observation?.trim() ?? null,
-      mediaCounts: countItemTypes(attempt.plan?.types ?? []),
-      gateHits: Array.from(new Set(attempt.variant.gateHits)),
-      retryCount: attempt.variant.retried ? 1 : 0,
-    });
+  if (broken) return journal.deliverFallback(broken.variant.error);
 
   const passing = attempts.filter((attempt) => attempt.variant.ok);
   if (passing.length === 0) {
-    await Promise.all(attempts.map((attempt) => saveAttempt(attempt, "rejected_422")));
+    await Promise.all(attempts.map((attempt) => journal.saveAttempt(attempt, "rejected_422")));
     return NextResponse.json(
       { error: "сегодня алгоритм не нашел достаточно точную пару. попробуй еще раз — лучше пусто, чем банально." },
       { status: 422 }
@@ -650,7 +428,7 @@ export async function POST(req: NextRequest) {
 
   const delivered = await Promise.all(
     passing.map(async (attempt) => ({
-      runId: await saveAttempt(attempt, "delivered"),
+      runId: await journal.saveAttempt(attempt, "delivered"),
       persona: attempt.variant.persona,
       summary: attempt.variant.summary,
       basis: attempt.variant.basis,
@@ -658,27 +436,5 @@ export async function POST(req: NextRequest) {
     }))
   );
 
-  const ordered = delivered.length >= 2 && Math.random() < 0.5 ? [delivered[1], delivered[0]] : delivered;
-  const leading = ordered[0];
-
-  const duelId =
-    ordered.length >= 2 && ordered[0].runId && ordered[1].runId
-      ? await recordVibeDuel(sb, {
-          ownerKey: owner.ownerKey,
-          ownerKind: owner.ownerKind,
-          runIdA: ordered[0].runId,
-          runIdB: ordered[1].runId,
-          shownFirst: ordered[0].runId,
-        })
-      : null;
-
-  return NextResponse.json({
-    itemCount: items.length,
-    persona: leading.persona,
-    summary: leading.summary,
-    basis: leading.basis,
-    highlights: leading.highlights,
-    runId: leading.runId,
-    ...(duelId ? { duel: { id: duelId, variants: ordered } } : {}),
-  });
+  return deliverVibecheck(sb, owner, items.length, delivered);
 }

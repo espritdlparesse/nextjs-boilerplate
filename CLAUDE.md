@@ -48,19 +48,16 @@ that already passed. Say which result you are reporting and which edits came aft
 ## Cyclomatic complexity
 
 The limit is 20 per function. Measure, do not estimate: `npm run complexity` prints everything
-above it, worst first. The script is `scripts/complexity.py` and excludes itself.
+above it, worst first. The script is `scripts/complexity.py`; it measures itself too.
 
-Currently over the limit:
+Nothing is over the limit right now. Keep it that way.
 
-```
-228  apps/mobile/hooks/useEveryYouApp.ts  useEveryYouApp
- 75  apps/mobile/App.tsx                  App
- 50  app/api/v2/deep-analysis/route.ts    POST
-```
+The method: measure the group's free identifiers, lift the group that shares state, qualify
+the references. Guessing the dependency list once produced 112 type errors.
 
-The method that took `Page` from 698 to 350: measure the group's free identifiers, lift the
-group that shares state, qualify the references. Guessing the dependency list once produced
-112 type errors.
+`scripts/complexity.py` charges a function for everything nested inside it, so a hook that
+holds ten closures is scored as one function. Keep logic in module-level functions that take
+an explicit context object; let the hook hold state and wiring.
 
 Splitting can raise the count of functions over the limit, because an extracted hook becomes
 visible on its own. That is not a regression if the parent dropped.
@@ -70,20 +67,7 @@ visible on its own. That is not a regression if the parent dropped.
 At the limit, split rather than append. File length and function complexity are different
 measures: `app/everyyou.css` has no branches at all and still had to come out of the component.
 
-These are still over. They are not rewritten wholesale, but every edit inside one must leave
-it shorter:
-
-```
-1308  apps/mobile/hooks/useEveryYouApp.ts
- 907  apps/mobile/screens/LibraryScreen.tsx
- 834  apps/mobile/screens/AddScreen.tsx
- 798  apps/mobile/App.tsx
- 764  apps/mobile/hooks/useLibraryImports.ts
- 684  app/api/v2/analysis/route.ts
- 560  apps/mobile/screens/AnalysisScreen.tsx
- 556  apps/mobile/lib/api.ts
- 548  app/page.tsx
-```
+Nothing is over 500 lines right now. The longest is about 485.
 
 A new file starts short and stays short.
 

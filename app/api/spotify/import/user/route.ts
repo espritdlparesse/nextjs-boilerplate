@@ -75,58 +75,96 @@ function buildDateCoverage<T extends { consumedAt?: string | null; timeOrigin?: 
   };
 }
 
-async function loadSpotifyItems(
+type SpotifyItem = {
+  type: "music";
+  source: "import_spotify";
+  title: string;
+  authorOrArtist: string;
+  consumedAt: string | null;
+  timeOrigin: "exact" | "imported";
+};
+
+async function collectTrackPages(
+  firstUrl: string,
   accessToken: string,
-  mode: ImportMode,
-  playlistId?: string
+  consumedAt: (item: { added_at?: string | null }) => string | null
 ) {
-  const items: Array<{
-    type: "music";
-    source: "import_spotify";
-    title: string;
-    authorOrArtist: string;
-    consumedAt: string | null;
-    timeOrigin: "exact" | "imported";
-  }> = [];
-
-  if (mode === "liked") {
-    let nextUrl: string | null = "https://api.spotify.com/v1/me/tracks?limit=50";
-    while (nextUrl) {
-      const page: SpotifyTrackPage = await fetchSpotify<SpotifyTrackPage>(nextUrl, accessToken);
-      for (const item of page.items ?? []) {
-        const mapped = trackToItem(item.track, item.added_at ?? null, "imported");
-        if (mapped) items.push(mapped);
-      }
-      nextUrl = page.next ?? null;
-    }
-    return dedupeItems(items);
-  }
-
-  if (mode === "recently_played") {
-    const page: SpotifyRecentlyPlayedPage = await fetchSpotify<SpotifyRecentlyPlayedPage>(
-      "https://api.spotify.com/v1/me/player/recently-played?limit=50",
-      accessToken
-    );
-    for (const item of page.items ?? []) {
-      const mapped = trackToItem(item.track, item.played_at ?? null, "exact");
-      if (mapped) items.push(mapped);
-    }
-    return dedupeItems(items);
-  }
-
-  if (!playlistId) throw new Error("playlistId is required");
-
-  let nextUrl: string | null = `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100&market=US`;
+  const items: SpotifyItem[] = [];
+  let nextUrl: string | null = firstUrl;
   while (nextUrl) {
     const page: SpotifyTrackPage = await fetchSpotify<SpotifyTrackPage>(nextUrl, accessToken);
     for (const item of page.items ?? []) {
-      const mapped = trackToItem(item.track, null, "imported");
+      const mapped = trackToItem(item.track, consumedAt(item), "imported");
       if (mapped) items.push(mapped);
     }
     nextUrl = page.next ?? null;
   }
+  return items;
+}
 
-  return dedupeItems(items);
+async function readRecentlyPlayed(accessToken: string) {
+  const page: SpotifyRecentlyPlayedPage = await fetchSpotify<SpotifyRecentlyPlayedPage>(
+    "https://api.spotify.com/v1/me/player/recently-played?limit=50",
+    accessToken
+  );
+  const items: SpotifyItem[] = [];
+  for (const item of page.items ?? []) {
+    const mapped = trackToItem(item.track, item.played_at ?? null, "exact");
+    if (mapped) items.push(mapped);
+  }
+  return items;
+}
+
+async function loadSpotifyItems(accessToken: string, mode: ImportMode, playlistId?: string) {
+  if (mode === "liked") {
+    return dedupeItems(
+      await collectTrackPages("https://api.spotify.com/v1/me/tracks?limit=50", accessToken, (item) => item.added_at ?? null)
+    );
+  }
+  if (mode === "recently_played") return dedupeItems(await readRecentlyPlayed(accessToken));
+  if (!playlistId) throw new Error("playlistId is required");
+  return dedupeItems(
+    await collectTrackPages(
+      `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100&market=US`,
+      accessToken,
+      () => null
+    )
+  );
+}
+
+function existingKeyOf(item: { title: string; creator: string | null; consumed_at: string | null }) {
+  return `${item.title}::${item.creator ?? ""}::${item.consumed_at ?? "undated"}`;
+}
+
+function buildInsertRows(
+  owner: Awaited<ReturnType<typeof getEffectiveOwner>>,
+  spotifyItems: SpotifyItem[],
+  existingItems: Array<{ title: string; creator: string | null; consumed_at: string | null }>
+) {
+  const existingKeys = new Set(existingItems.map(existingKeyOf));
+  const tgUserId =
+    owner.ownerKind === "telegram" && owner.legacyTgUserId
+      ? owner.legacyTgUserId
+      : legacyNativeTgUserId(owner.ownerKey);
+
+  return spotifyItems
+    .filter(
+      (item) =>
+        !existingKeys.has(
+          `${item.title}::${item.authorOrArtist}::${item.consumedAt ?? "undated"}::${item.timeOrigin ?? "none"}`
+        )
+    )
+    .map((item) => ({
+      owner_key: owner.ownerKey,
+      owner_kind: owner.ownerKind,
+      tg_user_id: tgUserId,
+      type: item.type,
+      source: item.source,
+      title: item.title,
+      creator: item.authorOrArtist,
+      consumed_at: item.consumedAt,
+      time_origin: item.timeOrigin,
+    }));
 }
 
 export async function POST(req: NextRequest) {
@@ -162,37 +200,8 @@ export async function POST(req: NextRequest) {
       .eq("owner_key", owner.ownerKey)
       .eq("source", "import_spotify");
 
-    if (existingError) {
-      return NextResponse.json({ error: existingError.message }, { status: 500 });
-    }
-
-    const existingKeys = new Set(
-      (existingItems ?? []).map(
-        (item) => `${item.title}::${item.creator ?? ""}::${item.consumed_at ?? "undated"}`
-      )
-    );
-
-    const payload = spotifyItems
-      .filter(
-        (item) =>
-          !existingKeys.has(
-            `${item.title}::${item.authorOrArtist}::${item.consumedAt ?? "undated"}::${item.timeOrigin ?? "none"}`
-          )
-      )
-      .map((item) => ({
-      owner_key: owner.ownerKey,
-      owner_kind: owner.ownerKind,
-      tg_user_id:
-        owner.ownerKind === "telegram" && owner.legacyTgUserId
-          ? owner.legacyTgUserId
-          : legacyNativeTgUserId(owner.ownerKey),
-      type: item.type,
-      source: item.source,
-      title: item.title,
-      creator: item.authorOrArtist,
-      consumed_at: item.consumedAt,
-      time_origin: item.timeOrigin,
-    }));
+    if (existingError) return NextResponse.json({ error: existingError.message }, { status: 500 });
+    const payload = buildInsertRows(owner, spotifyItems, existingItems ?? []);
 
     if (payload.length === 0) {
       return NextResponse.json({

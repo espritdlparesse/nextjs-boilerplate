@@ -91,50 +91,7 @@ function safeParseJson(text: string) {
   return null;
 }
 
-export async function POST(req: NextRequest) {
-  const auth = authTg(req);
-  if (!auth.ok) {
-    return NextResponse.json({ error: auth.message }, { status: auth.status });
-  }
-
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: "OPENAI_API_KEY missing" }, { status: 500 });
-  }
-
-  const form = await req.formData().catch(() => null);
-  if (!form) {
-    return NextResponse.json({ error: "bad form data" }, { status: 400 });
-  }
-
-  const file = form.get("file");
-  if (!(file instanceof File)) {
-    return NextResponse.json(
-      { error: "file is required (multipart field name: file)" },
-      { status: 400 }
-    );
-  }
-
-  if (!file.type?.startsWith("image/")) {
-    return NextResponse.json({ error: "only image/* supported" }, { status: 400 });
-  }
-
-  if (file.size > 10 * 1024 * 1024) {
-    return NextResponse.json({ error: "image too large (max 10MB)" }, { status: 400 });
-  }
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const base64 = buffer.toString("base64");
-  const dataUrl = `data:${file.type};base64,${base64}`;
-
-  const client = new OpenAI({ apiKey });
-
-  const model =
-    process.env.OPENAI_VISION_MODEL ??
-    process.env.OPENAI_MODEL ??
-    "gpt-4o";
-
-  const systemPrompt = `
+const SYSTEM_PROMPT = `
 Ты помощник, который импортирует культурный контент по изображению.
 
 Изображение может быть чем угодно: скриншот сервиса, фото книжного шкафа, фото обложки книги в магазине, постер фильма, экран Spotify, полка с книгами или винилом.
@@ -164,38 +121,58 @@ export async function POST(req: NextRequest) {
 Максимум 80 элементов.
 `.trim();
 
-  let outputText = "";
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const ITEM_TYPES = ["music", "book", "movie"];
+const KNOWN_SOURCES = ["spotify", "goodreads", "letterboxd"];
 
-  try {
-    const resp = await client.chat.completions.create({
-      model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "Распознай это изображение и верни JSON." },
-            {
-              type: "image_url",
-              image_url: { url: dataUrl, detail: "auto" },
-            },
-          ],
-        },
-      ],
-      max_tokens: 2000,
-      temperature: 0,
-    });
+function pickOne(value: unknown, allowed: string[], fallback: string) {
+  const normalized = String(value ?? fallback).toLowerCase();
+  return allowed.includes(normalized) ? normalized : fallback;
+}
 
-    outputText = resp.choices[0]?.message?.content ?? "";
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "openai error" },
-      { status: 500 }
-    );
+function checkImage(file: FormDataEntryValue | null): File | NextResponse {
+  if (!(file instanceof File)) {
+    return NextResponse.json({ error: "file is required (multipart field name: file)" }, { status: 400 });
   }
+  if (!file.type?.startsWith("image/")) {
+    return NextResponse.json({ error: "only image/* supported" }, { status: 400 });
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    return NextResponse.json({ error: "image too large (max 10MB)" }, { status: 400 });
+  }
+  return file;
+}
 
+async function toDataUrl(file: File) {
+  const buffer = Buffer.from(await file.arrayBuffer());
+  return `data:${file.type};base64,${buffer.toString("base64")}`;
+}
+
+async function readImage(client: OpenAI, model: string, dataUrl: string) {
+  const resp = await client.chat.completions.create({
+    model,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "Распознай это изображение и верни JSON." },
+          { type: "image_url", image_url: { url: dataUrl, detail: "auto" } },
+        ],
+      },
+    ],
+    max_tokens: 2000,
+    temperature: 0,
+  });
+  return resp.choices[0]?.message?.content ?? "";
+}
+
+function visionModel() {
+  return process.env.OPENAI_VISION_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-4o";
+}
+
+function shapeImportResponse(outputText: string) {
   const parsed = safeParseJson(outputText);
-
   if (!parsed) {
     return NextResponse.json(
       { error: "failed to parse model output", raw: outputText.slice(0, 2000) },
@@ -203,24 +180,41 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const detectedType = String(parsed.detectedType ?? "unknown").toLowerCase();
-  const detectedSource = String(parsed.detectedSource ?? "manual").toLowerCase();
   const confidence = Number(parsed.confidence ?? 0);
-
-  const items = clampItems(parsed.items ?? []);
-  const warnings = Array.isArray(parsed.warnings)
-    ? parsed.warnings.map((x: any) => String(x))
-    : [];
-
   return NextResponse.json({
-    detectedType: ["music", "book", "movie"].includes(detectedType)
-      ? detectedType
-      : "unknown",
-    detectedSource: ["spotify", "goodreads", "letterboxd"].includes(detectedSource)
-      ? detectedSource
-      : "manual",
+    detectedType: pickOne(parsed.detectedType, ITEM_TYPES, "unknown"),
+    detectedSource: pickOne(parsed.detectedSource, KNOWN_SOURCES, "manual"),
     confidence: Number.isFinite(confidence) ? confidence : 0,
-    items,
-    warnings,
+    items: clampItems(parsed.items ?? []),
+    warnings: Array.isArray(parsed.warnings) ? parsed.warnings.map((value: any) => String(value)) : [],
   });
+}
+
+export async function POST(req: NextRequest) {
+  const auth = authTg(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json({ error: "OPENAI_API_KEY missing" }, { status: 500 });
+  }
+
+  const form = await req.formData().catch(() => null);
+  if (!form) return NextResponse.json({ error: "bad form data" }, { status: 400 });
+
+  const file = checkImage(form.get("file"));
+  if (file instanceof NextResponse) return file;
+
+  const dataUrl = await toDataUrl(file);
+
+  let outputText: string;
+  try {
+    outputText = await readImage(new OpenAI({ apiKey }), visionModel(), dataUrl);
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message ?? "openai error" }, { status: 500 });
+  }
+
+  return shapeImportResponse(outputText);
 }

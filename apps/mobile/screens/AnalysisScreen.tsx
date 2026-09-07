@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { dayKey, parseDayKey, startOfMonth, addDays, calendarGrid } from "../../../lib/dates";
+import { dayKey, parseDayKey, startOfMonth, calendarGrid } from "../../../lib/dates";
+import { itemsWord } from "../../../lib/plural";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { PillButton } from "../components/PillButton";
+import { RangeMonthBlock } from "../components/RangeCalendar";
 import { appStyles } from "../styles/appStyles";
 import { getTheme } from "../styles/theme";
 import {
@@ -44,10 +46,6 @@ function startOfDayMs(date: Date) {
 
 function endOfDayMs(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999).getTime();
-}
-
-function isSameDay(left: Date, right: Date) {
-  return dayKey(left) === dayKey(right);
 }
 
 function formatRangeLabel(start: Date, end: Date) {
@@ -186,108 +184,8 @@ export function AnalysisScreen({
     setPeriodModalVisible(false);
   }
 
-  function renderMonthBlock(days: typeof calendarDays, monthDate: Date) {
-    return (
-      <View style={appStyles.stack}>
-        <Text style={[appStyles.sectionTitle, { color: theme.text }]}>
-          {monthDate
-            .toLocaleString("ru-RU", { month: "long" })
-            .replace(/^./, (char) => char.toUpperCase())}
-        </Text>
-        <View style={appStyles.calendarWeekdays}>
-          {["пн", "вт", "ср", "чт", "пт", "сб", "вс"].map((label) => (
-            <Text key={`${monthDate.getMonth()}-${label}`} style={[appStyles.calendarWeekday, { color: theme.mutedText }]}>
-              {label}
-            </Text>
-          ))}
-        </View>
-        <View style={appStyles.calendarGrid}>
-          {days.map((day) => {
-            const rangeStart = draftRange ? new Date(draftRange.from) : null;
-            const rangeEnd = draftRange ? new Date(draftRange.to) : null;
-            const inRange =
-              rangeStart && rangeEnd
-                ? day.date.getTime() >= startOfDayMs(rangeStart) && day.date.getTime() <= startOfDayMs(rangeEnd)
-                : false;
-            const isStart = rangeStart ? isSameDay(day.date, rangeStart) : false;
-            const isEnd = rangeEnd ? isSameDay(day.date, rangeEnd) : false;
-            const isSingle = isStart && isEnd;
-
-            return (
-              <Pressable
-                key={day.key}
-                style={[
-                  appStyles.calendarDay,
-                  { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-                  !day.inMonth && appStyles.calendarDayMuted,
-                  inRange && !isSingle && { backgroundColor: themeMode === "dark" ? "#214A33" : "#DFF7D8", borderColor: themeMode === "dark" ? "#214A33" : "#DFF7D8" },
-                  (isStart || isEnd) && {
-                    backgroundColor: theme.buttonPrimaryBg,
-                    borderColor: theme.buttonPrimaryBg,
-                  },
-                ]}
-                onPress={() => onPressDay(day.key)}
-              >
-                <View style={appStyles.calendarDayHead}>
-                  <Text
-                    style={[
-                      appStyles.calendarDayNumber,
-                      {
-                        color:
-                          isStart || isEnd
-                            ? theme.buttonPrimaryText
-                            : day.inMonth
-                              ? theme.text
-                              : theme.quietText,
-                      },
-                    ]}
-                  >
-                    {day.date.getDate()}
-                  </Text>
-                  {day.count > 0 ? (
-                    <Text
-                      style={[
-                        appStyles.calendarDayCount,
-                        { color: isStart || isEnd ? theme.buttonPrimaryText : theme.mutedText },
-                      ]}
-                    >
-                      {day.count}
-                    </Text>
-                  ) : null}
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-    );
-  }
-
   return (
     <View style={appStyles.screen}>
-      {false && <View
-        style={[
-          appStyles.sectionHero,
-          appStyles.sectionHeroAlt,
-          themeMode === "dark" && { backgroundColor: theme.accentBlue, borderColor: theme.border },
-        ]}
-      >
-        <Text style={appStyles.sectionTitle}>вайбчек</Text>
-        <Text style={[appStyles.helper, { color: theme.accentText }]}>
-          сейчас в библиотеке {counters.total}: музыка {counters.byType.music}, книги {counters.byType.book}, фильмы{" "}
-          {counters.byType.movie}.
-        </Text>
-        <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
-          быстрый вайбчек — это короткий культурный срез без глубокого анализа состояния.
-        </Text>
-        <PillButton
-          label={analysisRunningScope === "full" ? "думаем..." : "провести вайбчек"}
-          variant="primary"
-          themeMode={themeMode}
-          disabled={analysisRunning}
-          onPress={() => onRunPress(undefined)}
-        />
-      </View>}
 
       <View
         style={[
@@ -306,7 +204,7 @@ export function AnalysisScreen({
               сейчас выбран период: {selectedRange.label.toLowerCase()}
             </Text>
             <Text style={[appStyles.metaText, { color: theme.mutedText }]}>
-              внутри него {selectedRangeCount} {selectedRangeCount === 1 ? "айтем" : selectedRangeCount < 5 ? "айтема" : "айтемов"}
+              внутри него {selectedRangeCount} {itemsWord(selectedRangeCount)}
             </Text>
           </View>
         ) : (
@@ -340,87 +238,6 @@ export function AnalysisScreen({
         />
       </View>
 
-      {false && <View
-        style={[
-          appStyles.sectionHero,
-          themeMode === "dark" && { backgroundColor: theme.accentPink, borderColor: theme.border },
-        ]}
-      >
-        <Text style={appStyles.sectionTitle}>вайбчек без прикола</Text>
-        <Text style={[appStyles.helper, { color: theme.accentText }]}>
-          как будто ты показала свой недавний культурный таймлайн очень внимательному психотерапевту, коучу или психоаналитику.
-        </Text>
-        <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
-          бесплатно доступно {deepAnalysisUsesLeft} из {deepAnalysisTotalFreeUses}. дальше здесь будет оплата за глубокий разбор.
-        </Text>
-        <PillButton
-          label={
-            deepAnalysisRunning
-              ? "думаем глубже..."
-              : deepAnalysisAccess === "paywall"
-                ? "лимит исчерпан"
-                : "провести вайбчек без прикола"
-          }
-          variant="primary"
-          themeMode={themeMode}
-          disabled={deepAnalysisRunning || deepAnalysisAccess === "paywall"}
-          onPress={() => onRunDeepPress(selectedRange ?? undefined)}
-        />
-        {deepAnalysisAccess === "paywall" ? (
-          <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
-            2 бесплатных глубоких вайбчека уже использованы. следующим шагом сюда можно подключить оплату.
-          </Text>
-        ) : null}
-      </View>}
-
-      {false && deepAnalysisResult
-        ? (() => {
-            const result = deepAnalysisResult;
-            if (!result) return null;
-            return (
-              <View
-                style={[
-                  appStyles.tile,
-                  themeMode === "dark" ? { backgroundColor: theme.accentBlue, borderColor: theme.border } : appStyles.tileBlue,
-                ]}
-              >
-                <Text style={appStyles.itemTitle}>разбор без прикола</Text>
-                {result.periodLabel ? (
-                  <Text style={[appStyles.metaText, { color: theme.accentMutedText }]}>
-                    период: {result.periodLabel.toLowerCase()}
-                  </Text>
-                ) : null}
-                <Text style={[appStyles.helper, { color: theme.accentText }]}>{result.summary}</Text>
-                {result.basis?.length ? (
-                  <View style={appStyles.stack}>
-                    <Text style={[appStyles.label, { color: theme.accentMutedText }]}>на чем основан вывод</Text>
-                    {result.basis.map((item) => (
-                      <Text key={item} style={[appStyles.metaText, { color: theme.accentMutedText }]}>
-                        {item}
-                      </Text>
-                    ))}
-                  </View>
-                ) : null}
-                {result.highlights.map((item) => (
-                  <Text key={item} style={[appStyles.metaText, { color: theme.accentMutedText }]}>
-                    {item}
-                  </Text>
-                ))}
-                {result.recommendations?.length ? (
-                  <View style={appStyles.stack}>
-                    <Text style={[appStyles.label, { color: theme.accentMutedText }]}>что может поддержать сейчас</Text>
-                    {result.recommendations.map((item) => (
-                      <Text key={item} style={[appStyles.metaText, { color: theme.accentMutedText }]}>
-                        {item}
-                      </Text>
-                    ))}
-                  </View>
-                ) : null}
-                <Text style={[appStyles.metaDate, { color: theme.accentMutedText }]}>{formatFullDate(result.createdAt)}</Text>
-              </View>
-            );
-          })()
-        : null}
 
       <Modal visible={periodModalVisible} transparent animationType="fade" onRequestClose={() => setPeriodModalVisible(false)}>
         <View style={[appStyles.dayModalBackdrop, { backgroundColor: theme.overlay }]}>
@@ -473,11 +290,14 @@ export function AnalysisScreen({
               </View>
             </View>
             <ScrollView style={appStyles.dayModalScroll} contentContainerStyle={appStyles.dayModalContent} showsVerticalScrollIndicator={false}>
-              {renderMonthBlock(calendarDays, calendarMonth)}
-              {renderMonthBlock(
-                nextCalendarDays,
-                startOfMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))
-              )}
+              <RangeMonthBlock days={calendarDays} month={calendarMonth} range={draftRange} themeMode={themeMode} onPressDay={onPressDay} />
+              <RangeMonthBlock
+                days={nextCalendarDays}
+                month={startOfMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
+                range={draftRange}
+                themeMode={themeMode}
+                onPressDay={onPressDay}
+              />
             </ScrollView>
 
             <View

@@ -1,0 +1,88 @@
+import type { ImportService } from "@/app/types";
+
+export const IMPORT_SERVICES: ImportService[] = [
+  { id: "spotify", title: "Spotify", subtitle: "музыка", icon: "◉", kind: "oauth", actionLabel: "подключить spotify" },
+  {
+    id: "livelib",
+    title: "LiveLib",
+    subtitle: "книги csv",
+    icon: "▤",
+    kind: "csv",
+    actionLabel: "выбрать файл",
+    instructions: [
+      "нужен csv",
+      "у livelib нет одного понятного официального экспорта для нас, поэтому сейчас нужен уже готовый csv",
+      "подойдет выгрузка через livelib-backup или любой csv, где есть название и автор",
+      "потом просто выбери этот файл из «файлов»",
+    ],
+  },
+  {
+    id: "goodreads",
+    title: "Goodreads",
+    subtitle: "книги csv",
+    icon: "G",
+    kind: "csv",
+    actionLabel: "выбрать файл",
+    instructions: [
+      "нужен csv",
+      "в goodreads открой my books → import and export",
+      "нажми export library и потом загрузи сюда получившийся csv-файл",
+    ],
+  },
+  {
+    id: "letterboxd",
+    title: "Letterboxd",
+    subtitle: "public profile beta",
+    icon: "◌",
+    kind: "profile",
+    actionLabel: "импортировать профиль",
+    instructions: [
+      "можно без csv",
+      "вставь username или ссылку на публичный profile letterboxd",
+      "мы попробуем забрать recent diary / watched через public rss",
+      "если профиль закрыт или rss не поможет — всегда можно вернуться к watched.csv",
+    ],
+  },
+  {
+    id: "lastfm",
+    title: "last.fm",
+    subtitle: "recent tracks beta",
+    icon: "♪",
+    kind: "profile",
+    actionLabel: "импортировать профиль",
+    instructions: [
+      "recent tracks beta",
+      "введи username last.fm и мы попробуем забрать recent tracks через api",
+      "если у треков есть scrobble time, они сразу лягут в календарь по дням",
+      "если этот способ не сработает, всегда можно загрузить csv",
+    ],
+  },
+  {
+    id: "kinopoisk",
+    title: "Кинопоиск",
+    subtitle: "просмотры csv",
+    icon: "★",
+    kind: "csv",
+    actionLabel: "выбрать файл",
+    instructions: [
+      "нужен csv",
+      "если у тебя уже есть csv с просмотрами или оценками из кинопоиска, можно загрузить его сюда",
+      "если в файле есть watched / isWatched / watched date, возьмем только просмотренное",
+      "дальше просто выбери файл из «файлов»",
+    ],
+  },
+  {
+    id: "mubi",
+    title: "MUBI",
+    subtitle: "фильмы csv",
+    icon: "●",
+    kind: "csv",
+    actionLabel: "выбрать файл",
+    instructions: [
+      "нужен csv",
+      "если у тебя уже есть csv с просмотренными фильмами из mubi, можно загрузить его сюда",
+      "лучше всего подходят колонки title или name, а еще year, director и дата просмотра, если она есть",
+      "дальше просто выбери файл из «файлов»",
+    ],
+  },
+];
