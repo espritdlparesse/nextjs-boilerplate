@@ -1,5 +1,5 @@
 import { FilePickerButton } from "@/app/components/FilePickerButton";
-import type { ImportPlatform } from "@/app/types";
+import type { ImportPlatform as CsvPlatform } from "@/lib/fileImports";
 import type { useImports } from "@/app/hooks/useImports";
 
 type Imports = ReturnType<typeof useImports>;
@@ -71,7 +71,7 @@ function ProfileImportPanel({ platform, imports }: { platform: ProfilePlatform; 
 }
 
 function CsvPickerButton({ csvPlatform, imports, label, className, marginTop }: {
-  csvPlatform: Exclude<ImportPlatform, "spotify">;
+  csvPlatform: CsvPlatform;
   imports: Imports;
   label: string;
   className: string;
@@ -91,7 +91,7 @@ function CsvPickerButton({ csvPlatform, imports, label, className, marginTop }: 
 
 function ImportActions({ platform, csvPlatform, imports, actionLabel }: {
   platform: ProfilePlatform | null;
-  csvPlatform: Exclude<ImportPlatform, "spotify"> | null;
+  csvPlatform: CsvPlatform | null;
   imports: Imports;
   actionLabel: string;
 }) {
@@ -112,6 +112,32 @@ function ImportActions({ platform, csvPlatform, imports, actionLabel }: {
       </button>
       <CsvPickerButton csvPlatform={platform} imports={imports} label="или выбрать csv" className="btn btn-outline" marginTop={12} />
     </>
+  );
+}
+
+function YandexMusicPanel({ imports }: { imports: Imports }) {
+  return (
+    <div className="input-group" style={{ marginTop: 12 }}>
+      <div className="input-label">ссылка на плейлист</div>
+      <input
+        className="input"
+        placeholder="например: music.yandex.ru/users/…/playlists/3"
+        value={imports.yandexMusicUrl}
+        onChange={(event) => imports.setYandexMusicUrl(event.target.value)}
+        onKeyDown={(event) => event.key === "Enter" && imports.importYandexMusicPlaylist()}
+        autoCapitalize="none"
+        autoCorrect="off"
+      />
+      {imports.importLoading ? <div style={HINT_STYLE}>{imports.importStatus || "читаем плейлист..."}</div> : null}
+      <button
+        className="btn"
+        style={{ marginTop: 16 }}
+        onClick={imports.importYandexMusicPlaylist}
+        disabled={imports.importLoading}
+      >
+        импортировать плейлист
+      </button>
+    </div>
   );
 }
 
@@ -158,10 +184,11 @@ export function ImportServiceModal({ imports }: { imports: Imports }) {
         )}
 
         {profilePlatform ? <ProfileImportPanel platform={profilePlatform} imports={imports} /> : null}
+        {service.id === "yandex_music" ? <YandexMusicPanel imports={imports} /> : null}
 
         <ImportActions
           platform={profilePlatform}
-          csvPlatform={service.id === "spotify" ? null : service.id}
+          csvPlatform={service.kind === "oauth" || service.kind === "link" ? null : (service.id as CsvPlatform)}
           imports={imports}
           actionLabel={service.actionLabel ?? "выбрать файл"}
         />

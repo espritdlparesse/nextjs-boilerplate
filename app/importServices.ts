@@ -3,6 +3,19 @@ import type { ImportService } from "@/app/types";
 export const IMPORT_SERVICES: ImportService[] = [
   { id: "spotify", title: "Spotify", subtitle: "музыка", icon: "◉", kind: "oauth", actionLabel: "подключить spotify" },
   {
+    id: "yandex_music",
+    title: "Яндекс.Музыка",
+    subtitle: "плейлист по ссылке",
+    icon: "♫",
+    kind: "link",
+    instructions: [
+      "нужна ссылка",
+      "открой плейлист в Яндекс.Музыке и скопируй ссылку на него",
+      "плейлист должен быть публичным: по закрытому мы ничего не увидим",
+      "заберем треки и покажем список перед сохранением",
+    ],
+  },
+  {
     id: "livelib",
     title: "LiveLib",
     subtitle: "книги csv",

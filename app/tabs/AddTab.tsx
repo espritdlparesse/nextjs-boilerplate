@@ -175,7 +175,7 @@ export function AddTab({ importServices, imports, deepVibe, addForm }: {
             {!addForm.manualMode && (
               <>
                 <p className="card-text" style={{ marginBottom: 12 }}>
-                  выбери сервис, вставь ссылку на плейлист или загрузи изображения.
+                  выбери сервис или загрузи изображения.
                 </p>
                 <div className="import-service-grid">
                   {importServices.map((service) => (
@@ -203,23 +203,6 @@ export function AddTab({ importServices, imports, deepVibe, addForm }: {
                       </button>
                     </div>
                   ))}
-                </div>
-
-                <div className="input-group" style={{ marginTop: 16 }}>
-                  <div className="input-label">плейлист Яндекс.Музыки</div>
-                  <input
-                    className="input"
-                    placeholder="вставь публичную ссылку на плейлист"
-                    value={imports.yandexMusicUrl}
-                    onChange={(e) => imports.setYandexMusicUrl(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && imports.importYandexMusicPlaylist()}
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                  />
-                  <div className="card-text" style={{ marginTop: 6 }}>плейлист должен быть открыт по ссылке</div>
-                  <button className="btn btn-outline" style={{ marginTop: 10 }} onClick={imports.importYandexMusicPlaylist} disabled={imports.importLoading}>
-                    {imports.importLoading ? "читаем плейлист..." : "импортировать плейлист"}
-                  </button>
                 </div>
 
                 <div className="input-group">

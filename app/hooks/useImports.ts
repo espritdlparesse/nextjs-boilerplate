@@ -1,5 +1,6 @@
 import { errorMessage } from "@/lib/text";
-import type { Tab, ImportedItem, ImportPlatform, ImportService } from "@/app/types";
+import type { Tab, ImportedItem, ImportService } from "@/app/types";
+import type { ImportPlatform as CsvPlatform } from "@/lib/fileImports";
 import { apiFetch, getTgInitData, safeJson } from "@/app/apiFetch";
 import { useState } from "react";
 import { parseImportedFile } from "@/lib/fileImports";
@@ -87,7 +88,7 @@ export function useImports(deps: { loadLibrary: () => void; setTab: (tab: Tab) =
   const [letterboxdProfileInput, setLetterboxdProfileInput] = useState("");
   const [yandexMusicUrl, setYandexMusicUrl] = useState("");
 
-  async function importCsvPlatform(platform: Exclude<ImportPlatform, "spotify">, file: File) {
+  async function importCsvPlatform(platform: CsvPlatform, file: File) {
     setImportLoading(true);
     setImportError("");
     try {
@@ -137,6 +138,7 @@ export function useImports(deps: { loadLibrary: () => void; setTab: (tab: Tab) =
       setImported(result);
       setSelectedIdx(new Set(result.map((_, index) => index)));
       setYandexMusicUrl("");
+      setSelectedImportService(null);
       setImportStatus(`нашли ${result.length} трек(ов) — выбери, что добавить`);
     } catch (error) {
       setImportError(errorMessage(error, "не удалось импортировать плейлист Яндекс.Музыки"));

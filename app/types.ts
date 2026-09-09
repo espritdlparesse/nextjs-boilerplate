@@ -1,3 +1,4 @@
+import type { ImportPlatform as CsvPlatform } from "@/lib/fileImports";
 export type LibraryView = "tiles" | "calendar";
 export type Tab = "home" | "add" | "library" | "vibe" | "profile" | "admin";
 
@@ -53,14 +54,16 @@ export type DbItem = {
   custom_category_emoji?: string | null;
 };
 
-export type ImportPlatform = "spotify" | "livelib" | "goodreads" | "letterboxd" | "lastfm" | "kinopoisk" | "mubi";
+// Плитки в сетке импорта. Подмножество, которое читается из csv, живёт в
+// lib/fileImports.ts как CsvPlatform — там же лежат и парсеры.
+export type ImportPlatform = "spotify" | "yandex_music" | CsvPlatform;
 
 export type ImportService = {
   id: ImportPlatform;
   title: string;
   subtitle: string;
   icon: string;
-  kind: "oauth" | "csv" | "profile";
+  kind: "oauth" | "csv" | "profile" | "link";
   instructions?: string[];
   actionLabel?: string;
 };
