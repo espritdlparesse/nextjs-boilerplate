@@ -179,29 +179,19 @@ export function AddTab({ importServices, imports, deepVibe, addForm }: {
                 </p>
                 <div className="import-service-grid">
                   {importServices.map((service) => (
-                    <div key={service.id} className="import-service">
-                      <button
-                        type="button"
-                        className="import-service-help"
-                        onClick={() => imports.setSelectedImportService(service)}
-                        disabled={imports.importLoading || imports.savingImported || imports.spotifySyncing}
-                        aria-label={`инструкция ${service.title}`}
-                      >
-                        ?
-                      </button>
-                      <button
-                        type="button"
-                        className="import-service-main"
-                        onClick={() => imports.startImportService(service)}
-                        disabled={imports.importLoading || imports.savingImported || imports.spotifySyncing}
-                      >
-                        <div className="import-service-head">
-                          <div className="import-service-icon">{service.icon}</div>
-                          <div className="import-service-title">{service.title}</div>
-                        </div>
-                        <div className="import-service-subtitle">{service.subtitle}</div>
-                      </button>
-                    </div>
+                    <button
+                      key={service.id}
+                      type="button"
+                      className="import-service"
+                      onClick={() => imports.startImportService(service)}
+                      disabled={imports.importLoading || imports.savingImported || imports.spotifySyncing}
+                    >
+                      <div className="import-service-head">
+                        <div className="import-service-icon">{service.icon}</div>
+                        <div className="import-service-title">{service.title}</div>
+                      </div>
+                      <div className="import-service-subtitle">{service.subtitle}</div>
+                    </button>
                   ))}
                 </div>
 

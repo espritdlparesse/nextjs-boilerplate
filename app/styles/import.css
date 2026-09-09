@@ -19,6 +19,8 @@
 }
 
 .import-service {
+  font: inherit;
+  cursor: pointer;
   background: #ffffff;
   border: 1px solid #e7e2d9;
   border-radius: 28px;
@@ -29,36 +31,6 @@
   flex-direction: column;
   justify-content: space-between;
   gap: 12px;
-  position: relative;
-}
-
-.import-service-help {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  border: 1px solid #dcd4c6;
-  background: #fff;
-  color: #111;
-  font-size: 15px;
-  font-weight: 900;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 2;
-}
-
-.import-service-main {
-  all: unset;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 12px;
-  flex: 1;
 }
 
 .import-service-title {

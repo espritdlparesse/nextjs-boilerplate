@@ -141,23 +141,6 @@ function YandexMusicPanel({ imports }: { imports: Imports }) {
   );
 }
 
-function SpotifyPanel({ imports }: { imports: Imports }) {
-  if (!imports.spotifyConnected) return null;
-  return (
-    <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.84)", lineHeight: 1.5 }}>
-        spotify подключен{imports.spotifyProfileName ? `: ${imports.spotifyProfileName}` : ""}
-      </div>
-      <button className="btn btn-outline" onClick={() => imports.disconnectSpotify(false)} disabled={imports.spotifySyncing}>
-        отвязать spotify
-      </button>
-      <button className="btn btn-outline" onClick={() => imports.disconnectSpotify(true)} disabled={imports.spotifySyncing}>
-        отвязать и убрать импорт
-      </button>
-    </div>
-  );
-}
-
 export function ImportServiceModal({ imports }: { imports: Imports }) {
   const service = imports.selectedImportService;
   if (!service) return null;
@@ -193,7 +176,6 @@ export function ImportServiceModal({ imports }: { imports: Imports }) {
           actionLabel={service.actionLabel ?? "выбрать файл"}
         />
 
-        {service.id === "spotify" ? <SpotifyPanel imports={imports} /> : null}
       </div>
     </div>
   );
