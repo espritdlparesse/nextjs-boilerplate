@@ -21,6 +21,7 @@
 .import-service {
   font: inherit;
   cursor: pointer;
+  min-width: 0;
   background: #ffffff;
   border: 1px solid #e7e2d9;
   border-radius: 28px;
@@ -34,6 +35,8 @@
 }
 
 .import-service-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 16px;
   font-weight: 900;
   color: #111111;
@@ -51,6 +54,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .import-service-icon {
