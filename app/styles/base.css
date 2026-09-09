@@ -4,6 +4,20 @@
    когда вкладка становится длиннее или короче и полоса прокрутки появляется. */
 html { scrollbar-gutter: stable; }
 
+/* Ряды пилюль прокручиваются вбок по замыслу (.filter-btn не сжимается), но
+   полоса прокрутки Chromium рисуется белым поперёк розовой карточки. */
+.filter-row,
+.day-type-filters,
+.day-week-strip {
+  scrollbar-width: none;
+}
+
+.filter-row::-webkit-scrollbar,
+.day-type-filters::-webkit-scrollbar,
+.day-week-strip::-webkit-scrollbar {
+  display: none;
+}
+
 body {
   background: #f7f5f1;
   color: #111111;

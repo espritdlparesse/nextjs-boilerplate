@@ -16,26 +16,18 @@ export function AddTab({ importServices, imports, deepVibe, addForm }: {
           <div className="card">
             <div className="card-title">добавить</div>
 
-            <div
-              className="mode-toggle"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 10,
-                marginBottom: 16,
-              }}
-            >
+            <div className="mode-toggle">
               <button
-                className={`mode-btn${!addForm.manualMode ? " active" : ""}`}
+                type="button"
+                className={`filter-btn${!addForm.manualMode ? " active" : ""}`}
                 onClick={() => addForm.setManualMode(false)}
-                style={{ width: "100%" }}
               >
-                импорт изображения
+                автоматический импорт
               </button>
               <button
-                className={`mode-btn${addForm.manualMode ? " active" : ""}`}
+                type="button"
+                className={`filter-btn${addForm.manualMode ? " active" : ""}`}
                 onClick={() => addForm.setManualMode(true)}
-                style={{ width: "100%" }}
               >
                 вручную
               </button>
@@ -182,8 +174,8 @@ export function AddTab({ importServices, imports, deepVibe, addForm }: {
             {/* IMPORT MODE */}
             {!addForm.manualMode && (
               <>
-                <p className="card-text" style={{ marginBottom: 6 }}>
-                  Загрузи до 10 изображений: скриншоты откуда угодно, фото книжной полки, обложек в магазине, постеров или экранов сервисов. ИИ постарается разобрать, что там, и собрать это в таймлайн.
+                <p className="card-text" style={{ marginBottom: 12 }}>
+                  выбери сервис, вставь ссылку на плейлист или загрузи изображения.
                 </p>
                 <div className="import-service-grid">
                   {importServices.map((service) => (
@@ -230,13 +222,19 @@ export function AddTab({ importServices, imports, deepVibe, addForm }: {
                   </button>
                 </div>
 
-                <FilePickerButton
-                  label={imports.importLoading ? "разбираю изображения..." : "загрузить изображения →"}
-                  accept="image/*"
-                  multiple
-                  disabled={imports.importLoading}
-                  onPick={(files) => imports.runImport(files)}
-                />
+                <div className="input-group">
+                  <div className="input-label">изображения</div>
+                  <div className="card-text" style={{ marginBottom: 10 }}>
+                    до 10 штук: скриншоты откуда угодно, фото книжной полки, обложек в магазине, постеров или экранов сервисов. ИИ постарается разобрать, что там, и собрать это в таймлайн.
+                  </div>
+                  <FilePickerButton
+                    label={imports.importLoading ? "разбираю изображения..." : "загрузить изображения →"}
+                    accept="image/*"
+                    multiple
+                    disabled={imports.importLoading}
+                    onPick={(files) => imports.runImport(files)}
+                  />
+                </div>
 
                 {imports.importStatus && !imports.importError && (
                   <div style={{marginTop:12,fontSize:13,color:"#6f6a63"}}>{imports.importStatus}</div>
