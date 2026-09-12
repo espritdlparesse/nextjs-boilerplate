@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { normalizeLegacySource } from "@/lib/itemSources";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { resolveApiIdentity } from "@/lib/auth";
-import { buildOwnerReadFilter, getOwnerScope, type OwnerScope, legacyNativeTgUserId } from "@/lib/ownerLinks";
+import { buildOwnerReadFilter, getOwnerScope, ownerColumns, type EffectiveOwner, type OwnerScope } from "@/lib/ownerLinks";
 import { safeTimelineIsoFromMs } from "@/lib/timeline";
 
 export const runtime = "nodejs";
@@ -190,22 +190,17 @@ async function findSpotifyDuplicate(
 }
 
 function buildItemPayload(
-  owner: { ownerKey: string; ownerKind: string; legacyTgUserId?: number | null },
+  owner: EffectiveOwner,
   body: ItemBody
 ): Record<string, string | number | null> {
   return {
-    owner_key: owner.ownerKey,
-    owner_kind: owner.ownerKind,
+    ...ownerColumns(owner),
     type: body.type!,
     source: normalizeLegacySource(body.source!),
     title: body.title!,
     creator: body.creator ?? null,
     consumed_at: safeTimelineIsoFromMs(body.consumedAt),
     time_origin: body.timeOrigin ?? null,
-    tg_user_id:
-      owner.ownerKind === "telegram" && owner.legacyTgUserId
-        ? owner.legacyTgUserId
-        : legacyNativeTgUserId(owner.ownerKey),
   };
 }
 

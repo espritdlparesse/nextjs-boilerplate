@@ -1,5 +1,6 @@
 import Papa from "papaparse";
 import { clampText } from "./text.ts";
+import { itemIdentityKey } from "./itemIdentity.ts";
 import { clampTimelineTimestampMs as sanitizeTimelineTimestamp } from "./timeline.ts";
 import type { ItemType } from "./mediaTypes.ts";
 
@@ -29,8 +30,7 @@ function readCsvRows(text: string) {
 function dedupeDrafts(items: DraftItem[]) {
   const seen = new Set<string>();
   return items.filter((item) => {
-    const dateKey = typeof item.consumedAt === "number" ? String(item.consumedAt) : "undated";
-    const key = `${item.type}::${item.title}::${item.authorOrArtist}::${dateKey}`;
+    const key = itemIdentityKey({ type: item.type, title: item.title, creator: item.authorOrArtist });
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

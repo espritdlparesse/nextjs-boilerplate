@@ -102,6 +102,17 @@ export function generateLinkCode() {
   return Array.from({ length: 6 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
 }
 
+export function ownerColumns(owner: EffectiveOwner) {
+  return {
+    owner_key: owner.ownerKey,
+    owner_kind: owner.ownerKind,
+    tg_user_id:
+      owner.ownerKind === "telegram" && owner.legacyTgUserId
+        ? owner.legacyTgUserId
+        : legacyNativeTgUserId(owner.ownerKey),
+  };
+}
+
 export function legacyNativeTgUserId(ownerKey: string) {
   let hash = 0;
   for (let index = 0; index < ownerKey.length; index += 1) {
