@@ -4,13 +4,28 @@ function normalizeText(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
 
+const XML_ENTITIES: Record<string, string> = {
+  amp: "&",
+  apos: "'",
+  quot: '"',
+  lt: "<",
+  gt: ">",
+  nbsp: " ",
+};
+
+function decodeCodePoint(digits: string, radix: number) {
+  const code = parseInt(digits, radix);
+  if (!Number.isFinite(code) || code < 1 || code > 0x10ffff) return "";
+  return String.fromCodePoint(code);
+}
+
 function decodeXml(text: string) {
-  return text
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
+  return text.replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/gi, (entity, body: string) => {
+    const marker = body.slice(0, 2).toLowerCase();
+    if (marker === "#x") return decodeCodePoint(body.slice(2), 16) || entity;
+    if (marker[0] === "#") return decodeCodePoint(body.slice(1), 10) || entity;
+    return XML_ENTITIES[body.toLowerCase()] ?? entity;
+  });
 }
 
 function stripTags(text: string) {
