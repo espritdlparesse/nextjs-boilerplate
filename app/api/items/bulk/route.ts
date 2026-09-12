@@ -10,6 +10,9 @@ import { safeTimelineIsoFromMs } from "@/lib/timeline";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const MAX_ITEMS_PER_REQUEST = 5000;
+const INSERT_CHUNK = 500;
+
 /**
  * DEBUG ping:
  * Можно дернуть в браузере (не в Telegram) и увидеть, что роут живой.
@@ -61,6 +64,22 @@ async function loadStoredKeys(sb: ReturnType<typeof supabaseAdmin>, scope: Owner
   }
 }
 
+async function insertRows(sb: ReturnType<typeof supabaseAdmin>, rows: ItemRow[]) {
+  let inserted = 0;
+
+  for (let from = 0; from < rows.length; from += INSERT_CHUNK) {
+    const { data, error } = await sb
+      .from("items")
+      .insert(rows.slice(from, from + INSERT_CHUNK))
+      .select("id");
+
+    if (error) return { inserted, error };
+    inserted += data?.length ?? 0;
+  }
+
+  return { inserted, error: null };
+}
+
 function keepNewRows(rows: ItemRow[], stored: Set<string>) {
   return rows.filter((row) => {
     const key = itemIdentityKey(row);
@@ -87,7 +106,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "items[] is required" }, { status: 400 });
     }
 
-    const rows = items.slice(0, 100).map((item: RawBulkItem) => toItemRow(item, scope.primaryOwner));
+    if (items.length > MAX_ITEMS_PER_REQUEST) {
+      return NextResponse.json(
+        { error: `items[] holds ${items.length}, the limit is ${MAX_ITEMS_PER_REQUEST}` },
+        { status: 400 }
+      );
+    }
+
+    const rows = items.map((item: RawBulkItem) => toItemRow(item, scope.primaryOwner));
     if (rows.some((row: ItemRow) => !row.type || !row.source || !row.title)) {
       return NextResponse.json({ error: "each item must include type, source, title" }, { status: 400 });
     }
@@ -101,11 +127,11 @@ export async function POST(req: NextRequest) {
 
     if (fresh.length === 0) return NextResponse.json({ ok: true, inserted: 0, skipped });
 
-    const { data, error } = await sb.from("items").insert(fresh).select("*");
+    const { inserted, error } = await insertRows(sb, fresh);
 
-    if (error) return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
+    if (error) return NextResponse.json({ error: errorMessage(error), inserted }, { status: 500 });
 
-    return NextResponse.json({ ok: true, inserted: data?.length ?? 0, skipped });
+    return NextResponse.json({ ok: true, inserted, skipped });
   } catch (e) {
     const msg = errorMessage(e, "unknown error");
     return NextResponse.json({ error: msg }, { status: 500 });

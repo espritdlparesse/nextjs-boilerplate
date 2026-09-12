@@ -49,6 +49,12 @@ export type ItemResponse = {
   };
 };
 
+export type BulkItemsResponse = {
+  ok: true;
+  inserted: number;
+  skipped: number;
+};
+
 export type ScreenshotAnalyzeResponse = {
   items: Array<{
     type: LibraryItem["type"];

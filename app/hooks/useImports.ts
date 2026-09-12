@@ -201,6 +201,7 @@ export function useImports(deps: { loadLibrary: () => void; setTab: (tab: Tab) =
       cache: "no-store",
     });
     if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
+    return { inserted: Number(json?.inserted ?? 0), skipped: Number(json?.skipped ?? 0) };
   }
 
   async function saveSelectedImported() {
@@ -208,9 +209,10 @@ export function useImports(deps: { loadLibrary: () => void; setTab: (tab: Tab) =
     try {
       const selected = imported.filter((_, i) => selectedIdx.has(i));
       if (selected.length === 0) { setImportError("Ничего не выбрано"); return; }
-      await saveSelected(selected);
+      const { inserted, skipped } = await saveSelected(selected);
       setImported([]); setSelectedIdx(new Set());
       await loadLibrary();
+      setImportStatus(`добавили ${inserted} айтем(ов)${skipped > 0 ? ` · ${skipped} уже были` : ""}`);
       setTab("library");
     } catch (e) {
       setImportError(errorMessage(e, "Ошибка сохранения"));

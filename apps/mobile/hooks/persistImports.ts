@@ -1,5 +1,5 @@
 import { Dispatch, SetStateAction } from "react";
-import { createItem, fetchItems } from "../lib/api";
+import { createItems, fetchItems } from "../lib/api";
 import { uid, type LibraryItem, type Tab } from "../shared/everyyou/domain";
 import type { useTimeline } from "./useTimeline";
 import type { SyncStatus } from "./appTypes";
@@ -31,9 +31,7 @@ export type PersistOptions = {
 };
 
 async function pushToBackend(apiToken: string, items: ImportedDraft[], context: ImportContext) {
-  for (const item of items) {
-    await createItem(apiToken, item);
-  }
+  await createItems(apiToken, items);
   context.setLibrary(await fetchItems(apiToken));
   context.setSyncStatus("online");
   context.setSyncMessage("данные синхронизируются с сервером");

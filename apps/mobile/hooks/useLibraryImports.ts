@@ -8,13 +8,18 @@ import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
 import { clampText, STORAGE_KEY_IMPORT, uid, type LibraryItem, type Tab } from "../shared/everyyou/domain";
-import { analyzeScreenshot, createItem, disconnectConnectedSource, fetchItems, saveConnectedSource, importFromLastfmProfile, importFromLetterboxdProfile } from "../lib/api";
+import { analyzeScreenshot, createItems, disconnectConnectedSource, fetchItems, saveConnectedSource, importFromLastfmProfile, importFromLetterboxdProfile } from "../lib/api";
 import { parseImportedFile } from "../../../lib/fileImports";
+import { itemIdentityKey } from "../../../lib/itemIdentity";
 import type { SyncStatus } from "./appTypes";
 import type { FilePlatform } from "./importTypes";
 import type { ProfileImportedItem } from "../lib/apiCore";
 
 type ProfileSourcePlatform = "lastfm" | "letterboxd";
+
+function identityOf(item: { type: string; title: string; authorOrArtist: string }) {
+  return itemIdentityKey({ type: item.type, title: item.title, creator: item.authorOrArtist });
+}
 
 const PROFILE_SOURCES: Record<ProfileSourcePlatform, {
   label: string;
@@ -163,20 +168,17 @@ export function useLibraryImports(deps: {
       }
 
       if (apiToken) {
-        let created = 0;
-        for (const item of parsedItems) {
-          await createItem(apiToken, item);
-          created += 1;
-        }
+        const { inserted, skipped } = await createItems(apiToken, parsedItems);
         const remoteLibrary = await fetchItems(apiToken);
         setLibrary(remoteLibrary);
         setSyncStatus("online");
         setSyncMessage("данные синхронизируются с сервером");
         const coverage = timeline.describeDateCoverage(parsedItems);
+        const alreadyHad = skipped > 0 ? ` · ${skipped} уже были` : "";
         setFileImportDateInsight(timeline.buildDateInsight(parsedItems));
-        setFileImportStatus(`добавили ${created} айтем(ов) из файла${coverage ? ` · ${coverage}` : ""}`);
-        setToastMessage(`загрузили ${created} айтем(ов)`);
-        fireAnalytics("file_import_completed", { platform, count: created });
+        setFileImportStatus(`добавили ${inserted} айтем(ов) из файла${alreadyHad}${coverage ? ` · ${coverage}` : ""}`);
+        setToastMessage(`загрузили ${inserted} айтем(ов)`);
+        fireAnalytics("file_import_completed", { platform, count: inserted, skipped });
       } else {
         setLibrary((current) => [
           ...parsedItems.map((item) => ({
@@ -343,15 +345,13 @@ export function useLibraryImports(deps: {
       setScreenshotStatus("сохраняем выбранное...");
 
       if (apiToken) {
-        const savedItems: LibraryItem[] = [];
-        for (const item of pendingImageItems) {
-          const saved = await createItem(apiToken, item);
-          savedItems.push(saved);
-        }
-        setLibrary((current) => [...savedItems, ...current]);
+        await createItems(apiToken, pendingImageItems);
+        const remoteLibrary = await fetchItems(apiToken);
+        const firstKey = identityOf(pendingImageItems[0]);
+        setLibrary(remoteLibrary);
         setSyncStatus("online");
         setSyncMessage("данные синхронизируются с сервером");
-        setSelectedId(savedItems[0]?.id ?? null);
+        setSelectedId(remoteLibrary.find((item) => identityOf(item) === firstKey)?.id ?? null);
       } else {
         setLibrary((current) => [...pendingImageItems, ...current]);
         setSelectedId(pendingImageItems[0]?.id ?? null);

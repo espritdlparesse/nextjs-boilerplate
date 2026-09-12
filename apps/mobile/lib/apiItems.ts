@@ -1,4 +1,4 @@
-import type { ItemResponse } from "./apiCore";
+import type { BulkItemsResponse, ItemResponse } from "./apiCore";
 import { authHeaders, fetchJson, getApiBaseUrl, mapServerItem, type ItemsResponse, type SharedProfileResponse } from "./apiCore";
 import { type LibraryItem } from "../shared/everyyou/domain";
 
@@ -57,6 +57,28 @@ export async function createItem(
   });
 
   return mapServerItem(data.item);
+}
+
+export async function createItems(
+  token: string,
+  items: Array<Pick<LibraryItem, "type" | "source" | "title" | "authorOrArtist" | "consumedAt" | "timeOrigin">>
+) {
+  const data = await fetchJson<BulkItemsResponse>("/api/items/bulk", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({
+      items: items.map((item) => ({
+        type: item.type,
+        source: item.source,
+        title: item.title,
+        creator: item.authorOrArtist,
+        consumedAt: item.consumedAt ?? null,
+        timeOrigin: item.timeOrigin ?? null,
+      })),
+    }),
+  });
+
+  return { inserted: data.inserted ?? 0, skipped: data.skipped ?? 0 };
 }
 
 export async function updateItem(
