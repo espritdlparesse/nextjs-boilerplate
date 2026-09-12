@@ -12,6 +12,7 @@
 }
 
 .header-avatar {
+  font-family: 'DM Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
   width: 52px;
   height: 52px;
   border-radius: 999px;
