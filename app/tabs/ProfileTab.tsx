@@ -11,7 +11,7 @@ export function ProfileTab({ tgUserId, counts, countsUnknown, headerAvatar, admi
   tgUserId: number | null;
   counts: LibraryCounts;
   countsUnknown: boolean;
-  headerAvatar: string;
+  headerAvatar: string | null;
   adminViewOff: boolean;
   toggleAdminView: () => void;
   importServices: ImportService[];

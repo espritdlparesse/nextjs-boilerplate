@@ -107,7 +107,7 @@ export function useTelegramUser(onLinkCode: (code: string) => void) {
     onLinkCodeRef.current(code);
   }, []);
 
-  const headerAvatar = avatarEmojiFor(tgUserId ? `tg:${tgUserId}` : null);
+  const headerAvatar = avatarEmojiFor(tgUserId && `tg:${tgUserId}`);
 
   return { helloName, tgUserId, headerAvatar };
 }

@@ -4,8 +4,10 @@ import { hashSeed } from "./seededRandom.ts";
 // Windows не содержит 🫀, и без загруженного шрифта там пустой квадрат.
 export const AVATAR_EMOJIS = ["🐸", "😈", "👹", "👀", "🫀", "🐽", "🐣", "🦆", "🐳", "🦦"];
 
+// null, пока владелец неизвестен: любая заглушка сменится другим эмодзи,
+// как только придёт id, и это видно на экране.
 export function avatarEmojiFor(owner: string | number | null | undefined) {
   const seed = `${owner ?? ""}`.trim();
-  if (!seed) return AVATAR_EMOJIS[0];
+  if (!seed) return null;
   return AVATAR_EMOJIS[hashSeed(seed) % AVATAR_EMOJIS.length];
 }
