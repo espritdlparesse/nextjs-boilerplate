@@ -10,8 +10,7 @@ import {
 } from "../lib/api";
 import { clampText, type Tab, type TgUser, type ThemeMode } from "../shared/everyyou/domain";
 import { splitDisplayName } from "./appStorage";
-
-const HEADER_AVATAR_EMOJIS = ["🐸", "😈", "👹", "👀", "🫀", "🐽", "🐣", "🦆", "🐳", "🦦"];
+import { AVATAR_EMOJIS, avatarEmojiAt, randomAvatarEmojiIndex } from "../../../lib/avatarEmojis";
 
 export function useProfileSettings(deps: {
   apiToken: string | null;
@@ -25,13 +24,11 @@ export function useProfileSettings(deps: {
   const [nameDraft, setNameDraft] = useState("");
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [themeMode, setThemeMode] = useState<ThemeMode>("light");
-  const [headerAvatarEmojiIndex, setHeaderAvatarEmojiIndex] = useState(() =>
-    Math.floor(Math.random() * HEADER_AVATAR_EMOJIS.length)
-  );
+  const [headerAvatarEmojiIndex, setHeaderAvatarEmojiIndex] = useState(randomAvatarEmojiIndex);
 
   useEffect(() => {
     if (!loaded || avatarUri || tab !== "home") return;
-    setHeaderAvatarEmojiIndex((current) => (current + 1) % HEADER_AVATAR_EMOJIS.length);
+    setHeaderAvatarEmojiIndex((current) => (current + 1) % AVATAR_EMOJIS.length);
   }, [tab, avatarUri, loaded]);
 
   async function pushProfile(patch: { displayName?: string | null; avatarUrl?: string | null; themeMode?: ThemeMode }) {
@@ -89,7 +86,7 @@ export function useProfileSettings(deps: {
 
   return {
     nameDraft, avatarUri, themeMode,
-    headerAvatarEmoji: HEADER_AVATAR_EMOJIS[headerAvatarEmojiIndex],
+    headerAvatarEmoji: avatarEmojiAt(headerAvatarEmojiIndex),
     setNameDraft, setAvatarUri, setThemeMode,
     saveProfileName, pickAvatar, clearAvatar, updateThemeMode,
   };
