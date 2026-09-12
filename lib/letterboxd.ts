@@ -28,6 +28,8 @@ function decodeXml(text: string) {
   });
 }
 
+const RATING_SUFFIX = /\s*[-–—]\s*(?:★+½?|½)(?:\s*\([^()]*\))?\s*$/u;
+
 function stripTags(text: string) {
   return decodeXml(text.replace(/<[^>]+>/g, " "));
 }
@@ -81,7 +83,7 @@ export async function importLetterboxdProfile(profile: string, limit = 100) {
       if (!titleRaw) return null;
 
       const cleanedTitle = titleRaw
-        .replace(/^\d+★+\s*/i, "")
+        .replace(RATING_SUFFIX, "")
         .replace(/\s*-\s*Letterboxd$/i, "")
         .trim();
       const consumedAt = pubDateMatch?.[1] ? clampTimelineTimestampMs(Date.parse(pubDateMatch[1])) : undefined;
