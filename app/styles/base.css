@@ -21,7 +21,7 @@ html { scrollbar-gutter: stable; }
 body {
   background: #f7f5f1;
   color: #111111;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'DM Sans', 'Noto Color Emoji', sans-serif;
   min-height: 100vh;
 }
 
@@ -32,7 +32,7 @@ body {
 }
 
 .brand {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'DM Sans', 'Noto Color Emoji', sans-serif;
   font-size: 34px;
   font-weight: 900;
   letter-spacing: -0.06em;
@@ -48,7 +48,7 @@ body {
   background: #ffffff;
   color: #111111;
   padding: 7px 11px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'DM Sans', 'Noto Color Emoji', sans-serif;
   font-size: 12px;
   font-weight: 900;
   letter-spacing: -0.03em;

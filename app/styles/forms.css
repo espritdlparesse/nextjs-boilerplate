@@ -5,7 +5,7 @@
   border: 1px solid #111111;
   background: #111111;
   color: #ffffff;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'DM Sans', 'Noto Color Emoji', sans-serif;
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
@@ -38,7 +38,7 @@
   border: 1px solid #e7e2d9;
   background: #ffffff;
   color: #111111;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'DM Sans', 'Noto Color Emoji', sans-serif;
   font-size: 24px;
   line-height: 1;
   cursor: pointer;
@@ -64,7 +64,7 @@
   border: 1px solid #e7e2d9;
   border-radius: 999px;
   background: #ffffff;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'DM Sans', 'Noto Color Emoji', sans-serif;
   font-size: 12px;
   font-weight: 800;
   cursor: pointer;
@@ -103,7 +103,7 @@
   padding: 13px 14px;
   border: 1px solid #e7e2d9;
   border-radius: 20px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'DM Sans', 'Noto Color Emoji', sans-serif;
   font-size: 14px;
   font-weight: 300;
   color: #000000;
