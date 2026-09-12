@@ -1,5 +1,4 @@
 import { addStyles } from "./add";
-import { analysisStyles } from "./analysis";
 import { appTabStyles } from "./app";
 import { homeStyles } from "./home";
 import { libraryStyles } from "./library";
@@ -14,6 +13,5 @@ export const appStyles = {
   ...addStyles,
   ...libraryStyles,
   ...profileStyles,
-  ...analysisStyles,
   ...pillStyles,
 };

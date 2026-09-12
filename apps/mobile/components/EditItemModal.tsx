@@ -21,10 +21,10 @@ export function EditItemModal({ app, theme, visible }: {
                   </Text>
                 </View>
                 <Pressable
-                  style={[appStyles.dayModalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+                  style={[appStyles.modalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
                   onPress={app.cancelEdit}
                 >
-                  <Text style={[appStyles.dayModalCloseText, { color: theme.text }]}>закрыть</Text>
+                  <Text style={[appStyles.modalCloseText, { color: theme.text }]}>×</Text>
                 </Pressable>
               </View>
               <ScrollView

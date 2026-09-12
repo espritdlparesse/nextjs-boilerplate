@@ -21,9 +21,12 @@ export function ShareModals({ share, items, fireAnalytics, shareRunId }: {
             style={{background:"#f5f0e8",borderRadius:"20px 20px 0 0",width:"100%",maxWidth:480,maxHeight:"80vh",display:"flex",flexDirection:"column"}}
             onClick={e => e.stopPropagation()}
           >
-            <div style={{padding:"20px 20px 12px",borderBottom:"1px solid #e8e3da"}}>
-              <div style={{fontWeight:700,fontSize:16,marginBottom:4}}>выбери что показать на карточке</div>
-              <div style={{fontSize:12,color:"#888"}}>выбрано: {share.sharePickerSelected.size} из {items.length}</div>
+            <div style={{padding:"20px 20px 12px",borderBottom:"1px solid #e8e3da",display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:16,marginBottom:4}}>выбери что показать на карточке</div>
+                <div style={{fontSize:12,color:"#888"}}>выбрано: {share.sharePickerSelected.size} из {items.length}</div>
+              </div>
+              <button className="modal-close" aria-label="закрыть" onClick={() => share.setShowSharePicker(false)}>×</button>
             </div>
 
             {/* Фильтры по типу */}
@@ -110,6 +113,9 @@ export function ShareModals({ share, items, fireAnalytics, shareRunId }: {
             style={{background:"#f5f0e8",borderRadius:20,overflow:"hidden",width:"100%",maxWidth:400,boxShadow:"0 8px 40px rgba(0,0,0,0.4)"}}
             onClick={e => e.stopPropagation()}
           >
+            <div style={{display:"flex",justifyContent:"flex-end",padding:"12px 12px 0"}}>
+              <button className="modal-close" aria-label="закрыть" onClick={() => share.setShowShareCard(false)}>×</button>
+            </div>
             <img src={cardDataUrl} style={{width:"100%",display:"block"}} alt="share card" />
             <div style={{padding:"16px 20px 20px",display:"flex",flexDirection:"column",gap:10}}>
               <button
@@ -141,13 +147,6 @@ export function ShareModals({ share, items, fireAnalytics, shareRunId }: {
                 }}
               >
                 ↓ сохранить в галерею
-              </button>
-              <button
-                className="btn btn-outline"
-                style={{fontSize:13,color:"#999",borderColor:"#ddd"}}
-                onClick={() => share.setShowShareCard(false)}
-              >
-                закрыть
               </button>
             </div>
           </div>

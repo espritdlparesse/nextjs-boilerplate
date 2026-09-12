@@ -289,21 +289,22 @@ export const sharedStyles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  dayModalClose: {
-    minWidth: 84,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+  modalClose: {
+    width: 38,
+    height: 38,
     borderRadius: 999,
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.line,
     alignItems: "center",
+    justifyContent: "center",
   },
-  dayModalCloseText: {
-    fontSize: 13,
-    fontWeight: "900",
+  modalCloseText: {
+    fontSize: 24,
+    lineHeight: 24,
+    fontWeight: "500",
     color: colors.black,
-    textTransform: "lowercase",
+    marginTop: -2,
   },
   dayModalScroll: {
     flex: 1,

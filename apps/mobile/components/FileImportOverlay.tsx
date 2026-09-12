@@ -16,10 +16,10 @@ export function FileImportOverlay({ visible, canCancel, theme, onCancel }: {
         <Text style={[appStyles.busyOverlayText, { color: theme.mutedText }]}>это может занять несколько секунд</Text>
         {canCancel ? (
           <Pressable
-            style={[appStyles.dayModalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+            style={[appStyles.modalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
             onPress={onCancel}
           >
-            <Text style={[appStyles.dayModalCloseText, { color: theme.text }]}>закрыть</Text>
+            <Text style={[appStyles.modalCloseText, { color: theme.text }]}>×</Text>
           </Pressable>
         ) : null}
       </View>

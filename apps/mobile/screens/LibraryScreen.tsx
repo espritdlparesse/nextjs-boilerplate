@@ -405,8 +405,8 @@ export function LibraryScreen({
                   это вещи без точного дня. мы только знаем, что они попали примерно в этот месяц.
                 </Text>
               </View>
-              <Pressable style={[appStyles.dayModalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} onPress={() => setMonthItemsModalVisible(false)}>
-                <Text style={[appStyles.dayModalCloseText, { color: theme.text }]}>закрыть</Text>
+              <Pressable style={[appStyles.modalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} onPress={() => setMonthItemsModalVisible(false)}>
+                <Text style={[appStyles.modalCloseText, { color: theme.text }]}>×</Text>
               </Pressable>
             </View>
 

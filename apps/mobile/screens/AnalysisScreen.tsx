@@ -250,10 +250,10 @@ export function AnalysisScreen({
                 </Text>
               </View>
               <Pressable
-                style={[appStyles.dayModalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+                style={[appStyles.modalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
                 onPress={() => setPeriodModalVisible(false)}
               >
-                <Text style={[appStyles.dayModalCloseText, { color: theme.text }]}>закрыть</Text>
+                <Text style={[appStyles.modalCloseText, { color: theme.text }]}>×</Text>
               </Pressable>
             </View>
 
@@ -358,10 +358,10 @@ export function AnalysisScreen({
                 ) : null}
               </View>
               <Pressable
-                style={[appStyles.resultModalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+                style={[appStyles.modalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
                 onPress={() => setResultModalVisible(false)}
               >
-                <Text style={[appStyles.resultModalCloseText, { color: theme.text }]}>×</Text>
+                <Text style={[appStyles.modalCloseText, { color: theme.text }]}>×</Text>
               </Pressable>
             </View>
 

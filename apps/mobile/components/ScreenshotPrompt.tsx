@@ -27,14 +27,14 @@ export function ScreenshotPrompt({ visible, theme, status, loading, onShare, onD
                 </View>
                 <Pressable
                   style={[
-                    appStyles.dayModalClose,
+                    appStyles.modalClose,
                     { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
                   ]}
                   onPress={() => {
                     onDismiss();
                   }}
                 >
-                  <Text style={[appStyles.dayModalCloseText, { color: theme.text }]}>не сейчас</Text>
+                  <Text style={[appStyles.modalCloseText, { color: theme.text }]}>×</Text>
                 </Pressable>
               </View>
 

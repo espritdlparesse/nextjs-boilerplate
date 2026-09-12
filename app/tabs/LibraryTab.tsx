@@ -185,7 +185,7 @@ export function LibraryTab({ items, libraryLoading, libraryError, libraryView, s
                             .toLocaleString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
                             .replace(/^./, (char) => char.toUpperCase())}
                         </div>
-                        <button className="btn btn-outline btn-sm" onClick={() => library.setDayModalOpen(false)}>закрыть</button>
+                        <button className="modal-close" aria-label="закрыть" onClick={() => library.setDayModalOpen(false)}>×</button>
                       </div>
 
                       <div className="day-week-strip">

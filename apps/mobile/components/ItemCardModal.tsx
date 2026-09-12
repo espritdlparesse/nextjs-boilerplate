@@ -35,8 +35,8 @@ export function ItemCardModal({ item, themeMode, timelineSpreading, onClose, onA
                   <View style={appStyles.dayModalHeading}>
                     <Text style={[appStyles.sectionTitle, { color: theme.text }]}>карточка</Text>
                   </View>
-                  <Pressable style={[appStyles.dayModalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} onPress={() => onClose()}>
-                    <Text style={[appStyles.dayModalCloseText, { color: theme.text }]}>закрыть</Text>
+                  <Pressable style={[appStyles.modalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} onPress={() => onClose()}>
+                    <Text style={[appStyles.modalCloseText, { color: theme.text }]}>×</Text>
                   </Pressable>
                 </View>
                 <View style={[appStyles.tile, typeTileStyle(item.type)]}>

@@ -93,10 +93,10 @@ export function ImportGuideModal({
                   ) : null}
                 </View>
                 <Pressable
-                  style={[appStyles.dayModalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+                  style={[appStyles.modalClose, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
                   onPress={onClose}
                 >
-                  <Text style={[appStyles.dayModalCloseText, { color: theme.text }]}>закрыть</Text>
+                  <Text style={[appStyles.modalCloseText, { color: theme.text }]}>×</Text>
                 </Pressable>
               </View>
 

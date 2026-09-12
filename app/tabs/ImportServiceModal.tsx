@@ -151,8 +151,8 @@ export function ImportServiceModal({ imports }: { imports: Imports }) {
       <div className="service-modal" onClick={(e) => e.stopPropagation()}>
         <div className="service-modal-top">
           <div className="service-modal-title">{service.title}</div>
-          <button className="btn btn-outline btn-sm" onClick={() => imports.setSelectedImportService(null)}>
-            закрыть
+          <button className="modal-close" aria-label="закрыть" onClick={() => imports.setSelectedImportService(null)}>
+            ×
           </button>
         </div>
 
