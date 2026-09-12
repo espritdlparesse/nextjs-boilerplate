@@ -180,7 +180,7 @@ export function getApiBaseUrl() {
   return baseUrl.replace(/\/+$/, "");
 }
 
-async function getOrCreateDeviceId() {
+export async function getOrCreateDeviceId() {
   const current = await AsyncStorage.getItem(STORAGE_KEY_DEVICE_ID);
   if (current) return current;
   const next = uid();

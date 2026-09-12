@@ -1,9 +1,9 @@
+import { hashSeed } from "./seededRandom.ts";
+
 export const AVATAR_EMOJIS = ["🐸", "😈", "👹", "👀", "🫀", "🐽", "🐣", "🦆", "🐳", "🦦"];
 
-export function randomAvatarEmojiIndex() {
-  return Math.floor(Math.random() * AVATAR_EMOJIS.length);
-}
-
-export function avatarEmojiAt(index: number) {
-  return AVATAR_EMOJIS[index % AVATAR_EMOJIS.length];
+export function avatarEmojiFor(owner: string | number | null | undefined) {
+  const seed = `${owner ?? ""}`.trim();
+  if (!seed) return AVATAR_EMOJIS[0];
+  return AVATAR_EMOJIS[hashSeed(seed) % AVATAR_EMOJIS.length];
 }

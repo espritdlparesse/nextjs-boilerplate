@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { fireAnalytics } from "@/app/analytics";
-import { avatarEmojiAt, randomAvatarEmojiIndex } from "@/lib/avatarEmojis";
+import { avatarEmojiFor } from "@/lib/avatarEmojis";
 import { telegramWebApp } from "@/lib/telegramWebApp";
 import type { Tab } from "@/app/types";
 
@@ -107,8 +107,7 @@ export function useTelegramUser(onLinkCode: (code: string) => void) {
     onLinkCodeRef.current(code);
   }, []);
 
-  const [headerAvatarIndex] = useState(randomAvatarEmojiIndex);
-  const headerAvatar = avatarEmojiAt(headerAvatarIndex);
+  const headerAvatar = avatarEmojiFor(tgUserId);
 
   return { helloName, tgUserId, headerAvatar };
 }

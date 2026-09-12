@@ -25,7 +25,9 @@ import {
 } from "../shared/everyyou/domain";
 import {
   fetchDeepVibeCheckAccess,
+  getOrCreateDeviceId,
 } from "../lib/api";
+import { avatarEmojiFor } from "../../../lib/avatarEmojis";
 
 const NAME_PLACEHOLDERS = [
   "лил пип",
@@ -45,6 +47,7 @@ export function useEveryYouApp() {
   const [phIdx, setPhIdx] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [apiToken, setApiToken] = useState<string | null>(null);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [syncMessage, setSyncMessage] = useState("локальная библиотека");
   const { toastMessage, setToastMessage } = useToast();
@@ -57,7 +60,7 @@ export function useEveryYouApp() {
   );
 
   const profile = useProfileSettings({
-    apiToken, loaded, tab, setUser, setToastMessage,
+    apiToken, setUser, setToastMessage,
     fireAnalytics: (event, properties) => fireAnalytics(event, properties),
   });
   const fireAnalytics = useAppAnalytics({
@@ -88,6 +91,8 @@ export function useEveryYouApp() {
 
     async function bootstrap() {
       const stored = await readStoredAppState();
+      const storedDeviceId = await getOrCreateDeviceId();
+      if (mounted) setDeviceId(storedDeviceId);
       if (mounted) {
         setSyncStatus("syncing");
         setSyncMessage("подключаем backend...");
@@ -181,7 +186,7 @@ export function useEveryYouApp() {
     hasCustomName,
     nameDraft: profile.nameDraft,
     avatarUri: profile.avatarUri,
-    headerAvatarEmoji: profile.headerAvatarEmoji,
+    headerAvatarEmoji: avatarEmojiFor(telegram.telegramLink.telegramOwnerKey ?? deviceId),
     themeMode: profile.themeMode,
     telegramLink: telegram.telegramLink,
     telegramLinkLoading: telegram.telegramLinkLoading,
