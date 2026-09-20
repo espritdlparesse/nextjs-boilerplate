@@ -1,12 +1,5 @@
 .vibe-nav { grid-column: 4; }
 
-.vibe-nav .nav-icon,
-.nav-btn.vibe-nav.active .nav-icon { background: transparent; }
-
-.vibe-nav .nav-icon img { display: none; }
-
-.vibe-nav .nav-icon::before { content: "👀"; font-size: 20px; }
-
 .vibe-text {
   margin-top: 20px;
   padding: 24px;
