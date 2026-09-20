@@ -63,13 +63,25 @@ export function looksTooSoft(summary: string) {
   return softSignals.some((signal) => normalized.includes(signal));
 }
 
+function countWords(sentence: string) {
+  return sentence.split(/\s+/).filter((token) => /[\p{L}\p{N}]/u.test(token)).length;
+}
+
+// Строки вайбчека склеиваются в один текст, поэтому каждая должна кончаться
+// знаком конца: иначе хук и вывод мерятся как одна фраза.
+export function joinRoastLines(lines: string[]) {
+  return lines
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => (/[.!?…]$/.test(line) ? line : `${line}.`))
+    .join(" ");
+}
+
 export function looksTooComplicated(text: string) {
   const normalized = text.toLowerCase();
   if (normalized.includes("как будто") || normalized.includes("несмотря на то")) return true;
 
-  return text
-    .split(/[.!?]+/)
-    .some((sentence) => sentence.trim().split(/\s+/).filter(Boolean).length > 22);
+  return text.split(/[.!?…]+/).some((sentence) => countWords(sentence) > 22);
 }
 
 export function looksTooGenericRoast(text: string) {

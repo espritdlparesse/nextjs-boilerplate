@@ -6,7 +6,7 @@ import { getEffectiveOwner, getOwnerScope } from "@/lib/ownerLinks";
 import { generateFallbackVibecheck } from "@/lib/vibecheckFallback";
 import { countDeliveredRuns, recordVibeDuel, recordVibeRun, type VibeRunOutcome } from "@/lib/vibeRuns";
 import { countItemTypes } from "@/lib/mediaTypes";
-import { blockingGates, observedGates, normalizeRoastNames } from "@/lib/vibeGates";
+import { blockingGates, joinRoastLines, observedGates, normalizeRoastNames } from "@/lib/vibeGates";
 import { loadTimelineItems, readRange } from "@/lib/vibeItems";
 import { trimList } from "@/lib/textLists";
 import { buildContextIndex, buildVibeSample, describeItem, describePosition, getCulturalContext, type CulturalContextRow } from "@/lib/vibeContext";
@@ -179,7 +179,7 @@ async function composeRoastVariant(args: {
     return failed(error, false);
   }
 
-  const firstGates = blockingGates([fields.hook, fields.body, fields.closer].join(" "));
+  const firstGates = blockingGates(joinRoastLines([fields.hook, fields.body, fields.closer]));
   gateHits.push(...firstGates);
 
   let retried = false;
@@ -201,7 +201,7 @@ async function composeRoastVariant(args: {
     }
   }
 
-  const summary = normalizeRoastNames([fields.hook, fields.body, fields.closer].filter(Boolean).join(" "));
+  const summary = normalizeRoastNames(joinRoastLines([fields.hook, fields.body, fields.closer]));
   const finalGates = blockingGates(summary);
   gateHits.push(...finalGates, ...observedGates(summary));
 
